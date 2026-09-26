@@ -8,8 +8,8 @@ from typing import Dict, NamedTuple, Optional, Tuple
 import requests
 
 from . import parameters
-from .locations import ForecastPoint
-from .opendata import REQUEST_TIMEOUT_SECONDS, download_file, parse_stamp
+from ..locations import ForecastPoint
+from ..opendata import REQUEST_TIMEOUT_SECONDS, download_file, parse_stamp
 
 logger = logging.getLogger(__name__)
 

@@ -1,9 +1,9 @@
 import pytest
 
 from fakes import RUN_ID, FakeResponse, build_parameter_csv, build_point_table_csv, build_stac_item
-from swiss_weather_mcp.forecast import ForecastService
+from swiss_weather_mcp.forecast.service import ForecastService
+from swiss_weather_mcp.forecast.source import LocalForecastSource
 from swiss_weather_mcp.locations import LocationFinder
-from swiss_weather_mcp.meteoswiss import LocalForecastSource
 
 
 @pytest.fixture
@@ -43,7 +43,7 @@ def source_fixture(mocker, tmp_path):
         parameter = url.rsplit("/", 1)[-1].removesuffix(".csv")
         return FakeResponse(body=build_parameter_csv(parameter, published[parameter]))
 
-    get_mock = mocker.patch("swiss_weather_mcp.meteoswiss.requests.get", side_effect=fake_get)
+    get_mock = mocker.patch("swiss_weather_mcp.forecast.source.requests.get", side_effect=fake_get)
     forecast_source = LocalForecastSource(tmp_path)
     forecast_source.get_mock = get_mock
     return forecast_source

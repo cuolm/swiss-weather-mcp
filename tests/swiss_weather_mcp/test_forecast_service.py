@@ -4,8 +4,8 @@ from datetime import date
 import pytest
 
 from fakes import build_swiss_time
-from swiss_weather_mcp.forecast import _describe_pictogram
-from swiss_weather_mcp.parameters import PICTOGRAMS
+from swiss_weather_mcp.forecast.parameters import PICTOGRAMS
+from swiss_weather_mcp.forecast.service import _describe_pictogram
 
 
 # --- read_sunshine_hours ---

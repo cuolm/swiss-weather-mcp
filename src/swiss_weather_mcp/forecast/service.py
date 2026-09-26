@@ -4,9 +4,9 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, Optional, Tuple
 
 from . import parameters
-from .formatting import find_compass_point, format_swiss_time
-from .locations import ForecastPoint, LocationFinder
-from .meteoswiss import ForecastSeries, LocalForecastSource
+from ..formatting import find_compass_point, format_swiss_time
+from ..locations import ForecastPoint, LocationFinder
+from .source import ForecastSeries, LocalForecastSource
 
 logger = logging.getLogger(__name__)
 
