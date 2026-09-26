@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "swiss-weather-mcp"
 dynamic = ["version", "readme"]
-description = "MCP server exposing MeteoSwiss local weather forecasts for Switzerland as callable tools"
+description = "MCP server exposing MeteoSwiss local weather forecasts and current measurements for Switzerland as callable tools"
 requires-python = ">=3.11"
 license = "Apache-2.0"
 license-files = ["LICEN[CS]E*"]
