@@ -13,9 +13,9 @@ from mcp.server.mcpserver.exceptions import ToolError
 from platformdirs import user_cache_path
 
 from . import LOG_LEVELS, setup_logging
-from .forecast import ForecastService
+from .forecast.service import ForecastService
+from .forecast.source import LocalForecastSource
 from .locations import LocationFinder
-from .meteoswiss import LocalForecastSource
 from .opendata import SWISS_TZ
 
 logger = logging.getLogger(__name__)

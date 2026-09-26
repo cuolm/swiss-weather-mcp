@@ -30,13 +30,14 @@ There is also an MCP client that can be run to test the server using the stdio t
 swiss-weather-mcp/
 ├── src/swiss_weather_mcp/
 │   ├── server.py           # MCP server
-│   ├── forecast.py         # Weather values, units and aggregation
-│   ├── meteoswiss.py       # MeteoSwiss forecast data source and caching
 │   ├── locations.py        # Location lookup by name or postal code
 │   ├── opendata.py         # Downloads and timestamps from MeteoSwiss Open Data
 │   ├── formatting.py       # Swiss time and compass points in the answers
-│   ├── parameters.py       # MeteoSwiss parameter codes and pictogram meanings
 │   ├── other_language_place_names.csv  # Place names in other languages
+│   ├── forecast/
+│   │   ├── source.py       # MeteoSwiss forecast data source and caching
+│   │   ├── parameters.py   # Forecast parameter codes and pictogram meanings
+│   │   └── service.py      # Forecast values, units and aggregation
 │   └── client.py           # MCP client (optional)
 ├── scripts/                # Builds other_language_place_names.csv
 ├── tests/swiss_weather_mcp/  # Tests
