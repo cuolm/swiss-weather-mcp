@@ -5,7 +5,8 @@ from typing import Any, Dict, Optional, Tuple
 
 from . import parameters
 from .formatting import find_compass_point, format_swiss_time
-from .meteoswiss import ForecastPoint, ForecastSeries, LocalForecastSource
+from .locations import ForecastPoint, LocationFinder
+from .meteoswiss import ForecastSeries, LocalForecastSource
 
 logger = logging.getLogger(__name__)
 
@@ -107,12 +108,13 @@ def _find_run_time(series_by_field: Dict[str, Optional[ForecastSeries]]) -> Opti
 class ForecastService:
     """Answer weather questions for a location: the value, its unit, the resolved point and the model run."""
 
-    def __init__(self, forecast_source: LocalForecastSource):
+    def __init__(self, location_finder: LocationFinder, forecast_source: LocalForecastSource):
+        self.location_finder = location_finder
         self.forecast_source = forecast_source
 
     async def _find_point(self, location: str) -> ForecastPoint:
         """Find the forecast point for a location in a worker thread, so a download does not block other requests."""
-        return await asyncio.to_thread(self.forecast_source.find_point, location)
+        return await asyncio.to_thread(self.location_finder.find_point, location)
 
     async def _read_series(self, parameter: str, point: ForecastPoint) -> ForecastSeries:
         """Read one parameter for one point in a worker thread, so a download does not block other requests."""

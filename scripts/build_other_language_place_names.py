@@ -16,7 +16,7 @@ from typing import Dict, List, Set, Tuple
 
 import requests
 
-from swiss_weather_mcp.meteoswiss import POINT_TABLE_URL
+from swiss_weather_mcp.locations import POINT_TABLE_URL
 
 OUTPUT_FILE = Path("src/swiss_weather_mcp/other_language_place_names.csv")
 LANGUAGES = ("de", "fr", "it", "rm", "en")

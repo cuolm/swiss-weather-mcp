@@ -31,7 +31,8 @@ swiss-weather-mcp/
 ├── src/swiss_weather_mcp/
 │   ├── server.py           # MCP server
 │   ├── forecast.py         # Weather values, units and aggregation
-│   ├── meteoswiss.py       # MeteoSwiss data source, caching and location lookup
+│   ├── meteoswiss.py       # MeteoSwiss forecast data source and caching
+│   ├── locations.py        # Location lookup by name or postal code
 │   ├── opendata.py         # Downloads and timestamps from MeteoSwiss Open Data
 │   ├── formatting.py       # Swiss time and compass points in the answers
 │   ├── parameters.py       # MeteoSwiss parameter codes and pictogram meanings
