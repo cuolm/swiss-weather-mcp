@@ -232,8 +232,10 @@ they resolved, its altitude, the time or day it applies to, and the model run th
 > **Note:** `current_conditions` uses the nearest of the about 160 SwissMetNet stations that measures
 > the temperature, not the location itself. It is usually a few kilometres away, but can be up to about
 > 20 km away and several hundred metres higher or lower: Braunwald is measured in Glarus, 801 m lower.
-> The answer names the station, its distance and its height difference, and when it measured. The
-> file with all stations is about 17 KB and is kept for 5 minutes.
+> Every answer starts with one sentence that says so, such as "Glarus (517 m) is the nearest MeteoSwiss
+> station to Braunwald 8784 (1318 m), 11.8 km away and 801 m lower. It measured the following values at
+> 20:50.", so the values are not mistaken for the location's own. The file with all stations is about
+> 17 KB and is kept for 5 minutes.
 
 > **Note:** `daily_forecast` is by far the cheapest tool, about 8 MB for all its files against about
 > 31 MB for each hourly file, so prefer it when the question is about a day rather than an hour.

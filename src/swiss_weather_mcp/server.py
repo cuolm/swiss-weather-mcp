@@ -347,13 +347,14 @@ class SwissWeatherMCPServer:
         @_handle_tool_call
         async def current_conditions(location: str) -> dict:
             """
-            Get the weather measured now at the MeteoSwiss weather station nearest to a location.
+            Get the latest measurements of the MeteoSwiss station nearest to a location.
 
-            These are measurements, not a forecast. MeteoSwiss publishes the newest values of its
-            SwissMetNet stations about every 10 minutes. The nearest station that measures the
-            temperature is used, which can be several kilometres away and hundreds of metres higher
-            or lower than the location. Always say which station measured the values, and mention
-            its distance and height difference when they are large.
+            These are the measurements of the nearest station, not measurements at the location
+            itself, and not a forecast. The station can be several kilometres away and hundreds of
+            metres higher or lower than the location. Always start the answer with the
+            nearest_station sentence, which names the station, its distance and its height
+            difference, and then give its values as the station's measurements. MeteoSwiss
+            publishes new values about every 10 minutes.
 
             Temperature, humidity, dew point and pressure are measured at measured_at. Rain,
             sunshine, wind speed, the strongest gust and the wind direction cover the 10 minutes up

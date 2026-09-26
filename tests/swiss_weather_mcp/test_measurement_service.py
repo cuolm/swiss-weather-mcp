@@ -1,5 +1,7 @@
 import pytest
 
+from swiss_weather_mcp.measurements.service import _describe_height_difference
+
 
 # --- read_current_conditions ---
 
@@ -8,6 +10,10 @@ async def test_read_current_conditions(measurement_service_fixture):
     answer = await measurement_service_fixture.read_current_conditions("Zurich")
 
     assert answer == {
+        "nearest_station": (
+            "Zürich / Fluntern (604 m) is the nearest MeteoSwiss station to Zürich 8001 (409 m), "
+            "2.1 km away and 195 m higher. It measured the following values at 16:00."
+        ),
         "location": "Zürich 8001 (409 m)",
         "altitude_m": 409.0,
         "station": "Zürich / Fluntern (604 m)",
@@ -35,3 +41,12 @@ async def test_read_current_conditions_values_the_station_lacks(measurement_serv
     assert (answer["station"], answer["station_distance_km"], answer["station_altitude_difference_m"]) == ("Davos (1594 m)", 0.0, 0)
     assert answer["rain_last_10_minutes_mm"] is None
     assert (answer["wind_direction_degrees"], answer["compass_point"]) == (None, None)
+    assert "0.0 km away and at the same height" in answer["nearest_station"]
+
+
+# --- _describe_height_difference ---
+
+def test_describe_height_difference():
+    assert [_describe_height_difference(difference_m) for difference_m in (195, -801, 0)] == [
+        "195 m higher", "801 m lower", "at the same height",
+    ]
