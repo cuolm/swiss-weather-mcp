@@ -1,9 +1,14 @@
 import pytest
 
-from fakes import RUN_ID, FakeResponse, build_parameter_csv, build_point_table_csv, build_stac_item
+from fakes import (
+    CURRENT_VALUES_CSV, RUN_ID, FakeResponse, build_parameter_csv, build_point_table_csv, build_stac_item,
+    build_station_table_csv,
+)
 from swiss_weather_mcp.forecast.service import ForecastService
 from swiss_weather_mcp.forecast.source import LocalForecastSource
 from swiss_weather_mcp.locations import LocationFinder
+from swiss_weather_mcp.measurements.service import MeasurementService
+from swiss_weather_mcp.measurements.source import MeasurementSource
 
 
 @pytest.fixture
@@ -38,6 +43,10 @@ def source_fixture(mocker, tmp_path):
     def fake_get(url, **kwargs):
         if url.endswith("meta_point.csv"):
             return FakeResponse(body=build_point_table_csv())
+        if url.endswith("ogd-smn_meta_stations.csv"):
+            return FakeResponse(body=build_station_table_csv())
+        if url.endswith("VQHA80.csv"):
+            return FakeResponse(body=CURRENT_VALUES_CSV.encode("latin-1"))
         if "/items/" in url:
             return FakeResponse(payload=build_stac_item(RUN_ID, published))
         parameter = url.rsplit("/", 1)[-1].removesuffix(".csv")
@@ -59,3 +68,15 @@ def location_finder_fixture(source_fixture, tmp_path):
 def service_fixture(location_finder_fixture, source_fixture):
     """Return a ForecastService reading from the fake data source."""
     return ForecastService(location_finder_fixture, source_fixture)
+
+
+@pytest.fixture
+def measurement_source_fixture(source_fixture, tmp_path):
+    """Return a MeasurementSource reading the fake station files, served by the same fake HTTP responses."""
+    return MeasurementSource(tmp_path)
+
+
+@pytest.fixture
+def measurement_service_fixture(location_finder_fixture, measurement_source_fixture):
+    """Return a MeasurementService reading from the fake station files."""
+    return MeasurementService(location_finder_fixture, measurement_source_fixture)

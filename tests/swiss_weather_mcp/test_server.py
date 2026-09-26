@@ -22,6 +22,7 @@ EXPECTED_TOOLS = {
     "wind": ["location", "when"],
     "total_cloud_cover": ["location", "when"],
     "freezing_level": ["location", "when"],
+    "current_conditions": ["location"],
 }
 
 FREEZING_LEVEL_CALL = {"location": "Zurich", "when": "2026-09-24T14:00"}
@@ -36,6 +37,7 @@ def server_fixture(mocker, tmp_path):
     )
     server = SwissWeatherMCPServer(args)
     server.forecast_service = mocker.AsyncMock()
+    server.measurement_service = mocker.AsyncMock()
     return server
 
 
