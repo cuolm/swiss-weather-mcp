@@ -78,3 +78,34 @@ def build_stac_item(run_id: str, parameters) -> dict:
 
 def build_swiss_time(timestamp: str) -> datetime:
     return datetime.fromisoformat(timestamp).replace(tzinfo=ZoneInfo("Europe/Zurich"))
+
+
+# The columns of ogd-smn_meta_stations.csv the server reads, with real SwissMetNet stations. UEB has
+# no thermometer, so it must be passed over, and DAV stands where the Davos forecast point is.
+STATION_TABLE_COLUMNS = (
+    "station_abbr;station_name;station_canton;station_height_masl;"
+    "station_coordinates_lv95_east;station_coordinates_lv95_north"
+)
+STATION_TABLE_ROWS = (
+    ("SMA", "Zürich / Fluntern", "ZH", "604.0", "2685223.0", "1248410.0"),
+    ("UEB", "Uetliberg", "ZH", "854.0", "2679455.0", "1245034.0"),
+    ("DAV", "Davos", "GR", "1594.0", "2783519.0", "1187459.0"),
+)
+
+# Real rows of VQHA80.csv, except that DAV has no rain and no wind direction. MRP is published
+# there but missing from the station table.
+CURRENT_VALUES_CSV = (
+    "Station/Location;Date;tre200s0;rre150z0;sre000z0;gre000z0;ure200s0;tde200s0;dkl010z0;fu3010z0;"
+    "fu3010z1;prestas0;pp0qffs0;pp0qnhs0;ppz850s0;ppz700s0;dv1towz0;fu3towz0;fu3towz1;ta1tows0;uretows0;tdetows0\n"
+    "SMA;202609251400;21.00;0.00;10.00;516.00;34.30;4.70;23.00;4.70;10.10;950.60;1018.90;1021.60;-;-;-;-;-;18.40;39.70;4.50\n"
+    "UEB;202609251400;-;-;10.00;561.00;-;-;-;-;-;-;-;-;-;-;16.00;7.60;13.00;15.40;46.20;3.90\n"
+    "DAV;202609251400;16.50;-;10.00;537.00;17.70;-8.10;-;16.60;28.80;845.00;-;1024.10;1545.30;-;-;-;-;-;-;-\n"
+    "MRP;202609251400;-;-;-;-;-;-;-;-;-;-;-;-;-;-;-;-;-;-;-;-\n"
+)
+
+
+def build_station_table_csv() -> bytes:
+    lines = [STATION_TABLE_COLUMNS]
+    for row in STATION_TABLE_ROWS:
+        lines.append(";".join(row))
+    return ("\n".join(lines) + "\n").encode("latin-1")

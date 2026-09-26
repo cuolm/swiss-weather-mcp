@@ -6,10 +6,11 @@
 
 A **Model Context Protocol ([MCP](https://modelcontextprotocol.info/))** server that exposes Swiss weather forecast data as callable tools.
 It reads the official [MeteoSwiss local forecast collection](https://opendatadocs.meteoswiss.ch/e-forecast-data/e4-local-forecast-data), caches it locally, and serves predictions such as rainfall, sunshine, temperature, wind and a worded weather summary. MeteoSwiss publishes these forecasts for **5,614 Swiss locations** (weather stations, postal code areas and points of interest), for **today and the next 8 days**, refreshed **every hour**.
+It also reads the [latest measurements](https://opendatadocs.meteoswiss.ch/a-data-groundbased/a1-automatic-weather-stations) of the SwissMetNet weather stations, refreshed **every 10 minutes**, for the weather right now.
 
 There is also an MCP client that can be run to test the server using the stdio transport.
 
-> **Note:** This project is **not an official MeteoSwiss product**. All forecast data are from the
+> **Note:** This project is **not an official MeteoSwiss product**. All forecast and measurement data are from the
 > [MeteoSwiss Open Data](https://opendata.swiss/en/organization/bundesamt-fur-meteorologie-und-klimatologie-meteoschweiz) portal. **Source: MeteoSwiss**
 
 ## Table of Contents
@@ -37,6 +38,10 @@ swiss-weather-mcp/
 │   │   ├── source.py       # MeteoSwiss forecast data source and caching
 │   │   ├── parameters.py   # Forecast parameter codes and pictogram meanings
 │   │   └── service.py      # Forecast values, units and aggregation
+│   ├── measurements/
+│   │   ├── source.py       # SwissMetNet measurements, stations and the nearest station
+│   │   ├── parameters.py   # Measurement parameter codes
+│   │   └── service.py      # The weather measured now
 │   └── client.py           # MCP client (optional)
 ├── scripts/                # Builds other_language_place_names.csv
 ├── tests/swiss_weather_mcp/  # Tests
@@ -199,6 +204,7 @@ they resolved, its altitude, the time or day it applies to, and the model run th
 | `wind(location, when)` | Mean speed and strongest gust (km/h) in the hour up to that time, how strong that gust may get (its 90th percentile), and the direction as degrees and compass point | `wind("Säntis", "2026-09-23T14:00")` |
 | `total_cloud_cover(location, when)` | Estimated total cloud cover (%) plus the low, medium and high layers | `total_cloud_cover("Zurich", "2026-09-23T14:00")` |
 | `freezing_level(location, when)` | Height of the 0 °C line (m above sea level) | `freezing_level("Zermatt", "2026-09-23T14:00")` |
+| `current_conditions(location)` | Measured now at the nearest weather station: temperature, humidity, dew point, rain and sunshine in the last 10 minutes, wind, gust, direction and sea-level pressure | `current_conditions("Zurich")` |
 
 **Time**
 - Send times as Swiss clock time in ISO 8601 without an offset, e.g. `"2026-09-23T14:00"`. The server
@@ -221,6 +227,12 @@ they resolved, its altitude, the time or day it applies to, and the model run th
 > several postal code areas and resolves to the lowest one, which is not always its centre (Bern's
 > lowest is 3004, its old town 3011). The answer names the point it used, and a postal code picks a
 > specific district.
+
+> **Note:** `current_conditions` uses the nearest of the about 160 SwissMetNet stations that measures
+> the temperature, not the location itself. It is usually a few kilometres away, but can be up to about
+> 20 km away and several hundred metres higher or lower: Braunwald is measured in Glarus, 801 m lower.
+> The answer names the station, its distance and its height difference, and when it measured. The
+> file with all stations is about 17 KB and is kept for 5 minutes.
 
 > **Note:** `daily_forecast` is by far the cheapest tool, about 8 MB for all its files against about
 > 31 MB for each hourly file, so prefer it when the question is about a day rather than an hour.
@@ -296,6 +308,7 @@ Both publish jobs use PyPI [trusted publishing](https://docs.pypi.org/trusted-pu
 ## Resources
 - [Meteo Swiss Open Data](https://www.meteoswiss.admin.ch/services-and-publications/service/open-data.html)
 - [Local Forecast Notebook Examples](https://github.com/MeteoSwiss/opendata-localforecast-demos)
+- [Automatic Weather Stations (SwissMetNet)](https://opendatadocs.meteoswiss.ch/a-data-groundbased/a1-automatic-weather-stations)
 - [Model Context Protocol](https://github.com/modelcontextprotocol/python-sdk)
 - [MCP Server Quickstart](https://modelcontextprotocol.info/docs/quickstart/server/)
 

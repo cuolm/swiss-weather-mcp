@@ -16,6 +16,8 @@ from . import LOG_LEVELS, setup_logging
 from .forecast.service import ForecastService
 from .forecast.source import LocalForecastSource
 from .locations import LocationFinder
+from .measurements.service import MeasurementService
+from .measurements.source import MeasurementSource
 from .opendata import SWISS_TZ
 
 logger = logging.getLogger(__name__)
@@ -112,12 +114,17 @@ class SwissWeatherMCPServer:
         self.transport = args.transport
         self.mcp = MCPServer(
             name="swiss_weather_mcp_server",
-            instructions="This MCP server provides hourly and daily weather forecasts for Switzerland for today and the next 8 days.",
+            instructions=(
+                "This MCP server provides hourly and daily weather forecasts for Switzerland for today "
+                "and the next 8 days, and the weather measured now at the nearest MeteoSwiss station."
+            ),
             log_level=args.log_level,  # forwarded to uvicorn, which configures its own loggers
         )
 
+        location_finder = LocationFinder(CACHE_DIR)
         forecast_source = LocalForecastSource(CACHE_DIR, cache_all_locations=args.cache_all_locations)
-        self.forecast_service = ForecastService(LocationFinder(CACHE_DIR), forecast_source)
+        self.forecast_service = ForecastService(location_finder, forecast_source)
+        self.measurement_service = MeasurementService(location_finder, MeasurementSource(CACHE_DIR))
         self._register_tools()
 
     def _register_tools(self) -> None:
@@ -335,6 +342,40 @@ class SwissWeatherMCPServer:
             """
             moment = _parse_swiss_time(when)
             return await self.forecast_service.read_freezing_level(location, moment)
+
+        @self.mcp.tool()
+        @_handle_tool_call
+        async def current_conditions(location: str) -> dict:
+            """
+            Get the weather measured now at the MeteoSwiss weather station nearest to a location.
+
+            These are measurements, not a forecast. MeteoSwiss publishes the newest values of its
+            SwissMetNet stations about every 10 minutes. The nearest station that measures the
+            temperature is used, which can be several kilometres away and hundreds of metres higher
+            or lower than the location. Always say which station measured the values, and mention
+            its distance and height difference when they are large.
+
+            Temperature, humidity, dew point and pressure are measured at measured_at. Rain,
+            sunshine, wind speed, the strongest gust and the wind direction cover the 10 minutes up
+            to it. For later today or the coming days use hourly_forecast or daily_forecast.
+
+            Args:
+                location (str): Location name (e.g., "Zurich") or Swiss postal code (e.g., "8001").
+
+            Returns:
+                dict: The resolved location with its altitude, the station with its altitude, its
+                    distance in kilometres and its height above the location in metres (negative
+                    when lower), the time of the measurements, the temperature and dew point in
+                    Celsius, humidity in percent, rain in millimetres and sunshine in minutes over
+                    the last 10 minutes, wind speed and gust in kilometres per hour, the wind
+                    direction in degrees and as a compass point, and the sea-level pressure (QNH) in
+                    hectopascals. A value is None when the station does not measure it.
+
+            Examples:
+                current_conditions("Zurich")
+                current_conditions("Braunwald")
+            """
+            return await self.measurement_service.read_current_conditions(location)
 
     def run(self):
         """Serve the tools over the transport given on the command line."""
