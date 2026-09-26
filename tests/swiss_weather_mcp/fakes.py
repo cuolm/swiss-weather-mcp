@@ -10,11 +10,12 @@ POINT_TABLE_COLUMNS = (
 )
 # Zurich twice so the lowest postal code has to win, Davos with no postal code so the station is
 # the only option, and Wallisellen because it is what a near match for "Wallis" would wrongly pick.
+# Coordinates are the real LV95 ones of these places, in metres.
 POINT_TABLE_ROWS = (
-    ("800200", "2", "", "8002", "Zürich", "431.0"),
-    ("800100", "2", "", "8001", "Zürich", "409.0"),
-    ("26", "1", "DAV", "", "Davos", "1594.0"),
-    ("840000", "2", "", "8400", "Wallisellen", "441.0"),
+    ("800200", "2", "", "8002", "Zürich", "431.0", "2682417.0", "1246175.0"),
+    ("800100", "2", "", "8001", "Zürich", "409.0", "2683348.0", "1247414.0"),
+    ("26", "1", "DAV", "", "Davos", "1594.0", "2783519.0", "1187459.0"),
+    ("840000", "2", "", "8400", "Wallisellen", "441.0", "2687275.0", "1252173.0"),
 )
 
 RUN_ID = "202609221300"
@@ -23,9 +24,9 @@ EARLIER_RUN_ID = "202609221200"
 
 def build_point_table_csv() -> bytes:
     lines = [POINT_TABLE_COLUMNS]
-    for point_id, point_type_id, station_abbr, postal_code, name, altitude_m in POINT_TABLE_ROWS:
+    for point_id, point_type_id, station_abbr, postal_code, name, altitude_m, east_m, north_m in POINT_TABLE_ROWS:
         lines.append(
-            f"{point_id};{point_type_id};{station_abbr};{postal_code};{name};Ort;Lieu;Luogo;Place;{altitude_m};0;0;47.0;8.0"
+            f"{point_id};{point_type_id};{station_abbr};{postal_code};{name};Ort;Lieu;Luogo;Place;{altitude_m};{east_m};{north_m};47.0;8.0"
         )
     return ("\r\n".join(lines) + "\r\n").encode("latin-1")
 

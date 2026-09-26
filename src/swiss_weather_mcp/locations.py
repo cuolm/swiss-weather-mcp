@@ -31,6 +31,8 @@ class ForecastPoint(NamedTuple):
     name: str
     postal_code: str
     altitude_m: float
+    east_m: float   # LV95, the Swiss grid in metres
+    north_m: float  # LV95
 
     @property
     def display_name(self) -> str:
@@ -120,6 +122,8 @@ class LocationFinder:
                     name=row["point_name"],
                     postal_code=row["postal_code"],
                     altitude_m=float(row["point_height_masl"]),
+                    east_m=float(row["point_coordinates_lv95_east"]),
+                    north_m=float(row["point_coordinates_lv95_north"]),
                 ))
         # Published only once complete, so a parallel request never sees part of the table
         self._points = points

@@ -24,6 +24,11 @@ def test_find_point_station_without_postal_code(location_finder_fixture):
     assert (point.point_id, point.point_type_id) == ("26", "1")
 
 
+def test_find_point_reads_the_coordinates(location_finder_fixture):
+    point = location_finder_fixture.find_point("8001")
+    assert (point.east_m, point.north_m) == (2683348.0, 1247414.0)
+
+
 def test_find_point_rejects_a_near_match(location_finder_fixture):
     # "Wallis" is the canton Valais, its closest name here is a Zurich suburb 150 km away
     with pytest.raises(ValueError, match="not one of the 4 places"):
