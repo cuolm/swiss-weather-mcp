@@ -61,7 +61,7 @@ class FakeResponse:
         return self.payload
 
     def iter_content(self, chunk_size):
-        # Deliberately split mid line, so the chunk stitching in _write_point_rows is exercised
+        # Deliberately split mid line, so the chunk stitching in _write_rows_starting_with is exercised
         for start in range(0, len(self.body), 7):
             yield self.body[start:start + 7]
 
