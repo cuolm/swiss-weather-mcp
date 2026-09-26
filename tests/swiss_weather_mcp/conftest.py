@@ -2,6 +2,7 @@ import pytest
 
 from fakes import RUN_ID, FakeResponse, build_parameter_csv, build_point_table_csv, build_stac_item
 from swiss_weather_mcp.forecast import ForecastService
+from swiss_weather_mcp.locations import LocationFinder
 from swiss_weather_mcp.meteoswiss import LocalForecastSource
 
 
@@ -49,6 +50,12 @@ def source_fixture(mocker, tmp_path):
 
 
 @pytest.fixture
-def service_fixture(source_fixture):
+def location_finder_fixture(source_fixture, tmp_path):
+    """Return a LocationFinder reading the fake point table, served by the same fake HTTP responses."""
+    return LocationFinder(tmp_path)
+
+
+@pytest.fixture
+def service_fixture(location_finder_fixture, source_fixture):
     """Return a ForecastService reading from the fake data source."""
-    return ForecastService(source_fixture)
+    return ForecastService(location_finder_fixture, source_fixture)

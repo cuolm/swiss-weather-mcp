@@ -14,6 +14,7 @@ from platformdirs import user_cache_path
 
 from . import LOG_LEVELS, setup_logging
 from .forecast import ForecastService
+from .locations import LocationFinder
 from .meteoswiss import LocalForecastSource
 from .opendata import SWISS_TZ
 
@@ -116,7 +117,7 @@ class SwissWeatherMCPServer:
         )
 
         forecast_source = LocalForecastSource(CACHE_DIR, cache_all_locations=args.cache_all_locations)
-        self.forecast_service = ForecastService(forecast_source)
+        self.forecast_service = ForecastService(LocationFinder(CACHE_DIR), forecast_source)
         self._register_tools()
 
     def _register_tools(self) -> None:
