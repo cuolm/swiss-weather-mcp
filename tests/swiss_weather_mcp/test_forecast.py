@@ -4,7 +4,7 @@ from datetime import date
 import pytest
 
 from fakes import build_swiss_time
-from swiss_weather_mcp.forecast import _describe_pictogram, _find_compass_point
+from swiss_weather_mcp.forecast import _describe_pictogram
 from swiss_weather_mcp.parameters import PICTOGRAMS
 
 
@@ -279,10 +279,3 @@ def test_describe_pictogram():
 def test_describe_pictogram_every_code_has_words_and_an_emoji():
     for code, (description, emoji) in PICTOGRAMS.items():
         assert description and emoji, code
-
-
-# --- _find_compass_point ---
-
-def test_find_compass_point():
-    # Each of the 16 points covers 22.5 degrees, and a bearing just short of north wraps round to N
-    assert [_find_compass_point(degrees) for degrees in (0, 11, 12, 90, 217, 355)] == ["N", "N", "NNE", "E", "SW", "N"]

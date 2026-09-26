@@ -4,14 +4,10 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, Optional, Tuple
 
 from . import parameters
-from .meteoswiss import SWISS_TZ, ForecastPoint, ForecastSeries, LocalForecastSource
+from .formatting import find_compass_point, format_swiss_time
+from .meteoswiss import ForecastPoint, ForecastSeries, LocalForecastSource
 
 logger = logging.getLogger(__name__)
-
-# Compass points the wind direction in degrees is reported as, clockwise from north
-COMPASS_POINTS = ("N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
-                  "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW")
-COMPASS_SECTOR_DEGREES = 360 / len(COMPASS_POINTS)
 
 # The field each cloud layer fills in the answer, lowest first
 CLOUD_LAYERS = (
@@ -58,25 +54,20 @@ def _find_nearest_stamp(moment: datetime) -> datetime:
     return moment.replace(minute=0, second=0, microsecond=0)
 
 
-def _format_swiss_time(moment: datetime) -> str:
-    """Format a moment as ISO 8601 Swiss local time with its UTC offset, such as 2026-09-23T14:00+02:00."""
-    return moment.astimezone(SWISS_TZ).isoformat(timespec="minutes")
-
-
 def _check_period_order(start_moment: datetime, end_moment: datetime) -> None:
     """Refuse a period whose end is not after its start."""
     if end_moment <= start_moment:
         raise ValueError(
-            f"The end of the period, {_format_swiss_time(end_moment)}, must be after its start, "
-            f"{_format_swiss_time(start_moment)}."
+            f"The end of the period, {format_swiss_time(end_moment)}, must be after its start, "
+            f"{format_swiss_time(start_moment)}."
         )
 
 
 def _describe_covered_range(series: ForecastSeries) -> str:
     """Say which times a series covers, for an error message."""
     return (
-        f"The forecast covers {_format_swiss_time(min(series.values))} to "
-        f"{_format_swiss_time(max(series.values))}."
+        f"The forecast covers {format_swiss_time(min(series.values))} to "
+        f"{format_swiss_time(max(series.values))}."
     )
 
 
@@ -86,13 +77,6 @@ def _describe_pictogram(pictogram_code: int) -> Tuple[str, Optional[str]]:
     if pictogram is None:
         return f"unknown weather code {pictogram_code}", None
     return pictogram
-
-
-def _find_compass_point(degrees: float) -> str:
-    """Find the compass point a bearing falls in, such as "SW" for 217 degrees."""
-    # Rounding picks the nearest point, and the modulo turns a bearing just short of 360 back into N
-    sector = round(degrees / COMPASS_SECTOR_DEGREES) % len(COMPASS_POINTS)
-    return COMPASS_POINTS[sector]
 
 
 def _build_day(series_by_field: Dict[str, Optional[ForecastSeries]], day: date) -> Optional[Dict[str, Any]]:
@@ -145,7 +129,7 @@ class ForecastService:
             stamp = _find_closing_stamp(moment)
         if stamp not in series.values:
             raise ValueError(
-                f"{_format_swiss_time(moment)} is outside the forecast for {point.display_name}. "
+                f"{format_swiss_time(moment)} is outside the forecast for {point.display_name}. "
                 f"{_describe_covered_range(series)}"
             )
         return series.values[stamp]
@@ -159,7 +143,7 @@ class ForecastService:
         first_hour_stamp = first_stamp + timedelta(hours=1)
         if first_hour_stamp < min(series.values) or last_stamp > max(series.values):
             raise ValueError(
-                f"{_format_swiss_time(start_moment)} to {_format_swiss_time(end_moment)} is not fully covered "
+                f"{format_swiss_time(start_moment)} to {format_swiss_time(end_moment)} is not fully covered "
                 f"by the forecast for {point.display_name}. {_describe_covered_range(series)}"
             )
 
@@ -173,7 +157,7 @@ class ForecastService:
 
         if not hours_counted:
             raise ValueError(
-                f"{_format_swiss_time(start_moment)} to {_format_swiss_time(end_moment)} is outside the forecast for {point.display_name}. "
+                f"{format_swiss_time(start_moment)} to {format_swiss_time(end_moment)} is outside the forecast for {point.display_name}. "
                 f"{_describe_covered_range(series)}"
             )
         return total
@@ -182,7 +166,7 @@ class ForecastService:
         """Build a tool answer: the value and unit, the resolved point, extra fields and the model run."""
         answer = {"value": value, "unit": unit, "location": point.display_name, "altitude_m": point.altitude_m}
         answer.update(fields)
-        answer["model_run"] = _format_swiss_time(run_time)
+        answer["model_run"] = format_swiss_time(run_time)
         return answer
 
     async def _build_hourly_answer(self, location: str, parameter: str, moment: datetime, unit: str) -> Dict[str, Any]:
@@ -201,7 +185,7 @@ class ForecastService:
         point = await self._find_point(location)
         series = await self._read_series(parameter, point)
         value = self._read_value_at(series, moment, point, parameter)
-        return self._build_answer(value, unit, point, series.run_time, valid_at=_format_swiss_time(moment))
+        return self._build_answer(value, unit, point, series.run_time, valid_at=format_swiss_time(moment))
 
     async def read_freezing_level(self, location: str, moment: datetime) -> Dict[str, Any]:
         """Read the height of the 0 °C line at a moment."""
@@ -224,7 +208,7 @@ class ForecastService:
         gusts_kmh = self._read_value_at(gust_series, moment, point, parameters.WIND_GUSTS)
         upper_gusts_kmh = self._read_value_at(upper_gust_series, moment, point, parameters.WIND_GUSTS_Q90)
         direction_degrees = self._read_value_at(direction_series, moment, point, parameters.WIND_DIRECTION)
-        compass_point = _find_compass_point(direction_degrees)
+        compass_point = find_compass_point(direction_degrees)
         return {
             "speed_kmh": speed_kmh,
             "gusts_kmh": gusts_kmh,
@@ -233,8 +217,8 @@ class ForecastService:
             "compass_point": compass_point,
             "location": point.display_name,
             "altitude_m": point.altitude_m,
-            "valid_at": _format_swiss_time(moment),
-            "model_run": _format_swiss_time(speed_series.run_time),
+            "valid_at": format_swiss_time(moment),
+            "model_run": format_swiss_time(speed_series.run_time),
         }
 
     async def read_sunshine_hours(self, location: str, start_moment: datetime, end_moment: datetime) -> Dict[str, Any]:
@@ -243,7 +227,7 @@ class ForecastService:
         series = await self._read_series(parameters.SUNSHINE, point)
         sunshine_minutes = self._sum_between(series, start_moment, end_moment, point)
         return self._build_answer(round(sunshine_minutes / 60, 1), "h", point, series.run_time,
-                            **{"from": _format_swiss_time(start_moment), "to": _format_swiss_time(end_moment)})
+                            **{"from": format_swiss_time(start_moment), "to": format_swiss_time(end_moment)})
 
     async def read_total_cloud_cover(self, location: str, moment: datetime) -> Dict[str, Any]:
         """Estimate the total cloud cover at a moment from the three overlapping layers."""
@@ -259,7 +243,7 @@ class ForecastService:
         clear_sky = (1 - layers["low"]) * (1 - layers["medium"]) * (1 - layers["high"])
         return self._build_answer(
             round((1 - clear_sky) * 100, 1), "%", point, series.run_time,
-            valid_at=_format_swiss_time(moment),
+            valid_at=format_swiss_time(moment),
             low_percent=round(layers["low"] * 100, 1),
             medium_percent=round(layers["medium"] * 100, 1),
             high_percent=round(layers["high"] * 100, 1),
@@ -290,14 +274,14 @@ class ForecastService:
 
         if end_moment is None:
             last_stamp = first_stamp
-            period = _format_swiss_time(start_moment)
+            period = format_swiss_time(start_moment)
         else:
             _check_period_order(start_moment, end_moment)
             if end_moment - start_moment > MAX_HOURLY_FORECAST:
                 max_hours = int(MAX_HOURLY_FORECAST.total_seconds() // 3600)
                 raise ValueError(f"An hourly forecast covers at most {max_hours} hours; for whole days use daily_forecast.")
             last_stamp = _find_closing_stamp(end_moment)
-            period = f"{_format_swiss_time(start_moment)} to {_format_swiss_time(end_moment)}"
+            period = f"{format_swiss_time(start_moment)} to {format_swiss_time(end_moment)}"
 
         point = await self._find_point(location)
         temperature_series, lower_series, upper_series, chance_series, pictogram_series = await asyncio.gather(
@@ -321,8 +305,8 @@ class ForecastService:
             pictogram_code = int(pictogram_series.values[stamp])
             description, weather_emoji = _describe_pictogram(pictogram_code)
             hours.append({
-                "from": _format_swiss_time(stamp - timedelta(hours=1)),
-                "to": _format_swiss_time(stamp),
+                "from": format_swiss_time(stamp - timedelta(hours=1)),
+                "to": format_swiss_time(stamp),
                 "temperature_c": temperature_series.values[stamp],
                 "temperature_10th_percentile_c": lower_series.values[stamp],
                 "temperature_90th_percentile_c": upper_series.values[stamp],
@@ -336,7 +320,7 @@ class ForecastService:
             "location": point.display_name,
             "altitude_m": point.altitude_m,
             "hours": hours,
-            "model_run": _format_swiss_time(temperature_series.run_time),
+            "model_run": format_swiss_time(temperature_series.run_time),
         }
 
     async def read_rain_outlook(self, location: str, start_moment: datetime, end_moment: datetime) -> Dict[str, Any]:
@@ -374,13 +358,13 @@ class ForecastService:
             if (block_end not in chance_series.values or block_end not in median_series.values
                     or any(stamp not in upper_series.values for stamp in hour_stamps)):
                 raise ValueError(
-                    f"{_format_swiss_time(start_moment)} to {_format_swiss_time(end_moment)} is not fully covered "
+                    f"{format_swiss_time(start_moment)} to {format_swiss_time(end_moment)} is not fully covered "
                     f"by the forecast for {point.display_name}. {_describe_covered_range(median_series)}"
                 )
             heaviest_hour_mm = max(upper_series.values[stamp] for stamp in hour_stamps)
             blocks.append({
-                "from": _format_swiss_time(block_start),
-                "to": _format_swiss_time(block_end),
+                "from": format_swiss_time(block_start),
+                "to": format_swiss_time(block_end),
                 "rain_chance_percent": chance_series.values[block_end],
                 "rainfall_median_mm": round(median_series.values[block_end], 1),
                 "heaviest_hour_up_to_mm": round(heaviest_hour_mm, 1),
@@ -391,7 +375,7 @@ class ForecastService:
             "location": point.display_name,
             "altitude_m": point.altitude_m,
             "blocks": blocks,
-            "model_run": _format_swiss_time(median_series.run_time),
+            "model_run": format_swiss_time(median_series.run_time),
         }
 
     async def _read_series_if_published(self, parameter: str, point: ForecastPoint) -> Optional[ForecastSeries]:
@@ -448,5 +432,5 @@ class ForecastService:
             "location": point.display_name,
             "altitude_m": point.altitude_m,
             "days": rows,
-            "model_run": _format_swiss_time(run_time),
+            "model_run": format_swiss_time(run_time),
         }

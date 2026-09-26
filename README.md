@@ -31,6 +31,8 @@ swiss-weather-mcp/
 │   ├── server.py           # MCP server
 │   ├── forecast.py         # Weather values, units and aggregation
 │   ├── meteoswiss.py       # MeteoSwiss data source, caching and location lookup
+│   ├── opendata.py         # Downloads and timestamps from MeteoSwiss Open Data
+│   ├── formatting.py       # Swiss time and compass points in the answers
 │   ├── parameters.py       # MeteoSwiss parameter codes and pictogram meanings
 │   ├── other_language_place_names.csv  # Place names in other languages
 │   └── client.py           # MCP client (optional)

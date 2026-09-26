@@ -4,15 +4,14 @@ from importlib import resources
 import shutil
 import threading
 import unicodedata
-import uuid
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
-from typing import BinaryIO, Dict, List, NamedTuple, Optional, Tuple
-from zoneinfo import ZoneInfo
+from typing import Dict, List, NamedTuple, Optional, Tuple
 
 import requests
 
 from . import parameters
+from .opendata import REQUEST_TIMEOUT_SECONDS, download_file, parse_stamp
 
 logger = logging.getLogger(__name__)
 
@@ -23,12 +22,8 @@ POINT_TABLE_URL = f"https://data.geo.admin.ch/{COLLECTION_ID}/ogd-local-forecast
 # scripts/build_other_language_place_names.py from Wikipedia lists
 OTHER_LANGUAGE_PLACE_NAMES_FILE = "other_language_place_names.csv"
 
-SWISS_TZ = ZoneInfo("Europe/Zurich")
-
 POINT_TABLE_MAX_AGE = timedelta(days=7)
 RUN_LOOKUP_MAX_AGE = timedelta(minutes=5)
-REQUEST_TIMEOUT_SECONDS = 60
-DOWNLOAD_CHUNK_SIZE_BYTES = 1024 * 1024
 
 
 class ForecastPoint(NamedTuple):
@@ -97,53 +92,6 @@ def _load_other_language_place_names() -> Dict[str, str]:
     return point_names_by_other_language_place_name
 
 
-def _parse_stamp(stamp_text: str) -> datetime:
-    """Read a MeteoSwiss timestamp such as "202609231200", which is always UTC."""
-    return datetime.strptime(stamp_text, "%Y%m%d%H%M").replace(tzinfo=timezone.utc)
-
-
-def _write_point_rows(response: requests.Response, point: ForecastPoint, file: BinaryIO) -> None:
-    """Write the rows of one point from a streamed response to a file."""
-    row_prefix = point.row_prefix
-    # Chunks are split by hand, iter_lines() takes about 45 seconds for the million lines of a file
-    remainder = b""
-    for chunk in response.iter_content(DOWNLOAD_CHUNK_SIZE_BYTES):
-        lines = (remainder + chunk).split(b"\n")
-        remainder = lines.pop()  # the last piece may be half a line
-        for line in lines:
-            if line.startswith(row_prefix):
-                file.write(line + b"\n")
-    if remainder.startswith(row_prefix):
-        file.write(remainder + b"\n")
-
-
-def _download_file(file_url: str, target_file: Path, only_rows_of: Optional[ForecastPoint] = None) -> None:
-    """
-    Stream a file from MeteoSwiss to disk.
-
-    Parameters:
-        file_url (str): The file to download.
-        target_file (Path): Where the finished file ends up.
-        only_rows_of (Optional[ForecastPoint]): Keep only this point's rows, or every line when None.
-    """
-    target_file.parent.mkdir(parents=True, exist_ok=True)
-    # A unique name, moved into place only when complete, so an interrupted download is never
-    # taken for a cached file, and two requests for the same file do not write into each other
-    partial_file = target_file.with_name(f"{target_file.name}.{uuid.uuid4().hex}.tmp")
-    try:
-        with requests.get(file_url, stream=True, timeout=REQUEST_TIMEOUT_SECONDS) as response:
-            response.raise_for_status()
-            with open(partial_file, "wb") as file:
-                if only_rows_of is None:
-                    for chunk in response.iter_content(DOWNLOAD_CHUNK_SIZE_BYTES):
-                        file.write(chunk)
-                else:
-                    _write_point_rows(response, only_rows_of, file)
-        partial_file.replace(target_file)
-    finally:
-        partial_file.unlink(missing_ok=True)
-
-
 class LocalForecastSource:
     """Read point forecasts from the MeteoSwiss local forecasting collection, cached per model run."""
 
@@ -168,7 +116,7 @@ class LocalForecastSource:
                 return point_table
 
         logger.info("Downloading the MeteoSwiss forecast point table")
-        _download_file(POINT_TABLE_URL, point_table)
+        download_file(POINT_TABLE_URL, point_table)
         return point_table
 
     def _load_points(self) -> List[ForecastPoint]:
@@ -303,10 +251,10 @@ class LocalForecastSource:
 
         logger.info(f"Reading {parameter} for {point.display_name} from run {run_id}")
         if self.cache_all_locations:
-            _download_file(file_url, full_file)
+            download_file(file_url, full_file)
             downloaded_file = full_file
         else:
-            _download_file(file_url, point_file, only_rows_of=point)
+            download_file(file_url, point_file, only_rows_starting_with=point.row_prefix)
             downloaded_file = point_file
 
         self._drop_superseded_runs(run_id)
@@ -324,7 +272,7 @@ class LocalForecastSource:
                     continue
                 _, _, stamp_text, value_text = line.decode("latin-1").strip().split(";")
                 try:
-                    stamp = _parse_stamp(stamp_text)
+                    stamp = parse_stamp(stamp_text)
                     values[stamp] = float(value_text)
                 except ValueError:
                     continue  # gaps are published as empty fields
@@ -354,4 +302,4 @@ class LocalForecastSource:
                 f"such as the regional ones, only carry part of the forecast, try a nearby town."
             )
 
-        return ForecastSeries(run_time=_parse_stamp(run_id), values=values)
+        return ForecastSeries(run_time=parse_stamp(run_id), values=values)
