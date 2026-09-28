@@ -1,8 +1,45 @@
 """
 Read the latest measurements of the SwissMetNet weather stations from MeteoSwiss Open Data.
 
-MeteoSwiss publishes the newest 10-minute values of all its automatic stations in one small file,
-updated about every 10 minutes, and where each station is in a separate station table.
+What MeteoSwiss publishes:
+- A current values file, VQHA80.csv, with one row per automatic weather station and
+  about 160 stations, all with the same timestamp. Some values are measured at that
+  time, such as the temperature; others cover the 10 minutes up to it, such as the
+  rainfall and the sunshine. MeteoSwiss replaces the file about every 10 minutes.
+  A value a station does not measure is "-".
+- A station table, ogd-smn_meta_stations.csv, with one row per station: its name,
+  altitude and position in LV95, the Swiss grid in metres.
+- Both files use ";" between columns. A station abbreviation, such as SMA, links a row
+  in one file to the row in the other.
+
+    VQHA80.csv  (current values, 22 columns, the server reads 9 parameters)
+    ┌──────────────────────────────────────────────────────┐
+    │ Station/Location;Date;tre200s0;rre150z0;sre000z0;... │  station, time, temperature, rainfall, sunshine
+    │ ARO;202609281020;19.10;-;10.00;...                   │  Arosa: 19.1 °C, no rainfall value, 10 min of sun
+    │ SMA;202609281020;21.80;0.00;10.00;...                │  Zürich / Fluntern: 21.8 °C, 0.0 mm, 10 min of sun
+    │ ...                                                  │  about 160 rows
+    └──────────────────────────────────────────────────────┘
+
+    ogd-smn_meta_stations.csv  (station table)
+    ┌────────────────────────────────────────────────────────────────┐
+    │ station_abbr;station_name;...;station_height_masl;...          │  header
+    │ ARO;Arosa;...;1878.0;...;2771031.0;1184830.0;...               │  altitude, LV95 east, north
+    │ SMA;Zürich / Fluntern;...;604.0;...;2685223.0;1248410.0;...    │
+    │ ...                                                            │  about 160 rows
+    └────────────────────────────────────────────────────────────────┘
+
+How we use it:
+1. Download both files and keep them for a while: the current values for 5 minutes, the
+   station table for 7 days. The station table is read into memory once per process.
+2. Join each current values row to its station by abbreviation. A station missing from
+   the station table has no position, so it is left out.
+3. Find the station nearest to the requested forecast point that measures the
+   temperature. Stations without it, such as a wind tower, would answer with almost
+   every value missing.
+
+    <cache dir>/measurements/
+    ├── VQHA80.csv                    (current values, downloaded again after 5 minutes)
+    └── ogd-smn_meta_stations.csv     (station table, downloaded again after 7 days)
 """
 import csv
 import logging
@@ -21,10 +58,9 @@ STATION_TABLE_URL = "https://data.geo.admin.ch/ch.meteoschweiz.ogd-smn/ogd-smn_m
 CURRENT_VALUES_URL = "https://data.geo.admin.ch/ch.meteoschweiz.messwerte-aktuell/VQHA80.csv"
 
 STATION_TABLE_MAX_AGE = timedelta(days=7)
-# MeteoSwiss replaces the current values about every 10 minutes
+# Shorter than MeteoSwiss's 10-minute update, so a new file is used at most 5 minutes after it appears
 CURRENT_VALUES_MAX_AGE = timedelta(minutes=5)
 
-# The current values file writes a value a station does not have as "-"
 MISSING_VALUE_MARKERS = {"", "-"}
 
 
