@@ -104,7 +104,7 @@ class MeasurementSource:
         logger.info(f"Loaded {len(stations)} weather stations")
         return stations
 
-    def read_current_measurements(self) -> List[StationMeasurements]:
+    def _read_current_measurements(self) -> List[StationMeasurements]:
         """
         Read the latest measurements of every station that is in the station table.
 
@@ -137,14 +137,16 @@ class MeasurementSource:
         Returns:
             StationMeasurements: The station, the time of its measurements and its values.
         """
-        with_temperature = []
-        for measurements in self.read_current_measurements():
+        # Some stations measure only a few values, such as wind on a tower, and would answer with
+        # almost every value None; a temperature marks a station that measures the usual set
+        measurements_with_temperature = []
+        for measurements in self._read_current_measurements():
             if measurements.values[parameters.TEMPERATURE] is not None:
-                with_temperature.append(measurements)
-        if not with_temperature:
+                measurements_with_temperature.append(measurements)
+        if not measurements_with_temperature:
             raise ValueError("MeteoSwiss currently publishes no temperature measurements, try again later.")
 
         def distance_to_point(measurements: StationMeasurements) -> float:
             return find_distance_m(point, measurements.station)
 
-        return min(with_temperature, key=distance_to_point)
+        return min(measurements_with_temperature, key=distance_to_point)
