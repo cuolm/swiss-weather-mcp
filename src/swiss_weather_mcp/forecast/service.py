@@ -139,34 +139,19 @@ class ForecastService:
             )
         return total
 
-    def _build_answer(self, value: Any, unit: str, point: ForecastPoint, run_time: datetime, **fields: Any) -> Dict[str, Any]:
-        """Build a tool answer: the value and unit, the resolved point, extra fields and the model run."""
-        answer = {"value": value, "unit": unit, "location": point.display_name, "altitude_m": point.altitude_m}
-        answer.update(fields)
-        answer["model_run"] = format_swiss_time(run_time)
-        return answer
-
-    async def _build_hourly_answer(self, location: str, parameter: str, moment: datetime, unit: str) -> Dict[str, Any]:
-        """
-        Read one parameter for a location at one time.
-
-        Parameters:
-            location (str): Location name or postal code.
-            parameter (str): MeteoSwiss parameter shortname.
-            moment (datetime): The forecast hour, timezone aware.
-            unit (str): Unit the returned value is expressed in.
-
-        Returns:
-            Dict[str, Any]: The value with the resolved point, the hour and the model run.
-        """
-        point = await self._find_point(location)
-        series = await self._read_series(parameter, point)
-        value = self._read_value_at(series, moment, point, parameter)
-        return self._build_answer(value, unit, point, series.run_time, valid_at=format_swiss_time(moment))
-
     async def read_freezing_level(self, location: str, moment: datetime) -> Dict[str, Any]:
         """Read the height of the 0 °C line at a moment."""
-        return await self._build_hourly_answer(location, parameters.FREEZING_LEVEL, moment, "m above sea level")
+        point = await self._find_point(location)
+        series = await self._read_series(parameters.FREEZING_LEVEL, point)
+        freezing_level_m = self._read_value_at(series, moment, point, parameters.FREEZING_LEVEL)
+        return {
+            "value": freezing_level_m,
+            "unit": "m above sea level",
+            "location": point.display_name,
+            "altitude_m": point.altitude_m,
+            "valid_at": format_swiss_time(moment),
+            "model_run": format_swiss_time(series.run_time),
+        }
 
     async def read_wind(self, location: str, moment: datetime) -> Dict[str, Any]:
         """
@@ -203,8 +188,15 @@ class ForecastService:
         point = await self._find_point(location)
         series = await self._read_series(parameters.SUNSHINE, point)
         sunshine_minutes = self._sum_between(series, start_moment, end_moment, point)
-        return self._build_answer(round(sunshine_minutes / 60, 1), "h", point, series.run_time,
-                            **{"from": format_swiss_time(start_moment), "to": format_swiss_time(end_moment)})
+        return {
+            "value": round(sunshine_minutes / 60, 1),
+            "unit": "h",
+            "location": point.display_name,
+            "altitude_m": point.altitude_m,
+            "from": format_swiss_time(start_moment),
+            "to": format_swiss_time(end_moment),
+            "model_run": format_swiss_time(series.run_time),
+        }
 
     async def read_total_cloud_cover(self, location: str, moment: datetime) -> Dict[str, Any]:
         """Estimate the total cloud cover at a moment from the three overlapping layers."""
@@ -222,13 +214,17 @@ class ForecastService:
         # The layers overlap, so they cannot simply be added. Assuming they are independent, the sky
         # is clear only where all three are clear, which is the standard random overlap estimate.
         clear_sky = (1 - low_fraction) * (1 - medium_fraction) * (1 - high_fraction)
-        return self._build_answer(
-            round((1 - clear_sky) * 100, 1), "%", point, low_series.run_time,
-            valid_at=format_swiss_time(moment),
-            low_percent=round(low_fraction * 100, 1),
-            medium_percent=round(medium_fraction * 100, 1),
-            high_percent=round(high_fraction * 100, 1),
-        )
+        return {
+            "value": round((1 - clear_sky) * 100, 1),
+            "unit": "%",
+            "location": point.display_name,
+            "altitude_m": point.altitude_m,
+            "valid_at": format_swiss_time(moment),
+            "low_percent": round(low_fraction * 100, 1),
+            "medium_percent": round(medium_fraction * 100, 1),
+            "high_percent": round(high_fraction * 100, 1),
+            "model_run": format_swiss_time(low_series.run_time),
+        }
 
     async def read_hourly_forecast(
         self, location: str, start_moment: datetime, end_moment: Optional[datetime] = None
