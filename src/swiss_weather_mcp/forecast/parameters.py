@@ -5,9 +5,10 @@ Everything here changes only when MeteoSwiss changes what it publishes. The comm
 is the MeteoSwiss description of that parameter, from ogd-local-forecasting_meta_parameters.csv.
 
 Hourly times are UTC. An hourly average or sum is stamped at the end of the hour it covers, and a
-3 hourly one at the end of its 3 hours. The SNAPSHOTS below are values at the moment of their stamp
-instead. A daily value is not a UTC time: its stamp, such as 202609230000, is the Swiss calendar day
-it describes, 00:00 to 24:00 Swiss local time.
+3 hourly one at the end of its 3 hours. The cloud cover and the freezing level are values at the
+moment of their stamp instead; MeteoSwiss: "in some specific cases an instantaneous value (cloud
+cover, zero degree level)". A daily value is not a UTC time: its stamp, such as 202609230000, is
+the Swiss calendar day it describes, 00:00 to 24:00 Swiss local time.
 
 Temperature and rain are the median of the forecast unless they are named as a quantile: half of
 the possible outcomes lie below it and half above, which is not the same as the most likely value.
@@ -31,10 +32,6 @@ CLOUD_COVER_LOW = "nprolohs"            # Low cloud cover [fraction 0..1]
 CLOUD_COVER_MEDIUM = "npromths"         # Medium cloud cover [fraction 0..1]
 CLOUD_COVER_HIGH = "nprohihs"           # High cloud cover [fraction 0..1]
 WEATHER_PICTOGRAM = "jww003i0"          # MeteoSwiss-Icon, weathertype, preceding 3 hours, forecast [code]
-
-# Hourly values taken at the moment of their stamp rather than over the hour before it. MeteoSwiss:
-# "in some specific cases an instantaneous value (cloud cover, zero degree level)".
-SNAPSHOTS = {FREEZING_LEVEL, CLOUD_COVER_LOW, CLOUD_COVER_MEDIUM, CLOUD_COVER_HIGH}
 
 # ── daily, 00:00 - 24:00 Swiss local time ────────────────────────────────────
 TEMPERATURE_DAY_MIN = "tre200pn"        # Air temperature 2 m above ground; daily minimum [°C]

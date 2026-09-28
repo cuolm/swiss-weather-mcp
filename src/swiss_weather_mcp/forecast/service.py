@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from datetime import date, datetime, timedelta, timezone
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from . import parameters
 from ..formatting import find_compass_point, format_swiss_time
@@ -13,29 +13,30 @@ logger = logging.getLogger(__name__)
 # MeteoSwiss publishes today and the next 8 days
 MAX_DAYS = 9
 
+HOUR = timedelta(hours=1)
 RAIN_BLOCK = timedelta(hours=3)
 MAX_RAIN_OUTLOOK = timedelta(hours=48)
 MAX_HOURLY_FORECAST = timedelta(hours=24)
 
 
-def _find_closing_stamp(moment: datetime) -> datetime:
-    """
-    Return the stamp of the row whose hour contains a moment, for averages and sums.
-
-    A row covers the hour before its stamp, so 14:00 reads the row stamped 14:00, and 14:30 the
-    row stamped 15:00.
-    """
-    moment = moment.astimezone(timezone.utc)
-    full_hour = moment.replace(minute=0, second=0, microsecond=0)
-    if full_hour < moment:
-        return full_hour + timedelta(hours=1)
-    return full_hour
+def _check_full_hour(moment: datetime) -> None:
+    """Refuse a time that is not a full hour, as MeteoSwiss forecasts only whole hours."""
+    if moment.minute or moment.second or moment.microsecond:
+        full_hour = moment.replace(minute=0, second=0, microsecond=0)
+        raise ValueError(
+            f"{format_swiss_time(moment)} is not a full hour. MeteoSwiss forecasts whole hours, so use a "
+            f"full hour such as {format_swiss_time(full_hour)} or {format_swiss_time(full_hour + HOUR)}."
+        )
 
 
-def _find_nearest_stamp(moment: datetime) -> datetime:
-    """Return the full hour closest to a moment, for snapshot values. Half past rounds up."""
-    moment = moment.astimezone(timezone.utc) + timedelta(minutes=30)
-    return moment.replace(minute=0, second=0, microsecond=0)
+def _list_hour_stamps(first_stamp: datetime, last_stamp: datetime) -> List[datetime]:
+    """Return the stamp of every hour from the first to the last, both included."""
+    hour_stamps = []
+    stamp = first_stamp
+    while stamp <= last_stamp:
+        hour_stamps.append(stamp)
+        stamp += HOUR
+    return hour_stamps
 
 
 def _check_period_order(start_moment: datetime, end_moment: datetime) -> None:
@@ -95,30 +96,23 @@ class ForecastService:
         """Read one parameter for one point in a worker thread, so a download does not block other requests."""
         return await asyncio.to_thread(self.forecast_source.read_series, parameter, point)
 
-    def _read_value_at(self, series: ForecastSeries, moment: datetime, point: ForecastPoint, parameter: str) -> float:
-        """
-        Return the value at a time: an average or sum from the row whose hour contains the time,
-        a snapshot from the row stamped closest to it.
-        """
-        if parameter in parameters.SNAPSHOTS:
-            stamp = _find_nearest_stamp(moment)
-        else:
-            stamp = _find_closing_stamp(moment)
-        if stamp not in series.values:
+    def _read_value_at(self, series: ForecastSeries, moment: datetime, point: ForecastPoint) -> float:
+        """Return the value stamped at a full hour: an average or sum of the hour up to it, or a snapshot."""
+        if moment not in series.values:
             raise ValueError(
                 f"{format_swiss_time(moment)} is outside the forecast for {point.display_name}. "
                 f"{_describe_covered_range(series)}"
             )
-        return series.values[stamp]
+        return series.values[moment]
 
     def _sum_between(self, series: ForecastSeries, start_moment: datetime, end_moment: datetime, point: ForecastPoint) -> float:
         """Add up the hourly values from start to end."""
         _check_period_order(start_moment, end_moment)
-        first_stamp = _find_closing_stamp(start_moment)
-        last_stamp = _find_closing_stamp(end_moment)
-        # The first hour of the period is the row stamped one hour after its start
-        first_hour_stamp = first_stamp + timedelta(hours=1)
-        if first_hour_stamp < min(series.values) or last_stamp > max(series.values):
+        # A row covers the hour before its stamp, so the first hour is the row stamped one hour after start.
+        # UTC, because adding hours in Swiss time goes wrong when the clocks change.
+        first_stamp = start_moment.astimezone(timezone.utc) + HOUR
+        last_stamp = end_moment.astimezone(timezone.utc)
+        if first_stamp < min(series.values) or last_stamp > max(series.values):
             raise ValueError(
                 f"{format_swiss_time(start_moment)} to {format_swiss_time(end_moment)} is not fully covered "
                 f"by the forecast for {point.display_name}. {_describe_covered_range(series)}"
@@ -127,8 +121,7 @@ class ForecastService:
         total = 0.0
         hours_counted = 0
         for stamp, value in series.values.items():
-            # A row covers the hour before its stamp, so the row stamped at start is not in the period
-            if first_stamp < stamp <= last_stamp:
+            if first_stamp <= stamp <= last_stamp:
                 total += value
                 hours_counted += 1
 
@@ -141,9 +134,10 @@ class ForecastService:
 
     async def read_freezing_level(self, location: str, moment: datetime) -> Dict[str, Any]:
         """Read the height of the 0 °C line at a moment."""
+        _check_full_hour(moment)
         point = await self._find_point(location)
         series = await self._read_series(parameters.FREEZING_LEVEL, point)
-        freezing_level_m = self._read_value_at(series, moment, point, parameters.FREEZING_LEVEL)
+        freezing_level_m = self._read_value_at(series, moment, point)
         return {
             "value": freezing_level_m,
             "unit": "m above sea level",
@@ -158,6 +152,7 @@ class ForecastService:
         Read the mean wind speed, the strongest gust with its 90th percentile and the wind direction
         for the hour up to a moment.
         """
+        _check_full_hour(moment)
         point = await self._find_point(location)
         speed_series, gust_series, upper_gust_series, direction_series = await asyncio.gather(
             self._read_series(parameters.WIND_SPEED, point),
@@ -166,10 +161,10 @@ class ForecastService:
             self._read_series(parameters.WIND_DIRECTION, point),
         )
 
-        speed_kmh = self._read_value_at(speed_series, moment, point, parameters.WIND_SPEED)
-        gusts_kmh = self._read_value_at(gust_series, moment, point, parameters.WIND_GUSTS)
-        upper_gusts_kmh = self._read_value_at(upper_gust_series, moment, point, parameters.WIND_GUSTS_Q90)
-        direction_degrees = self._read_value_at(direction_series, moment, point, parameters.WIND_DIRECTION)
+        speed_kmh = self._read_value_at(speed_series, moment, point)
+        gusts_kmh = self._read_value_at(gust_series, moment, point)
+        upper_gusts_kmh = self._read_value_at(upper_gust_series, moment, point)
+        direction_degrees = self._read_value_at(direction_series, moment, point)
         compass_point = find_compass_point(direction_degrees)
         return {
             "speed_kmh": speed_kmh,
@@ -185,6 +180,8 @@ class ForecastService:
 
     async def read_sunshine_hours(self, location: str, start_moment: datetime, end_moment: datetime) -> Dict[str, Any]:
         """Add up the sunshine over a period, in hours."""
+        _check_full_hour(start_moment)
+        _check_full_hour(end_moment)
         point = await self._find_point(location)
         series = await self._read_series(parameters.SUNSHINE, point)
         sunshine_minutes = self._sum_between(series, start_moment, end_moment, point)
@@ -200,6 +197,7 @@ class ForecastService:
 
     async def read_total_cloud_cover(self, location: str, moment: datetime) -> Dict[str, Any]:
         """Estimate the total cloud cover at a moment from the three overlapping layers."""
+        _check_full_hour(moment)
         point = await self._find_point(location)
         low_series, medium_series, high_series = await asyncio.gather(
             self._read_series(parameters.CLOUD_COVER_LOW, point),
@@ -207,9 +205,9 @@ class ForecastService:
             self._read_series(parameters.CLOUD_COVER_HIGH, point),
         )
 
-        low_fraction = self._read_value_at(low_series, moment, point, parameters.CLOUD_COVER_LOW)
-        medium_fraction = self._read_value_at(medium_series, moment, point, parameters.CLOUD_COVER_MEDIUM)
-        high_fraction = self._read_value_at(high_series, moment, point, parameters.CLOUD_COVER_HIGH)
+        low_fraction = self._read_value_at(low_series, moment, point)
+        medium_fraction = self._read_value_at(medium_series, moment, point)
+        high_fraction = self._read_value_at(high_series, moment, point)
 
         # The layers overlap, so they cannot simply be added. Assuming they are independent, the sky
         # is clear only where all three are clear, which is the standard random overlap estimate.
@@ -243,21 +241,21 @@ class ForecastService:
             Dict[str, Any]: The resolved point, one row per hour labelled with its start and end, and
                 the model run.
         """
-        # A row is stamped at the end of its hour, so the first row is the one closing the hour
-        # that contains the start; an hour ending exactly at the start lies before the period
-        first_stamp = _find_closing_stamp(start_moment)
-        if first_stamp == start_moment:
-            first_stamp += timedelta(hours=1)
+        _check_full_hour(start_moment)
+        # A row covers the hour before its stamp, so the first hour is the row stamped one hour after start.
+        # UTC, because adding hours in Swiss time goes wrong when the clocks change.
+        first_stamp = start_moment.astimezone(timezone.utc) + HOUR
 
         if end_moment is None:
             last_stamp = first_stamp
             period = format_swiss_time(start_moment)
         else:
+            _check_full_hour(end_moment)
             _check_period_order(start_moment, end_moment)
             if end_moment - start_moment > MAX_HOURLY_FORECAST:
                 max_hours = int(MAX_HOURLY_FORECAST.total_seconds() // 3600)
                 raise ValueError(f"An hourly forecast covers at most {max_hours} hours; for whole days use daily_forecast.")
-            last_stamp = _find_closing_stamp(end_moment)
+            last_stamp = end_moment.astimezone(timezone.utc)
             period = f"{format_swiss_time(start_moment)} to {format_swiss_time(end_moment)}"
 
         point = await self._find_point(location)
@@ -268,30 +266,29 @@ class ForecastService:
             self._read_series(parameters.PRECIPITATION_PROBABILITY, point),
             self._read_series(parameters.WEATHER_PICTOGRAM, point),
         )
-        all_series = (temperature_series, lower_series, upper_series, chance_series, pictogram_series)
 
-        hours = []
-        stamp = first_stamp
-        while stamp <= last_stamp:
-            has_values = all(stamp in series.values for series in all_series)
-            if not has_values:
+        hour_stamps = _list_hour_stamps(first_stamp, last_stamp)
+        for series in (temperature_series, lower_series, upper_series, chance_series, pictogram_series):
+            is_covered = all(stamp in series.values for stamp in hour_stamps)
+            if not is_covered:
                 raise ValueError(
                     f"{period} is not fully covered by the forecast for {point.display_name}. "
                     f"{_describe_covered_range(pictogram_series)}"
                 )
-            pictogram_code = int(pictogram_series.values[stamp])
-            description, weather_emoji = _describe_pictogram(pictogram_code)
+
+        hours = []
+        for stamp in hour_stamps:
+            weather, weather_emoji = _describe_pictogram(int(pictogram_series.values[stamp]))
             hours.append({
-                "from": format_swiss_time(stamp - timedelta(hours=1)),
+                "from": format_swiss_time(stamp - HOUR),
                 "to": format_swiss_time(stamp),
                 "temperature_c": temperature_series.values[stamp],
                 "temperature_10th_percentile_c": lower_series.values[stamp],
                 "temperature_90th_percentile_c": upper_series.values[stamp],
                 "rain_chance_percent": chance_series.values[stamp],
-                "weather": description,
+                "weather": weather,
                 "weather_emoji": weather_emoji,
             })
-            stamp += timedelta(hours=1)
 
         return {
             "location": point.display_name,
@@ -313,6 +310,8 @@ class ForecastService:
             Dict[str, Any]: The resolved point, one row per block with the rain chance, the median
                 rainfall and the heaviest hour's 90th percentile, and the model run.
         """
+        _check_full_hour(start_moment)
+        _check_full_hour(end_moment)
         _check_period_order(start_moment, end_moment)
         if end_moment - start_moment > MAX_RAIN_OUTLOOK:
             max_hours = int(MAX_RAIN_OUTLOOK.total_seconds() // 3600)
@@ -326,8 +325,9 @@ class ForecastService:
         )
 
         blocks = []
-        block_start = _find_closing_stamp(start_moment)
-        last_stamp = _find_closing_stamp(end_moment)
+        # UTC, because adding hours in Swiss time goes wrong when the clocks change
+        block_start = start_moment.astimezone(timezone.utc)
+        last_stamp = end_moment.astimezone(timezone.utc)
         while block_start < last_stamp:
             block_end = block_start + RAIN_BLOCK
             # The 3-hour values sit on the block's end, the hourly ones on each of its three hours
