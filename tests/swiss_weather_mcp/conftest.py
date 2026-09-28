@@ -55,6 +55,7 @@ def source_fixture(mocker, tmp_path):
     get_mock = mocker.patch("swiss_weather_mcp.forecast.source.requests.get", side_effect=fake_get)
     forecast_source = LocalForecastSource(tmp_path)
     forecast_source.get_mock = get_mock
+    forecast_source.published = published
     return forecast_source
 
 

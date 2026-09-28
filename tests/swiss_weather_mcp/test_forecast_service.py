@@ -43,6 +43,14 @@ async def test_read_sunshine_hours_past_the_end(service_fixture):
 
 
 @pytest.mark.asyncio
+async def test_read_sunshine_hours_refuses_an_end_inside_an_hour(service_fixture):
+    with pytest.raises(ValueError, match="is not a full hour"):
+        await service_fixture.read_sunshine_hours(
+            "Zurich", build_swiss_time("2026-09-23T14:00"), build_swiss_time("2026-09-23T14:30")
+        )
+
+
+@pytest.mark.asyncio
 async def test_read_sunshine_hours_reversed_period(service_fixture):
     with pytest.raises(ValueError, match="must be after its start"):
         await service_fixture.read_sunshine_hours(
@@ -62,11 +70,9 @@ async def test_read_total_cloud_cover(service_fixture):
 
 
 @pytest.mark.asyncio
-async def test_read_total_cloud_cover_nearest_snapshot(service_fixture):
-    # Cloud cover is a value at the moment of its stamp, not an average over the hour before, so
-    # 14:20 Swiss reads the 14:00 snapshot (12:00 UTC) rather than the one closing that hour
-    answer = await service_fixture.read_total_cloud_cover("Zurich", build_swiss_time("2026-09-23T14:20"))
-    assert answer["value"] == 75.0
+async def test_read_total_cloud_cover_refuses_a_time_inside_an_hour(service_fixture):
+    with pytest.raises(ValueError, match="is not a full hour"):
+        await service_fixture.read_total_cloud_cover("Zurich", build_swiss_time("2026-09-23T14:20"))
 
 
 # --- read_daily_forecast ---
@@ -159,12 +165,23 @@ async def test_read_hourly_forecast_one_hour(service_fixture):
 
 
 @pytest.mark.asyncio
-async def test_read_hourly_forecast_inside_an_hour(service_fixture):
-    # 14:30 Swiss lies in the hour 14:00 to 15:00, which is the row stamped 13:00 UTC
-    answer = await service_fixture.read_hourly_forecast("Zurich", build_swiss_time("2026-09-23T14:30"))
+async def test_read_hourly_forecast_refuses_a_start_inside_an_hour(service_fixture):
+    # MeteoSwiss forecasts whole hours, so the model is told which full hours it can ask for
+    with pytest.raises(ValueError) as raised:
+        await service_fixture.read_hourly_forecast("Zurich", build_swiss_time("2026-09-23T14:30"))
 
-    assert [(hour["from"], hour["to"]) for hour in answer["hours"]] == [("2026-09-23T14:00+02:00", "2026-09-23T15:00+02:00")]
-    assert answer["hours"][0]["temperature_c"] == 14.5
+    assert str(raised.value) == (
+        "2026-09-23T14:30+02:00 is not a full hour. MeteoSwiss forecasts whole hours, so use a full hour "
+        "such as 2026-09-23T14:00+02:00 or 2026-09-23T15:00+02:00."
+    )
+
+
+@pytest.mark.asyncio
+async def test_read_hourly_forecast_refuses_an_end_inside_an_hour(service_fixture):
+    with pytest.raises(ValueError, match="is not a full hour"):
+        await service_fixture.read_hourly_forecast(
+            "Zurich", build_swiss_time("2026-09-23T13:00"), build_swiss_time("2026-09-23T14:30")
+        )
 
 
 @pytest.mark.asyncio
@@ -193,6 +210,26 @@ async def test_read_hourly_forecast_too_long(service_fixture):
         await service_fixture.read_hourly_forecast(
             "Zurich", build_swiss_time("2026-09-23T13:00"), build_swiss_time("2026-09-24T14:00")
         )
+
+
+@pytest.mark.asyncio
+async def test_read_hourly_forecast_when_the_clocks_go_back(service_fixture, source_fixture):
+    # On 25 October 2026 the clocks go back from 03:00 to 02:00, so 01:00 to 04:00 Swiss is 4 hours,
+    # the rows stamped 00:00 to 03:00 UTC, and the hour after 02:00 comes twice
+    for parameter in ("tre200h0", "treq10h0", "treq90h0", "rp0003i0", "jww003i0"):
+        for utc_hour in ("00", "01", "02", "03"):
+            source_fixture.published[parameter][f"20261025{utc_hour}00"] = "1"
+
+    answer = await service_fixture.read_hourly_forecast(
+        "Zurich", build_swiss_time("2026-10-25T01:00"), build_swiss_time("2026-10-25T04:00")
+    )
+
+    assert [(hour["from"], hour["to"]) for hour in answer["hours"]] == [
+        ("2026-10-25T01:00+02:00", "2026-10-25T02:00+02:00"),
+        ("2026-10-25T02:00+02:00", "2026-10-25T02:00+01:00"),
+        ("2026-10-25T02:00+01:00", "2026-10-25T03:00+01:00"),
+        ("2026-10-25T03:00+01:00", "2026-10-25T04:00+01:00"),
+    ]
 
 
 # --- read_rain_outlook ---
@@ -228,6 +265,14 @@ async def test_read_rain_outlook_too_long(service_fixture):
     with pytest.raises(ValueError, match="at most 48 hours"):
         await service_fixture.read_rain_outlook(
             "Zurich", build_swiss_time("2026-09-23T14:00"), build_swiss_time("2026-09-25T20:00")
+        )
+
+
+@pytest.mark.asyncio
+async def test_read_rain_outlook_refuses_a_start_inside_an_hour(service_fixture):
+    with pytest.raises(ValueError, match="is not a full hour"):
+        await service_fixture.read_rain_outlook(
+            "Zurich", build_swiss_time("2026-09-23T14:30"), build_swiss_time("2026-09-23T20:00")
         )
 
 
