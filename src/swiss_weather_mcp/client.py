@@ -28,7 +28,7 @@ except ModuleNotFoundError as error:
         "    pip install 'swiss-weather-mcp[client]'"
     ) from error
 
-from . import LOG_LEVELS, setup_logging
+from .log import LOG_LEVELS, setup_logging
 
 logger = logging.getLogger(__name__)
 
