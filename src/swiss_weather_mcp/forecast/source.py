@@ -37,7 +37,7 @@ How we use it:
    rows of the requested point; with cache_all_locations, keep the whole file.
 3. Cache the files per run, and delete older runs except the one just before.
 
-    <cache dir>/runs/
+    <cache dir>/forecast/runs/
     ├── 202609280800/                    (previous run, kept for requests still reading it)
     └── 202609280900/                    (current run)
         ├── tre200h0_800100_2.csv        (temperature, Zürich 8001 rows only)
@@ -79,7 +79,7 @@ class LocalForecastSource:
     """Read point forecasts from the MeteoSwiss local forecasting collection, cached per model run."""
 
     def __init__(self, cache_dir: Path, cache_all_locations: bool = False):
-        self.cache_dir = cache_dir
+        self.cache_dir = cache_dir / "forecast"
         self.cache_all_locations = cache_all_locations
         self._run_id: Optional[str] = None
         self._run_file_urls: Dict[str, str] = {}

@@ -115,7 +115,7 @@ def test_read_series_downloads_once(source_fixture, location_finder_fixture):
 
 def test_read_series_stores_point_rows(source_fixture, tmp_path, location_finder_fixture):
     source_fixture.read_series("tre200h0", location_finder_fixture.find_point("Zürich"))
-    stored = list((tmp_path / "runs" / RUN_ID).iterdir())
+    stored = list((tmp_path / "forecast" / "runs" / RUN_ID).iterdir())
     assert [path.name for path in stored] == ["tre200h0_800100_2.csv"]
     assert b"999999" not in stored[0].read_bytes()
 
@@ -124,7 +124,7 @@ def test_read_series_stores_all_locations(tmp_path, source_fixture, location_fin
     source_fixture.cache_all_locations = True
     source_fixture.read_series("tre200h0", location_finder_fixture.find_point("Zürich"))
 
-    stored = tmp_path / "runs" / RUN_ID / "tre200h0.csv"
+    stored = tmp_path / "forecast" / "runs" / RUN_ID / "tre200h0.csv"
     assert stored.exists()
     assert b"999999" in stored.read_bytes()
 
@@ -134,29 +134,29 @@ def test_read_series_from_a_full_file(source_fixture, tmp_path, location_finder_
     from_extract = source_fixture.read_series("tre200h0", point).values
 
     source_fixture.cache_all_locations = True
-    (tmp_path / "runs" / RUN_ID / "tre200h0_800100_2.csv").unlink()
+    (tmp_path / "forecast" / "runs" / RUN_ID / "tre200h0_800100_2.csv").unlink()
     assert source_fixture.read_series("tre200h0", point).values == from_extract
 
 
 def test_read_series_drops_old_runs(source_fixture, tmp_path, location_finder_fixture):
     for run in ("202609221100", EARLIER_RUN_ID):
-        superseded = tmp_path / "runs" / run
+        superseded = tmp_path / "forecast" / "runs" / run
         superseded.mkdir(parents=True)
         (superseded / "tre200h0_800100_2.csv").write_bytes(b"stale")
 
     source_fixture.read_series("tre200h0", location_finder_fixture.find_point("Zürich"))
     # 12:00 stays, another server process may still be reading it until it sees the 13:00 run
-    assert sorted(path.name for path in (tmp_path / "runs").iterdir()) == [EARLIER_RUN_ID, RUN_ID]
+    assert sorted(path.name for path in (tmp_path / "forecast" / "runs").iterdir()) == [EARLIER_RUN_ID, RUN_ID]
 
 
 def test_read_series_keeps_a_newer_run(source_fixture, tmp_path, location_finder_fixture):
     # Another server process on the same cache already moved on to a later run
-    newer = tmp_path / "runs" / "202609221400"
+    newer = tmp_path / "forecast" / "runs" / "202609221400"
     newer.mkdir(parents=True)
     (newer / "tre200h0_800100_2.csv").write_bytes(b"newer")
 
     source_fixture.read_series("tre200h0", location_finder_fixture.find_point("Zürich"))
-    assert sorted(path.name for path in (tmp_path / "runs").iterdir()) == [RUN_ID, "202609221400"]
+    assert sorted(path.name for path in (tmp_path / "forecast" / "runs").iterdir()) == [RUN_ID, "202609221400"]
 
 
 def test_read_series_leaves_no_partial_file(source_fixture, tmp_path, location_finder_fixture):
