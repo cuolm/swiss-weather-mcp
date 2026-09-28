@@ -113,8 +113,9 @@ pip install -e ".[client]"
 > - Caches live in your OS cache directory (via [platformdirs](https://github.com/tox-dev/platformdirs),
 >   e.g. `~/Library/Caches/swiss-weather-mcp` on macOS, `~/.cache/swiss-weather-mcp` on Linux),
 >   independent of where the server runs. Set `SWISS_WEATHER_MCP_CACHE_DIR` to put them elsewhere, or
->   delete the directory to clear them. Forecast files sit in one folder per model run, named by the
->   run's time in UTC, such as `runs/202609231100`.
+>   delete the directory to clear them. Each data source has its own folder: `locations`, `forecast`
+>   and `measurements`. Forecast files sit in one folder per model run, named by the run's time in
+>   UTC, such as `forecast/runs/202609231100`.
 
 ## Usage
 

@@ -24,6 +24,11 @@ def test_find_point_station_without_postal_code(location_finder_fixture):
     assert (point.point_id, point.point_type_id) == ("26", "1")
 
 
+def test_find_point_caches_the_point_table_in_its_folder(location_finder_fixture, tmp_path):
+    location_finder_fixture.find_point("8001")
+    assert (tmp_path / "locations" / "ogd-local-forecasting_meta_point.csv").exists()
+
+
 def test_find_point_reads_the_coordinates(location_finder_fixture):
     point = location_finder_fixture.find_point("8001")
     assert (point.east_m, point.north_m) == (2683348.0, 1247414.0)

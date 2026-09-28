@@ -90,7 +90,7 @@ class LocationFinder:
     """Find forecast points by name or postal code in the MeteoSwiss point table, cached on disk."""
 
     def __init__(self, cache_dir: Path):
-        self.cache_dir = cache_dir
+        self.cache_dir = cache_dir / "locations"
         self._points: List[ForecastPoint] = []
         self._point_names_by_other_language_place_name = _load_other_language_place_names()
 
