@@ -12,8 +12,8 @@ from swiss_weather_mcp.forecast.service import _describe_pictogram
 
 @pytest.mark.asyncio
 async def test_read_sunshine_hours(service_fixture):
-    # 08:00 to 15:00 Swiss is 06:00 to 13:00 UTC. The rows stamped 12:00 and 13:00 UTC fall inside:
-    # 60 + 45 minutes. The row stamped 06:00 covers 05:00 to 06:00 UTC, before the period starts.
+    # 08:00 to 15:00 Swiss is 06:00 to 13:00 UTC, the rows stamped 07:00 to 13:00 UTC: 60 + 45
+    # minutes. The row stamped 06:00 covers 05:00 to 06:00 UTC, before the period starts.
     answer = await service_fixture.read_sunshine_hours(
         "Zurich", build_swiss_time("2026-09-23T08:00"), build_swiss_time("2026-09-23T15:00")
     )
@@ -39,6 +39,16 @@ async def test_read_sunshine_hours_past_the_end(service_fixture):
     with pytest.raises(ValueError, match="not fully covered by the forecast"):
         await service_fixture.read_sunshine_hours(
             "Zurich", build_swiss_time("2026-09-23T14:00"), build_swiss_time("2026-09-23T16:00")
+        )
+
+
+@pytest.mark.asyncio
+async def test_read_sunshine_hours_with_a_missing_hour(service_fixture, source_fixture):
+    # An hour MeteoSwiss leaves empty would make the sum too low, so the period is refused
+    del source_fixture.published["sre000h0"]["202609231000"]
+    with pytest.raises(ValueError, match="not fully covered by the forecast"):
+        await service_fixture.read_sunshine_hours(
+            "Zurich", build_swiss_time("2026-09-23T08:00"), build_swiss_time("2026-09-23T15:00")
         )
 
 
