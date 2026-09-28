@@ -1,3 +1,54 @@
+"""
+Read point forecasts from the MeteoSwiss local forecasting collection.
+
+What MeteoSwiss publishes:
+- One STAC item per UTC day, such as 20260928-ch. STAC (SpatioTemporal Asset Catalog)
+  is a standard JSON format that lists geodata files. An item is one entry in the
+  catalog, and its "assets" are the files it lists, each with a download URL.
+- Each hourly model run adds one CSV file per forecast parameter to that day's item,
+  such as the temperature or the rainfall.
+- One file holds the forecast values of one parameter, for all 5,614 points and every
+  time step: hourly, or one per day for daily values. A point is identified by point_id
+  and point_type_id together; the type is 1 for a weather station, 2 for a postal code
+  area and 3 for a point of interest.
+
+    collection ch.meteoschweiz.ogd-local-forecasting
+    └── item 20260928-ch                           (one per UTC day)
+        ├── vnut12.lssw.202609280000.tre200h0.csv  (run 00:00 UTC, temperature)
+        ├── vnut12.lssw.202609280000.rre003i0.csv  (run 00:00 UTC, rainfall)
+        ├── ...                                    (32 parameters per run)
+        └── vnut12.lssw.202609280900.tre200h0.csv  (run 09:00 UTC, temperature)
+
+    vnut12.lssw.202609280900.tre200h0.csv
+    ┌──────────────────────────────────────────┐
+    │ point_id;point_type_id;Date;tre200h0     │  header: the last column is the parameter
+    │ 1;1;202609272100;12.0                    │  Arosa station, 21:00 UTC, 12.0 °C
+    │ ...                                      │
+    │ 800100;2;202609272100;18.5               │  Zürich 8001, 21:00 UTC, 18.5 °C
+    │ 800100;2;202609272200;17.8               │  Zürich 8001, 22:00 UTC, 17.8 °C
+    │ ...                                      │  about 1.2 million rows
+    └──────────────────────────────────────────┘
+
+How we use it:
+1. Read today's STAC item (yesterday's just after midnight UTC) and pick the newest run
+   that has all parameters we need. MeteoSwiss uploads a run file by file, so the
+   newest run can be incomplete.
+2. Download a parameter's file only when a tool asks for it. By default, keep only the
+   rows of the requested point; with cache_all_locations, keep the whole file.
+3. Cache the files per run, and delete older runs except the one just before.
+
+    <cache dir>/runs/
+    ├── 202609280800/                    (previous run, kept for requests still reading it)
+    └── 202609280900/                    (current run)
+        ├── tre200h0_800100_2.csv        (temperature, Zürich 8001 rows only)
+        ├── sre000h0_800100_2.csv        (sunshine, Zürich 8001 rows only)
+        └── ...                          (one file per parameter and point asked for)
+
+    With cache_all_locations, a run folder holds whole files instead:
+    └── 202609280900/
+        ├── tre200h0.csv                 (temperature, all points)
+        └── ...                          (one file per parameter asked for)
+"""
 import logging
 import shutil
 import threading
@@ -37,7 +88,10 @@ class LocalForecastSource:
         self._run_lookup_lock = threading.Lock()
 
     def _fetch_file_urls_by_run(self, day: date) -> Dict[str, Dict[str, str]]:
-        """Return the file URLs of one daily STAC item: for each run, the URL of each parameter's file."""
+        """
+        Return the file URLs of one daily STAC item: for each run, the URL of each parameter's file,
+        such as {"202609280900": {"tre200h0": "https://..."}}.
+        """
         item_url = f"{STAC_BASE_URL}/collections/{COLLECTION_ID}/items/{day.strftime('%Y%m%d')}-ch"
         response = requests.get(item_url, timeout=REQUEST_TIMEOUT_SECONDS)
         if response.status_code == 404:
@@ -71,9 +125,7 @@ class LocalForecastSource:
             if self._run_id is not None and self._run_checked_at and now - self._run_checked_at < RUN_LOOKUP_MAX_AGE:
                 return self._run_id, self._run_file_urls
 
-            # Items are named by UTC day. MeteoSwiss uploads the files of a run one by one over a few
-            # minutes, so the newest run can be incomplete. Just after 00:00 UTC, the newest complete
-            # run is then in yesterday's item.
+            # Just after 00:00 UTC, today's item may hold no complete run yet, so look in yesterday's too
             today = now.date()
             for day in (today, today - timedelta(days=1)):
                 file_urls_by_run = self._fetch_file_urls_by_run(day)
