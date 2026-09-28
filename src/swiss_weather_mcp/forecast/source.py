@@ -37,21 +37,25 @@ class LocalForecastSource:
         self._run_lookup_lock = threading.Lock()
 
     def _fetch_file_urls_by_run(self, day: date) -> Dict[str, Dict[str, str]]:
-        """Return the file URLs of one daily STAC item, grouped by run and keyed by parameter."""
+        """Return the file URLs of one daily STAC item: for each run, the URL of each parameter's file."""
         item_url = f"{STAC_BASE_URL}/collections/{COLLECTION_ID}/items/{day.strftime('%Y%m%d')}-ch"
         response = requests.get(item_url, timeout=REQUEST_TIMEOUT_SECONDS)
         if response.status_code == 404:
             return {}
         response.raise_for_status()
 
+        item = response.json()
+        assets = item.get("assets", {})
         file_urls_by_run: Dict[str, Dict[str, str]] = {}
-        for asset_name, asset in response.json().get("assets", {}).items():
+        for asset_name, asset in assets.items():
             # Asset names look like vnut12.lssw.<run>.<parameter>.csv
             name_parts = asset_name.split(".")
             if len(name_parts) != 5:
                 continue
             _, _, run_id, parameter, _ = name_parts
-            file_urls_by_run.setdefault(run_id, {})[parameter] = asset["href"]
+            if run_id not in file_urls_by_run:
+                file_urls_by_run[run_id] = {}
+            file_urls_by_run[run_id][parameter] = asset["href"]
         return file_urls_by_run
 
     def find_latest_run(self) -> Tuple[str, Dict[str, str]]:
