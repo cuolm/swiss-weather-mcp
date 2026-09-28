@@ -29,14 +29,6 @@ def _check_full_hour(moment: datetime) -> None:
         )
 
 
-def _list_stamps(first_stamp: datetime, last_stamp: datetime, step: timedelta) -> List[datetime]:
-    """Return stamps one step apart, from the first until one reaches the last."""
-    stamps = [first_stamp]
-    while stamps[-1] < last_stamp:
-        stamps.append(stamps[-1] + step)
-    return stamps
-
-
 def _check_period_order(start_moment: datetime, end_moment: datetime) -> None:
     """Refuse a period whose end is not after its start."""
     if end_moment <= start_moment:
@@ -44,6 +36,15 @@ def _check_period_order(start_moment: datetime, end_moment: datetime) -> None:
             f"The end of the period, {format_swiss_time(end_moment)}, must be after its start, "
             f"{format_swiss_time(start_moment)}."
         )
+
+
+def _create_stamps(first_stamp: datetime, last_stamp: datetime, step: timedelta) -> List[datetime]:
+    """Return stamps one step apart, from the first until one reaches the last."""
+    stamps = [first_stamp]
+    while stamps[-1] < last_stamp:
+        stamps.append(stamps[-1] + step)
+    return stamps
+
 
 
 def _describe_covered_range(series: ForecastSeries) -> str:
@@ -71,14 +72,6 @@ def _read_day_value(series: Optional[ForecastSeries], day: date) -> Optional[flo
     return series.values.get(day_stamp)
 
 
-def _find_run_time(all_series: Tuple[Optional[ForecastSeries], ...]) -> Optional[datetime]:
-    """Return the model run of the first published series, or None when none is published."""
-    for series in all_series:
-        if series is not None:
-            return series.run_time
-    return None
-
-
 class ForecastService:
     """Answer weather questions for a location: the value, its unit, the resolved point and the model run."""
 
@@ -102,27 +95,6 @@ class ForecastService:
                 f"{_describe_covered_range(series)}"
             )
         return series.values[moment]
-
-    def _sum_between(self, series: ForecastSeries, start_moment: datetime, end_moment: datetime, point: ForecastPoint) -> float:
-        """Add up the hourly values from start to end."""
-        _check_period_order(start_moment, end_moment)
-        # A row covers the hour before its stamp, so the first hour is the row stamped one hour after start.
-        # UTC, because adding hours in Swiss time goes wrong when the clocks change.
-        first_stamp = start_moment.astimezone(timezone.utc) + HOUR
-        last_stamp = end_moment.astimezone(timezone.utc)
-        hour_stamps = _list_stamps(first_stamp, last_stamp, HOUR)
-
-        period_is_covered = all(stamp in series.values for stamp in hour_stamps)
-        if not period_is_covered:
-            raise ValueError(
-                f"{format_swiss_time(start_moment)} to {format_swiss_time(end_moment)} is not fully covered "
-                f"by the forecast for {point.display_name}. {_describe_covered_range(series)}"
-            )
-
-        total = 0.0
-        for stamp in hour_stamps:
-            total += series.values[stamp]
-        return total
 
     async def read_freezing_level(self, location: str, moment: datetime) -> Dict[str, Any]:
         """Read the height of the 0 °C line at a moment."""
@@ -174,9 +146,25 @@ class ForecastService:
         """Add up the sunshine over a period, in hours."""
         _check_full_hour(start_moment)
         _check_full_hour(end_moment)
+        _check_period_order(start_moment, end_moment)
+        # A row covers the hour before its stamp, so the first hour is the row stamped one hour after start.
+        # UTC, because adding hours in Swiss time goes wrong when the clocks change.
+        first_stamp = start_moment.astimezone(timezone.utc) + HOUR
+        last_stamp = end_moment.astimezone(timezone.utc)
+        hour_stamps = _create_stamps(first_stamp, last_stamp, HOUR)
+
         point = await self._find_point(location)
         series = await self._read_series(parameters.SUNSHINE, point)
-        sunshine_minutes = self._sum_between(series, start_moment, end_moment, point)
+        period_is_covered = all(stamp in series.values for stamp in hour_stamps)
+        if not period_is_covered:
+            raise ValueError(
+                f"{format_swiss_time(start_moment)} to {format_swiss_time(end_moment)} is not fully covered "
+                f"by the forecast for {point.display_name}. {_describe_covered_range(series)}"
+            )
+
+        sunshine_minutes = 0.0
+        for stamp in hour_stamps:
+            sunshine_minutes += series.values[stamp]
         return {
             "value": round(sunshine_minutes / 60, 1),
             "unit": "h",
@@ -259,7 +247,7 @@ class ForecastService:
             self._read_series(parameters.WEATHER_PICTOGRAM, point),
         )
 
-        hour_stamps = _list_stamps(first_stamp, last_stamp, HOUR)
+        hour_stamps = _create_stamps(first_stamp, last_stamp, HOUR)
         for series in (temperature_series, lower_series, upper_series, chance_series, pictogram_series):
             period_is_covered = all(stamp in series.values for stamp in hour_stamps)
             if not period_is_covered:
@@ -321,9 +309,9 @@ class ForecastService:
         last_stamp = end_moment.astimezone(timezone.utc)
         # The 3-hour values sit on the end of each block; the last block may end after the period,
         # as MeteoSwiss gives rain totals only per 3 hours
-        block_ends = _list_stamps(first_stamp + RAIN_BLOCK, last_stamp, RAIN_BLOCK)
+        block_ends = _create_stamps(first_stamp + RAIN_BLOCK, last_stamp, RAIN_BLOCK)
         # The heaviest hour needs the hourly values of every hour in the blocks
-        hour_stamps = _list_stamps(first_stamp + HOUR, block_ends[-1], HOUR)
+        hour_stamps = _create_stamps(first_stamp + HOUR, block_ends[-1], HOUR)
 
         for series, stamps in (
             (chance_series, block_ends),
@@ -340,7 +328,7 @@ class ForecastService:
         blocks = []
         for block_end in block_ends:
             block_start = block_end - RAIN_BLOCK
-            block_hour_stamps = _list_stamps(block_start + HOUR, block_end, HOUR)
+            block_hour_stamps = _create_stamps(block_start + HOUR, block_end, HOUR)
             heaviest_hour_mm = max(upper_series.values[stamp] for stamp in block_hour_stamps)
             blocks.append({
                 "from": format_swiss_time(block_start),
@@ -425,8 +413,11 @@ class ForecastService:
                 row["weather"], row["weather_emoji"] = _describe_pictogram(row["pictogram_code"])
             rows.append(row)
 
-        all_series = (min_series, max_series, rain_series, rain_lower_series, rain_upper_series, pictogram_series)
-        run_time = _find_run_time(all_series)
+        # All series come from the same model run, so any published one gives its time
+        run_time: Optional[datetime] = None
+        for series in (min_series, max_series, rain_series, rain_lower_series, rain_upper_series, pictogram_series):
+            if series is not None:
+                run_time = series.run_time
         if not rows or run_time is None:
             raise ValueError(f"MeteoSwiss has no daily forecast for {point.display_name} from {first_day.isoformat()}.")
         return {
