@@ -29,14 +29,12 @@ def _check_full_hour(moment: datetime) -> None:
         )
 
 
-def _list_hour_stamps(first_stamp: datetime, last_stamp: datetime) -> List[datetime]:
-    """Return the stamp of every hour from the first to the last, both included."""
-    hour_stamps = []
-    stamp = first_stamp
-    while stamp <= last_stamp:
-        hour_stamps.append(stamp)
-        stamp += HOUR
-    return hour_stamps
+def _list_stamps(first_stamp: datetime, last_stamp: datetime, step: timedelta) -> List[datetime]:
+    """Return stamps one step apart, from the first until one reaches the last."""
+    stamps = [first_stamp]
+    while stamps[-1] < last_stamp:
+        stamps.append(stamps[-1] + step)
+    return stamps
 
 
 def _check_period_order(start_moment: datetime, end_moment: datetime) -> None:
@@ -112,24 +110,18 @@ class ForecastService:
         # UTC, because adding hours in Swiss time goes wrong when the clocks change.
         first_stamp = start_moment.astimezone(timezone.utc) + HOUR
         last_stamp = end_moment.astimezone(timezone.utc)
-        if first_stamp < min(series.values) or last_stamp > max(series.values):
+        hour_stamps = _list_stamps(first_stamp, last_stamp, HOUR)
+
+        period_is_covered = all(stamp in series.values for stamp in hour_stamps)
+        if not period_is_covered:
             raise ValueError(
                 f"{format_swiss_time(start_moment)} to {format_swiss_time(end_moment)} is not fully covered "
                 f"by the forecast for {point.display_name}. {_describe_covered_range(series)}"
             )
 
         total = 0.0
-        hours_counted = 0
-        for stamp, value in series.values.items():
-            if first_stamp <= stamp <= last_stamp:
-                total += value
-                hours_counted += 1
-
-        if not hours_counted:
-            raise ValueError(
-                f"{format_swiss_time(start_moment)} to {format_swiss_time(end_moment)} is outside the forecast for {point.display_name}. "
-                f"{_describe_covered_range(series)}"
-            )
+        for stamp in hour_stamps:
+            total += series.values[stamp]
         return total
 
     async def read_freezing_level(self, location: str, moment: datetime) -> Dict[str, Any]:
@@ -267,10 +259,10 @@ class ForecastService:
             self._read_series(parameters.WEATHER_PICTOGRAM, point),
         )
 
-        hour_stamps = _list_hour_stamps(first_stamp, last_stamp)
+        hour_stamps = _list_stamps(first_stamp, last_stamp, HOUR)
         for series in (temperature_series, lower_series, upper_series, chance_series, pictogram_series):
-            is_covered = all(stamp in series.values for stamp in hour_stamps)
-            if not is_covered:
+            period_is_covered = all(stamp in series.values for stamp in hour_stamps)
+            if not period_is_covered:
                 raise ValueError(
                     f"{period} is not fully covered by the forecast for {point.display_name}. "
                     f"{_describe_covered_range(pictogram_series)}"
@@ -324,21 +316,32 @@ class ForecastService:
             self._read_series(parameters.PRECIPITATION_Q90, point),
         )
 
-        blocks = []
         # UTC, because adding hours in Swiss time goes wrong when the clocks change
-        block_start = start_moment.astimezone(timezone.utc)
+        first_stamp = start_moment.astimezone(timezone.utc)
         last_stamp = end_moment.astimezone(timezone.utc)
-        while block_start < last_stamp:
-            block_end = block_start + RAIN_BLOCK
-            # The 3-hour values sit on the block's end, the hourly ones on each of its three hours
-            hour_stamps = [block_end - timedelta(hours=hours_before) for hours_before in (2, 1, 0)]
-            if (block_end not in chance_series.values or block_end not in median_series.values
-                    or any(stamp not in upper_series.values for stamp in hour_stamps)):
+        # The 3-hour values sit on the end of each block; the last block may end after the period,
+        # as MeteoSwiss gives rain totals only per 3 hours
+        block_ends = _list_stamps(first_stamp + RAIN_BLOCK, last_stamp, RAIN_BLOCK)
+        # The heaviest hour needs the hourly values of every hour in the blocks
+        hour_stamps = _list_stamps(first_stamp + HOUR, block_ends[-1], HOUR)
+
+        for series, stamps in (
+            (chance_series, block_ends),
+            (median_series, block_ends),
+            (upper_series, hour_stamps),
+        ):
+            period_is_covered = all(stamp in series.values for stamp in stamps)
+            if not period_is_covered:
                 raise ValueError(
                     f"{format_swiss_time(start_moment)} to {format_swiss_time(end_moment)} is not fully covered "
                     f"by the forecast for {point.display_name}. {_describe_covered_range(median_series)}"
                 )
-            heaviest_hour_mm = max(upper_series.values[stamp] for stamp in hour_stamps)
+
+        blocks = []
+        for block_end in block_ends:
+            block_start = block_end - RAIN_BLOCK
+            block_hour_stamps = _list_stamps(block_start + HOUR, block_end, HOUR)
+            heaviest_hour_mm = max(upper_series.values[stamp] for stamp in block_hour_stamps)
             blocks.append({
                 "from": format_swiss_time(block_start),
                 "to": format_swiss_time(block_end),
@@ -346,7 +349,6 @@ class ForecastService:
                 "rainfall_median_mm": round(median_series.values[block_end], 1),
                 "heaviest_hour_up_to_mm": round(heaviest_hour_mm, 1),
             })
-            block_start = block_end
 
         return {
             "location": point.display_name,
