@@ -10,23 +10,6 @@ from .source import ForecastSeries, LocalForecastSource
 
 logger = logging.getLogger(__name__)
 
-# The field each cloud layer fills in the answer, lowest first
-CLOUD_LAYERS = (
-    ("low", parameters.CLOUD_COVER_LOW),
-    ("medium", parameters.CLOUD_COVER_MEDIUM),
-    ("high", parameters.CLOUD_COVER_HIGH),
-)
-
-# The field each daily parameter fills in the daily forecast
-DAILY_PARAMETERS = (
-    ("temperature_min_c", parameters.TEMPERATURE_DAY_MIN),
-    ("temperature_max_c", parameters.TEMPERATURE_DAY_MAX),
-    ("rainfall_median_mm", parameters.PRECIPITATION_DAY),
-    ("rainfall_10th_percentile_mm", parameters.PRECIPITATION_DAY_Q10),
-    ("rainfall_90th_percentile_mm", parameters.PRECIPITATION_DAY_Q90),
-    ("weather", parameters.WEATHER_PICTOGRAM_DAY),
-)
-
 # MeteoSwiss publishes today and the next 8 days
 MAX_DAYS = 9
 
@@ -80,26 +63,18 @@ def _describe_pictogram(pictogram_code: int) -> Tuple[str, Optional[str]]:
     return pictogram
 
 
-def _build_day(series_by_field: Dict[str, Optional[ForecastSeries]], day: date) -> Optional[Dict[str, Any]]:
-    """Build one day's values from the daily series, or return None when none has a value that day."""
+def _read_day_value(series: Optional[ForecastSeries], day: date) -> Optional[float]:
+    """Return the value of a daily series for one day, or None when the series or the day is missing."""
+    if series is None:
+        return None
     # A daily row is stamped 00:00 on the Swiss calendar day it describes
     day_stamp = datetime(day.year, day.month, day.day, tzinfo=timezone.utc)
-    day_values: Dict[str, Any] = {}
-    for field, series in series_by_field.items():
-        day_values[field] = series.values.get(day_stamp) if series is not None else None
-    if all(value is None for value in day_values.values()):
-        return None
-
-    # The pictogram is published as a code, which is only useful once it is spelled out
-    if day_values["weather"] is not None:
-        day_values["pictogram_code"] = int(day_values["weather"])
-        day_values["weather"], day_values["weather_emoji"] = _describe_pictogram(day_values["pictogram_code"])
-    return day_values
+    return series.values.get(day_stamp)
 
 
-def _find_run_time(series_by_field: Dict[str, Optional[ForecastSeries]]) -> Optional[datetime]:
+def _find_run_time(all_series: Tuple[Optional[ForecastSeries], ...]) -> Optional[datetime]:
     """Return the model run of the first published series, or None when none is published."""
-    for series in series_by_field.values():
+    for series in all_series:
         if series is not None:
             return series.run_time
     return None
@@ -234,21 +209,25 @@ class ForecastService:
     async def read_total_cloud_cover(self, location: str, moment: datetime) -> Dict[str, Any]:
         """Estimate the total cloud cover at a moment from the three overlapping layers."""
         point = await self._find_point(location)
-        series_reads = [self._read_series(parameter, point) for _, parameter in CLOUD_LAYERS]
-        all_series = await asyncio.gather(*series_reads)
-        layers: Dict[str, float] = {}
-        for (layer, parameter), series in zip(CLOUD_LAYERS, all_series):
-            layers[layer] = self._read_value_at(series, moment, point, parameter)
+        low_series, medium_series, high_series = await asyncio.gather(
+            self._read_series(parameters.CLOUD_COVER_LOW, point),
+            self._read_series(parameters.CLOUD_COVER_MEDIUM, point),
+            self._read_series(parameters.CLOUD_COVER_HIGH, point),
+        )
+
+        low_fraction = self._read_value_at(low_series, moment, point, parameters.CLOUD_COVER_LOW)
+        medium_fraction = self._read_value_at(medium_series, moment, point, parameters.CLOUD_COVER_MEDIUM)
+        high_fraction = self._read_value_at(high_series, moment, point, parameters.CLOUD_COVER_HIGH)
 
         # The layers overlap, so they cannot simply be added. Assuming they are independent, the sky
         # is clear only where all three are clear, which is the standard random overlap estimate.
-        clear_sky = (1 - layers["low"]) * (1 - layers["medium"]) * (1 - layers["high"])
+        clear_sky = (1 - low_fraction) * (1 - medium_fraction) * (1 - high_fraction)
         return self._build_answer(
-            round((1 - clear_sky) * 100, 1), "%", point, series.run_time,
+            round((1 - clear_sky) * 100, 1), "%", point, low_series.run_time,
             valid_at=format_swiss_time(moment),
-            low_percent=round(layers["low"] * 100, 1),
-            medium_percent=round(layers["medium"] * 100, 1),
-            high_percent=round(layers["high"] * 100, 1),
+            low_percent=round(low_fraction * 100, 1),
+            medium_percent=round(medium_fraction * 100, 1),
+            high_percent=round(high_fraction * 100, 1),
         )
 
     async def read_hourly_forecast(
@@ -388,15 +367,6 @@ class ForecastService:
             logger.info(f"No daily {parameter} for {point.display_name}: {error}")
             return None
 
-    async def _read_daily_series(self, point: ForecastPoint) -> Dict[str, Optional[ForecastSeries]]:
-        """Read every daily parameter for one point, keyed by answer field; None where it is not published."""
-        series_reads = [self._read_series_if_published(parameter, point) for _, parameter in DAILY_PARAMETERS]
-        all_series = await asyncio.gather(*series_reads)
-        series_by_field: Dict[str, Optional[ForecastSeries]] = {}
-        for (field, _), series in zip(DAILY_PARAMETERS, all_series):
-            series_by_field[field] = series
-        return series_by_field
-
     async def read_daily_forecast(self, location: str, first_day: date, days: int) -> Dict[str, Any]:
         """
         Read the whole-day forecast for one or several days in a row, one row per day.
@@ -416,18 +386,49 @@ class ForecastService:
             raise ValueError(f"days must be between 1 and {MAX_DAYS}, not {days}.")
 
         point = await self._find_point(location)
-        series_by_field = await self._read_daily_series(point)
+        min_series, max_series, rain_series, rain_lower_series, rain_upper_series, pictogram_series = await asyncio.gather(
+            self._read_series_if_published(parameters.TEMPERATURE_DAY_MIN, point),
+            self._read_series_if_published(parameters.TEMPERATURE_DAY_MAX, point),
+            self._read_series_if_published(parameters.PRECIPITATION_DAY, point),
+            self._read_series_if_published(parameters.PRECIPITATION_DAY_Q10, point),
+            self._read_series_if_published(parameters.PRECIPITATION_DAY_Q90, point),
+            self._read_series_if_published(parameters.WEATHER_PICTOGRAM_DAY, point),
+        )
+
         rows = []
         for offset in range(days):
             day = first_day + timedelta(days=offset)
-            day_values = _build_day(series_by_field, day)
-            if day_values is None:
+            temperature_min_c = _read_day_value(min_series, day)
+            temperature_max_c = _read_day_value(max_series, day)
+            rainfall_median_mm = _read_day_value(rain_series, day)
+            rainfall_lower_mm = _read_day_value(rain_lower_series, day)
+            rainfall_upper_mm = _read_day_value(rain_upper_series, day)
+            pictogram_value = _read_day_value(pictogram_series, day)
+            day_values = (
+                temperature_min_c, temperature_max_c, rainfall_median_mm, rainfall_lower_mm, rainfall_upper_mm,
+                pictogram_value,
+            )
+            if all(value is None for value in day_values):
                 continue
-            row: Dict[str, Any] = {"date": day.isoformat(), "weekday": f"{day:%A}"}
-            row.update(day_values)
+
+            row: Dict[str, Any] = {
+                "date": day.isoformat(),
+                "weekday": f"{day:%A}",
+                "temperature_min_c": temperature_min_c,
+                "temperature_max_c": temperature_max_c,
+                "rainfall_median_mm": rainfall_median_mm,
+                "rainfall_10th_percentile_mm": rainfall_lower_mm,
+                "rainfall_90th_percentile_mm": rainfall_upper_mm,
+                "weather": None,
+            }
+            # The pictogram is published as a code, which is only useful once it is spelled out
+            if pictogram_value is not None:
+                row["pictogram_code"] = int(pictogram_value)
+                row["weather"], row["weather_emoji"] = _describe_pictogram(row["pictogram_code"])
             rows.append(row)
 
-        run_time = _find_run_time(series_by_field)
+        all_series = (min_series, max_series, rain_series, rain_lower_series, rain_upper_series, pictogram_series)
+        run_time = _find_run_time(all_series)
         if not rows or run_time is None:
             raise ValueError(f"MeteoSwiss has no daily forecast for {point.display_name} from {first_day.isoformat()}.")
         return {
