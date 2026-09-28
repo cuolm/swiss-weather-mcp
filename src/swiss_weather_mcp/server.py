@@ -12,7 +12,7 @@ from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from platformdirs import user_cache_path
 
-from . import LOG_LEVELS, setup_logging
+from .log import LOG_LEVELS, setup_logging
 from .forecast.service import ForecastService
 from .forecast.source import LocalForecastSource
 from .locations import LocationFinder
