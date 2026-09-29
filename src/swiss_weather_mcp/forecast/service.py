@@ -385,7 +385,15 @@ class ForecastService:
             if all(value is None for value in day_values):
                 continue
 
-            row: Dict[str, Any] = {
+            # The pictogram is published as a code, which is only useful once it is spelled out
+            pictogram_code: Optional[int] = None
+            weather: Optional[str] = None
+            weather_emoji: Optional[str] = None
+            if pictogram_value is not None:
+                pictogram_code = int(pictogram_value)
+                weather, weather_emoji = _describe_pictogram(pictogram_code)
+
+            row = {
                 "date": day.isoformat(),
                 "weekday": f"{day:%A}",
                 "temperature_min_c": temperature_min_c,
@@ -393,12 +401,10 @@ class ForecastService:
                 "rainfall_median_mm": rainfall_median_mm,
                 "rainfall_10th_percentile_mm": rainfall_lower_mm,
                 "rainfall_90th_percentile_mm": rainfall_upper_mm,
-                "weather": None,
+                "pictogram_code": pictogram_code,
+                "weather": weather,
+                "weather_emoji": weather_emoji,
             }
-            # The pictogram is published as a code, which is only useful once it is spelled out
-            if pictogram_value is not None:
-                row["pictogram_code"] = int(pictogram_value)
-                row["weather"], row["weather_emoji"] = _describe_pictogram(row["pictogram_code"])
             rows.append(row)
 
         # All series come from the same model run, so any published one gives its time

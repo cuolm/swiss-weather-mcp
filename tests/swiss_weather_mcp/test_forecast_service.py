@@ -114,6 +114,22 @@ async def test_read_daily_forecast_missing_parameter(service_fixture):
 
 
 @pytest.mark.asyncio
+async def test_read_daily_forecast_without_a_pictogram(service_fixture):
+    # jp2000d0 has no rows for Zurich, so every day still has the weather fields, set to None
+    answer = await service_fixture.read_daily_forecast("Zurich", date(2026, 9, 23), 1)
+    day = answer["days"][0]
+    assert (day["pictogram_code"], day["weather"], day["weather_emoji"]) == (None, None, None)
+
+
+@pytest.mark.asyncio
+async def test_read_daily_forecast_with_a_pictogram(service_fixture, source_fixture):
+    source_fixture.published["jp2000d0"] = {"202609230000": "2"}
+    answer = await service_fixture.read_daily_forecast("Zurich", date(2026, 9, 23), 1)
+    day = answer["days"][0]
+    assert (day["pictogram_code"], day["weather"], day["weather_emoji"]) == (2, "mostly sunny, some clouds", "🌤️")
+
+
+@pytest.mark.asyncio
 async def test_read_daily_forecast_invalid_days(service_fixture):
     for days in (0, 10):
         with pytest.raises(CannotAnswerError, match="between 1 and 9"):
