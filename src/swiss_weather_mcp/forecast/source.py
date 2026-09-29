@@ -82,6 +82,11 @@ class ForecastSeries(NamedTuple):
     values: Dict[datetime, float]
 
 
+def _build_row_prefix(point: LocationPoint) -> bytes:
+    """Return the start every row of a point has in a parameter file, such as b"800100;2;"."""
+    return f"{point.point_id};{point.point_type_id};".encode()
+
+
 class ForecastSource:
     """Read point forecasts from the MeteoSwiss local forecasting collection, cached per model run."""
 
@@ -200,7 +205,8 @@ class ForecastSource:
             download_file(file_url, full_file)
             downloaded_file = full_file
         else:
-            download_file(file_url, point_file, only_rows_starting_with=point.row_prefix)
+            row_prefix = _build_row_prefix(point)
+            download_file(file_url, point_file, only_rows_starting_with=row_prefix)
             downloaded_file = point_file
 
         self._delete_old_cached_runs(run_id)
@@ -208,7 +214,7 @@ class ForecastSource:
 
     def _read_point_values(self, parameter_file: Path, point: LocationPoint) -> Dict[datetime, float]:
         """Read one point's values from a cached file, keyed by UTC timestamp."""
-        row_prefix = point.row_prefix
+        row_prefix = _build_row_prefix(point)
         values: Dict[datetime, float] = {}
 
         with open(parameter_file, "rb") as file:

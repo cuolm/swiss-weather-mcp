@@ -80,11 +80,6 @@ class LocationPoint(NamedTuple):
         name_with_code = f"{self.name} {self.postal_code}" if self.postal_code else self.name
         return f"{name_with_code} ({self.altitude_m:.0f} m)"
 
-    @property
-    def row_prefix(self) -> bytes:
-        """The start every data row of this point has, such as b"800100;2;"."""
-        return f"{self.point_id};{self.point_type_id};".encode()
-
 
 def _rank_point(point: LocationPoint) -> Tuple[bool, str, int]:
     """Sort key for points that share a postal code or name; the first one is used."""
