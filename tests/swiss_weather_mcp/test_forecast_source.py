@@ -10,14 +10,14 @@ from swiss_weather_mcp.forecast import parameters
 from swiss_weather_mcp.forecast.source import ForecastSource
 
 
-# --- find_latest_run ---
+# --- _find_latest_run ---
 
 def test_find_latest_run_newest(mocker, tmp_path):
     item = build_stac_item(EARLIER_RUN_ID, parameters.ALL_PARAMETERS)
     item["assets"].update(build_stac_item(RUN_ID, parameters.ALL_PARAMETERS)["assets"])
     mocker.patch("swiss_weather_mcp.forecast.source.requests.get", return_value=FakeResponse(payload=item))
 
-    run_id, _ = ForecastSource(tmp_path).find_latest_run()
+    run_id, _ = ForecastSource(tmp_path)._find_latest_run()
     assert run_id == RUN_ID
 
 
@@ -26,7 +26,7 @@ def test_find_latest_run_falls_back_to_yesterday(mocker, tmp_path):
     responses = [FakeResponse(payload={"assets": {}}), FakeResponse(payload=build_stac_item(RUN_ID, parameters.ALL_PARAMETERS))]
     mocker.patch("swiss_weather_mcp.forecast.source.requests.get", side_effect=responses)
 
-    run_id, _ = ForecastSource(tmp_path).find_latest_run()
+    run_id, _ = ForecastSource(tmp_path)._find_latest_run()
     assert run_id == RUN_ID
 
 
@@ -36,7 +36,7 @@ def test_find_latest_run_skips_a_run_being_uploaded(mocker, tmp_path):
     item["assets"].update(build_stac_item(RUN_ID, ["zprfr0hs"])["assets"])
     mocker.patch("swiss_weather_mcp.forecast.source.requests.get", return_value=FakeResponse(payload=item))
 
-    run_id, _ = ForecastSource(tmp_path).find_latest_run()
+    run_id, _ = ForecastSource(tmp_path)._find_latest_run()
     assert run_id == EARLIER_RUN_ID
 
 
@@ -48,7 +48,7 @@ def test_find_latest_run_skips_a_first_run_being_uploaded(mocker, tmp_path):
     ]
     mocker.patch("swiss_weather_mcp.forecast.source.requests.get", side_effect=responses)
 
-    run_id, _ = ForecastSource(tmp_path).find_latest_run()
+    run_id, _ = ForecastSource(tmp_path)._find_latest_run()
     assert run_id == "202609222300"
 
 
@@ -61,7 +61,7 @@ def test_find_latest_run_uses_the_utc_day(mocker, tmp_path):
         return_value=FakeResponse(payload=build_stac_item(RUN_ID, parameters.ALL_PARAMETERS)),
     )
 
-    ForecastSource(tmp_path).find_latest_run()
+    ForecastSource(tmp_path)._find_latest_run()
     requested_url = get_mock.call_args_list[0].args[0]
     assert requested_url.endswith("/items/20260923-ch")
 
@@ -77,7 +77,7 @@ def test_find_latest_run_once_for_parallel_reads(mocker, tmp_path):
 
     get_mock = mocker.patch("swiss_weather_mcp.forecast.source.requests.get", side_effect=answer_slowly)
     forecast_source = ForecastSource(tmp_path)
-    threads = [threading.Thread(target=forecast_source.find_latest_run) for _ in range(parallel_reads)]
+    threads = [threading.Thread(target=forecast_source._find_latest_run) for _ in range(parallel_reads)]
     for thread in threads:
         thread.start()
     for thread in threads:

@@ -88,7 +88,7 @@ class ForecastSource:
         # A tool reads its files in parallel, and all of them must come from the same run
         self._run_lookup_lock = threading.Lock()
 
-    def _fetch_file_urls_by_run(self, day: date) -> Dict[str, Dict[str, str]]:
+    def _fetch_csv_file_urls_by_run(self, day: date) -> Dict[str, Dict[str, str]]:
         """
         Return the file URLs of one daily STAC item: for each run, the URL of each parameter's file,
         such as {"202609280900": {"tre200h0": "https://..."}}.
@@ -101,19 +101,19 @@ class ForecastSource:
 
         item = response.json()
         assets = item.get("assets", {})
-        file_urls_by_run: Dict[str, Dict[str, str]] = {}
+        csv_file_urls_by_run: Dict[str, Dict[str, str]] = {}
         for asset_name, asset in assets.items():
             # Asset names look like vnut12.lssw.<run>.<parameter>.csv
             name_parts = asset_name.split(".")
             if len(name_parts) != 5:
                 continue
             _, _, run_id, parameter, _ = name_parts
-            if run_id not in file_urls_by_run:
-                file_urls_by_run[run_id] = {}
-            file_urls_by_run[run_id][parameter] = asset["href"]
-        return file_urls_by_run
+            if run_id not in csv_file_urls_by_run:
+                csv_file_urls_by_run[run_id] = {}
+            csv_file_urls_by_run[run_id][parameter] = asset["href"]
+        return csv_file_urls_by_run
 
-    def find_latest_run(self) -> Tuple[str, Dict[str, str]]:
+    def _find_latest_run(self) -> Tuple[str, Dict[str, str]]:
         """
         Find the newest published run and the parameter files it holds, reusing the answer for
         RUN_LOOKUP_MAX_AGE.
@@ -129,15 +129,15 @@ class ForecastSource:
             # Just after 00:00 UTC, today's item may hold no complete run yet, so look in yesterday's too
             today = now.date()
             for day in (today, today - timedelta(days=1)):
-                file_urls_by_run = self._fetch_file_urls_by_run(day)
+                csv_file_urls_by_run = self._fetch_csv_file_urls_by_run(day)
                 complete_run_ids = []
-                for run_id, file_urls in file_urls_by_run.items():
+                for run_id, file_urls in csv_file_urls_by_run.items():
                     if parameters.ALL_PARAMETERS.issubset(file_urls):
                         complete_run_ids.append(run_id)
                 if complete_run_ids:
                     # Run IDs are fixed width, so the newest run is the largest string
                     self._run_id = max(complete_run_ids)
-                    self._run_file_urls = file_urls_by_run[self._run_id]
+                    self._run_file_urls = csv_file_urls_by_run[self._run_id]
                     self._run_checked_at = now
                     return self._run_id, self._run_file_urls
 
@@ -145,8 +145,8 @@ class ForecastSource:
             "The MeteoSwiss local forecasting collection published no complete run for today or yesterday"
         )
 
-    def _drop_superseded_runs(self, current_run_id: str) -> None:
-        """Remove the folders of runs older than the current one, except the run just before it."""
+    def _delete_old_cached_runs(self, current_run_id: str) -> None:
+        """Delete the cached runs older than the current one, except the run just before it."""
         # Run IDs are fixed width, so comparing them as text compares them in time
         older_runs = []
         for folder in (self.cache_dir / "runs").iterdir():
@@ -158,7 +158,7 @@ class ForecastSource:
         # Keep the previous run. Another request, or another server using the same cache, may
         # still read from it for a few minutes. Runs come an hour apart, so one is enough.
         for folder in older_runs[:-1]:
-            logger.info(f"Dropping superseded run {folder.name}")
+            logger.info(f"Deleting old cached run {folder.name}")
             shutil.rmtree(folder, ignore_errors=True)
 
     def _ensure_parameter_file(self, parameter: str, point: LocationPoint, run_id: str, file_url: str) -> Path:
@@ -181,7 +181,7 @@ class ForecastSource:
             download_file(file_url, point_file, only_rows_starting_with=point.row_prefix)
             downloaded_file = point_file
 
-        self._drop_superseded_runs(run_id)
+        self._delete_old_cached_runs(run_id)
         return downloaded_file
 
     def _read_point_values(self, parameter_file: Path, point: LocationPoint) -> Dict[datetime, float]:
@@ -214,7 +214,7 @@ class ForecastSource:
         Returns:
             ForecastSeries: The run the values came from, and the values keyed by UTC timestamp.
         """
-        run_id, file_urls = self.find_latest_run()
+        run_id, file_urls = self._find_latest_run()
         if parameter not in file_urls:
             raise CannotAnswerError(f"MeteoSwiss's newest forecast does not include '{parameter}'.")
 
