@@ -113,19 +113,19 @@ class MeasurementSource:
         if self._stations:
             return self._stations
 
-        station_table = ensure_recent_file(
-            STATION_TABLE_URL, self.cache_dir / "ogd-smn_meta_stations.csv", STATION_TABLE_MAX_AGE
-        )
+        station_table_file = self.cache_dir / "ogd-smn_meta_stations.csv"
+        station_table = ensure_recent_file(STATION_TABLE_URL, station_table_file, STATION_TABLE_MAX_AGE)
         stations: Dict[str, Station] = {}
         with open(station_table, newline="", encoding="latin-1") as file:
             for row in csv.DictReader(file, delimiter=";"):
-                stations[row["station_abbr"]] = Station(
+                station = Station(
                     abbr=row["station_abbr"],
                     name=row["station_name"],
                     altitude_m=float(row["station_height_masl"]),
                     east_m=float(row["station_coordinates_lv95_east"]),
                     north_m=float(row["station_coordinates_lv95_north"]),
                 )
+                stations[station.abbr] = station
         # Published only once complete, so a parallel request never sees part of the table
         self._stations = stations
         logger.info(f"Loaded {len(stations)} weather stations")
@@ -139,9 +139,8 @@ class MeasurementSource:
             List[StationMeasurements]: One entry per station, with its values keyed by parameter.
         """
         stations = self._load_stations()
-        current_values = ensure_recent_file(
-            CURRENT_VALUES_URL, self.cache_dir / "VQHA80.csv", CURRENT_VALUES_MAX_AGE
-        )
+        current_values_file = self.cache_dir / "VQHA80.csv"
+        current_values = ensure_recent_file(CURRENT_VALUES_URL, current_values_file, CURRENT_VALUES_MAX_AGE)
 
         all_measurements = []
         with open(current_values, newline="", encoding="latin-1") as file:
@@ -149,8 +148,12 @@ class MeasurementSource:
                 station = stations.get(row["Station/Location"])
                 if station is None:
                     continue  # a station without a place in the station table cannot be located
-                values = {parameter: _parse_value(row[parameter]) for parameter in parameters.ALL_PARAMETERS}
-                all_measurements.append(StationMeasurements(station, parse_stamp(row["Date"]), values))
+                measured_at = parse_stamp(row["Date"])
+                values: Dict[str, Optional[float]] = {}
+                for parameter in parameters.ALL_PARAMETERS:
+                    values[parameter] = _parse_value(row[parameter])
+                measurements = StationMeasurements(station, measured_at, values)
+                all_measurements.append(measurements)
         return all_measurements
 
     def find_nearest_measurements(self, point: LocationPoint) -> StationMeasurements:
