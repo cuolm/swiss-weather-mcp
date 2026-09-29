@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 import pytest
 
 from swiss_weather_mcp.errors import CannotAnswerError
-from swiss_weather_mcp.locations import ForecastPoint
+from swiss_weather_mcp.locations import LocationPoint
 from swiss_weather_mcp.measurements import parameters
 
 # How far back a cached file is dated to make it older than the 5 minutes it is kept
@@ -58,7 +58,7 @@ def test_read_current_measurements_downloads_again_when_old(source_fixture, meas
 
 def test_find_nearest_measurements_skips_a_station_without_temperature(measurement_source_fixture):
     # Standing on the Uetliberg, whose station has no thermometer, the next one is Fluntern
-    uetliberg = ForecastPoint(
+    uetliberg = LocationPoint(
         point_id="1", point_type_id="3", name="Uetliberg", postal_code="", altitude_m=869.0,
         east_m=2679455.0, north_m=1245034.0,
     )

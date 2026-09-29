@@ -4,7 +4,7 @@ from importlib import resources
 import pytest
 
 from swiss_weather_mcp.errors import CannotAnswerError
-from swiss_weather_mcp.locations import OTHER_LANGUAGE_PLACE_NAMES_FILE, ForecastPoint, _normalise_location
+from swiss_weather_mcp.locations import OTHER_LANGUAGE_PLACE_NAMES_FILE, LocationPoint, _normalise_location
 
 
 # --- find_point ---
@@ -64,9 +64,9 @@ def test_find_point_during_loading(mocker, location_finder_fixture):
         points_built.append(fields["point_id"])
         if len(points_built) == 2:
             found_meanwhile.append(location_finder_fixture.find_point("Davos"))
-        return ForecastPoint(**fields)
+        return LocationPoint(**fields)
 
-    mocker.patch("swiss_weather_mcp.locations.ForecastPoint", side_effect=build_point_and_ask_again)
+    mocker.patch("swiss_weather_mcp.locations.LocationPoint", side_effect=build_point_and_ask_again)
     location_finder_fixture.find_point("Zürich")
 
     assert found_meanwhile[0].point_id == "26"

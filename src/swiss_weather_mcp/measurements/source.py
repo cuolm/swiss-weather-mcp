@@ -33,7 +33,7 @@ How we use it:
    station table for 7 days. The station table is read into memory once per process.
 2. Join each current values row to its station by abbreviation. A station missing from
    the station table has no position, so it is left out.
-3. Find the station nearest to the requested forecast point that measures the
+3. Find the station nearest to the requested location point that measures the
    temperature. Stations without it, such as a wind tower, would answer with almost
    every value missing.
 
@@ -50,7 +50,7 @@ from typing import Dict, List, NamedTuple, Optional
 
 from . import parameters
 from ..errors import CannotAnswerError
-from ..locations import ForecastPoint
+from ..locations import LocationPoint
 from ..opendata import ensure_recent_file, parse_stamp
 
 logger = logging.getLogger(__name__)
@@ -86,8 +86,8 @@ class StationMeasurements(NamedTuple):
     values: Dict[str, Optional[float]]
 
 
-def find_distance_m(point: ForecastPoint, station: Station) -> float:
-    """Return the distance in metres between a forecast point and a station."""
+def find_distance_m(point: LocationPoint, station: Station) -> float:
+    """Return the distance in metres between a location point and a station."""
     # LV95 is a flat grid in metres, so Pythagoras is exact enough within Switzerland
     return math.hypot(station.east_m - point.east_m, station.north_m - point.north_m)
 
@@ -100,7 +100,7 @@ def _parse_value(value_text: str) -> Optional[float]:
 
 
 class MeasurementSource:
-    """Read the latest SwissMetNet measurements and find the station nearest to a forecast point."""
+    """Read the latest SwissMetNet measurements and find the station nearest to a location point."""
 
     def __init__(self, cache_dir: Path):
         self.cache_dir = cache_dir / "measurements"
@@ -151,13 +151,13 @@ class MeasurementSource:
                 all_measurements.append(StationMeasurements(station, parse_stamp(row["Date"]), values))
         return all_measurements
 
-    def find_nearest_measurements(self, point: ForecastPoint) -> StationMeasurements:
+    def find_nearest_measurements(self, point: LocationPoint) -> StationMeasurements:
         """
-        Find the latest measurements of the station nearest to a forecast point that measures the
+        Find the latest measurements of the station nearest to a location point that measures the
         temperature.
 
         Parameters:
-            point (ForecastPoint): The resolved forecast point.
+            point (LocationPoint): The resolved location point.
 
         Returns:
             StationMeasurements: The station, the time of its measurements and its values.
@@ -165,7 +165,8 @@ class MeasurementSource:
         # Some stations measure only a few values, such as wind on a tower, and would answer with
         # almost every value None; a temperature marks a station that measures the usual set
         measurements_with_temperature = []
-        for measurements in self._read_current_measurements():
+        current_measurements = self._read_current_measurements()
+        for measurements in current_measurements:
             if measurements.values[parameters.TEMPERATURE] is not None:
                 measurements_with_temperature.append(measurements)
         if not measurements_with_temperature:

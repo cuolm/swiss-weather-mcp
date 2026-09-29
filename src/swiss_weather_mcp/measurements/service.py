@@ -4,7 +4,7 @@ from typing import Any, Dict
 
 from . import parameters
 from ..formatting import find_compass_point, format_swiss_time
-from ..locations import ForecastPoint, LocationFinder
+from ..locations import LocationPoint, LocationFinder
 from ..opendata import SWISS_TZ
 from .source import MeasurementSource, StationMeasurements, find_distance_m
 
@@ -35,7 +35,7 @@ def _describe_height_difference(difference_m: int) -> str:
     return "at the same height"
 
 
-def _build_nearest_station_sentence(point: ForecastPoint, measurements: StationMeasurements,
+def _build_nearest_station_sentence(point: LocationPoint, measurements: StationMeasurements,
                                     distance_km: float, difference_m: int) -> str:
     """Build the sentence that says which station measured the values, such as "Glarus (517 m) is ..."."""
     measured_at = measurements.measured_at.astimezone(SWISS_TZ)
@@ -53,11 +53,11 @@ class MeasurementService:
         self.location_finder = location_finder
         self.measurement_source = measurement_source
 
-    async def _find_point(self, location: str) -> ForecastPoint:
-        """Find the forecast point for a location in a worker thread, so a download does not block other requests."""
+    async def _find_point(self, location: str) -> LocationPoint:
+        """Find the location point for a location in a worker thread, so a download does not block other requests."""
         return await asyncio.to_thread(self.location_finder.find_point, location)
 
-    async def _find_nearest_measurements(self, point: ForecastPoint) -> StationMeasurements:
+    async def _find_nearest_measurements(self, point: LocationPoint) -> StationMeasurements:
         """Find the nearest station's measurements in a worker thread, so a download does not block other requests."""
         return await asyncio.to_thread(self.measurement_source.find_nearest_measurements, point)
 

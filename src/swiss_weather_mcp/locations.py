@@ -1,5 +1,5 @@
 """
-Find the MeteoSwiss forecast point for a place name or a Swiss postal code.
+Find the location point for a place name or a Swiss postal code.
 
 What MeteoSwiss publishes:
 - A point table, ogd-local-forecasting_meta_point.csv, with the 5,614 places it
@@ -63,8 +63,8 @@ POINT_TABLE_MAX_AGE = timedelta(days=7)
 OTHER_LANGUAGE_PLACE_NAMES_FILE = "other_language_place_names.csv"
 
 
-class ForecastPoint(NamedTuple):
-    """A forecast location as the MeteoSwiss point table describes it."""
+class LocationPoint(NamedTuple):
+    """One of the places in the MeteoSwiss point table."""
     point_id: str
     point_type_id: str
     name: str
@@ -85,7 +85,7 @@ class ForecastPoint(NamedTuple):
         return f"{self.point_id};{self.point_type_id};".encode()
 
 
-def _rank_point(point: ForecastPoint) -> Tuple[bool, str, int]:
+def _rank_point(point: LocationPoint) -> Tuple[bool, str, int]:
     """Sort key for points that share a postal code or name; the first one is used."""
     return (not point.postal_code, point.postal_code, int(point.point_id))
 
@@ -101,9 +101,9 @@ def _normalise_location(location: str) -> str:
     return without_accents.strip()
 
 
-def _choose_point_per_postal_code(ranked_points: List[ForecastPoint]) -> Dict[str, ForecastPoint]:
+def _choose_point_per_postal_code(ranked_points: List[LocationPoint]) -> Dict[str, LocationPoint]:
     """Map each postal code to its first ranked point."""
-    chosen_point_by_postal_code: Dict[str, ForecastPoint] = {}
+    chosen_point_by_postal_code: Dict[str, LocationPoint] = {}
     for point in ranked_points:
         if not point.postal_code:
             continue  # stations and points of interest have none
@@ -112,9 +112,9 @@ def _choose_point_per_postal_code(ranked_points: List[ForecastPoint]) -> Dict[st
     return chosen_point_by_postal_code
 
 
-def _choose_point_per_name(ranked_points: List[ForecastPoint]) -> Dict[str, ForecastPoint]:
+def _choose_point_per_name(ranked_points: List[LocationPoint]) -> Dict[str, LocationPoint]:
     """Map each normalised name to its first ranked point."""
-    chosen_point_by_name: Dict[str, ForecastPoint] = {}
+    chosen_point_by_name: Dict[str, LocationPoint] = {}
     for point in ranked_points:
         point_name = _normalise_location(point.name)
         if point_name not in chosen_point_by_name:
@@ -139,16 +139,16 @@ def _load_other_language_place_names() -> Dict[str, str]:
 
 
 class LocationFinder:
-    """Find forecast points by name or postal code in the MeteoSwiss point table, cached on disk."""
+    """Find location points by name or postal code in the MeteoSwiss point table, cached on disk."""
 
     def __init__(self, cache_dir: Path):
         self.cache_dir = cache_dir / "locations"
         self._point_count = 0
-        self._chosen_point_by_postal_code: Dict[str, ForecastPoint] = {}
-        self._chosen_point_by_name: Dict[str, ForecastPoint] = {}
+        self._chosen_point_by_postal_code: Dict[str, LocationPoint] = {}
+        self._chosen_point_by_name: Dict[str, LocationPoint] = {}
         self._point_names_by_other_language_place_name = _load_other_language_place_names()
 
-    def _read_point_table(self) -> List[ForecastPoint]:
+    def _read_point_table(self) -> List[LocationPoint]:
         """Read every point of the point table, downloading it when it is missing or old."""
         point_table_file = self.cache_dir / "ogd-local-forecasting_meta_point.csv"
         point_table = ensure_recent_file(POINT_TABLE_URL, point_table_file, POINT_TABLE_MAX_AGE)
@@ -156,7 +156,7 @@ class LocationFinder:
         points = []
         with open(point_table, newline="", encoding="latin-1") as file:
             for row in csv.DictReader(file, delimiter=";"):
-                point = ForecastPoint(
+                point = LocationPoint(
                     point_id=row["point_id"],
                     point_type_id=row["point_type_id"],
                     name=row["point_name"],
@@ -180,9 +180,9 @@ class LocationFinder:
         self._chosen_point_by_name = _choose_point_per_name(ranked_points)
         logger.info(f"Loaded {len(points)} forecast locations")
 
-    def find_point(self, location: str) -> ForecastPoint:
+    def find_point(self, location: str) -> LocationPoint:
         """
-        Find the forecast point for a place name or a Swiss postal code.
+        Find the location point for a place name or a Swiss postal code.
 
         Case and accents are ignored, and names in other languages such as "Genf" work too.
         Raise CannotAnswerError when MeteoSwiss has no forecast for the place.

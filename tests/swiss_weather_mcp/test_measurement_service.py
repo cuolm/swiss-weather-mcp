@@ -35,7 +35,7 @@ async def test_read_current_conditions(measurement_service_fixture):
 
 @pytest.mark.asyncio
 async def test_read_current_conditions_values_the_station_lacks(measurement_service_fixture):
-    # The Davos station stands where the Davos forecast point is, and has no rain or direction here
+    # The Davos station stands where the Davos location point is, and has no rain or direction here
     answer = await measurement_service_fixture.read_current_conditions("Davos")
 
     assert (answer["station"], answer["station_distance_km"], answer["station_altitude_difference_m"]) == ("Davos (1594 m)", 0.0, 0)

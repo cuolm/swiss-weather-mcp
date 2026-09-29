@@ -60,7 +60,7 @@ import requests
 
 from . import parameters
 from ..errors import CannotAnswerError
-from ..locations import ForecastPoint
+from ..locations import LocationPoint
 from ..opendata import REQUEST_TIMEOUT_SECONDS, download_file, parse_stamp
 
 logger = logging.getLogger(__name__)
@@ -161,7 +161,7 @@ class ForecastSource:
             logger.info(f"Dropping superseded run {folder.name}")
             shutil.rmtree(folder, ignore_errors=True)
 
-    def _ensure_parameter_file(self, parameter: str, point: ForecastPoint, run_id: str, file_url: str) -> Path:
+    def _ensure_parameter_file(self, parameter: str, point: LocationPoint, run_id: str, file_url: str) -> Path:
         """Return the cached file with this parameter for this point and run, downloading it if missing."""
         run_dir = self.cache_dir / "runs" / run_id
         full_file = run_dir / f"{parameter}.csv"
@@ -184,7 +184,7 @@ class ForecastSource:
         self._drop_superseded_runs(run_id)
         return downloaded_file
 
-    def _read_point_values(self, parameter_file: Path, point: ForecastPoint) -> Dict[datetime, float]:
+    def _read_point_values(self, parameter_file: Path, point: LocationPoint) -> Dict[datetime, float]:
         """Read one point's values from a cached file, keyed by UTC timestamp."""
         row_prefix = point.row_prefix
         values: Dict[datetime, float] = {}
@@ -203,13 +203,13 @@ class ForecastSource:
 
         return values
 
-    def read_series(self, parameter: str, point: ForecastPoint) -> ForecastSeries:
+    def read_series(self, parameter: str, point: LocationPoint) -> ForecastSeries:
         """
         Read one parameter over the whole forecast window at one point.
 
         Parameters:
             parameter (str): MeteoSwiss parameter shortname (e.g., "tre200h0", "fu3010h0").
-            point (ForecastPoint): The resolved forecast point.
+            point (LocationPoint): The resolved location point.
 
         Returns:
             ForecastSeries: The run the values came from, and the values keyed by UTC timestamp.
