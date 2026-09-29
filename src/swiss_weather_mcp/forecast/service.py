@@ -47,7 +47,6 @@ def _create_stamps(first_stamp: datetime, last_stamp: datetime, step: timedelta)
     return stamps
 
 
-
 def _describe_covered_range(series: ForecastSeries) -> str:
     """Say which times a series covers, for an error message."""
     return (
@@ -73,6 +72,16 @@ def _read_day_value(series: Optional[ForecastSeries], day: date) -> Optional[flo
     return series.values.get(day_stamp)
 
 
+def _read_value_at(series: ForecastSeries, moment: datetime, point: LocationPoint) -> float:
+    """Return the value stamped at a full hour: an average or sum of the hour up to it, or a snapshot."""
+    if moment not in series.values:
+        raise CannotAnswerError(
+            f"{format_swiss_time(moment)} is outside the forecast for {point.display_name}. "
+            f"{_describe_covered_range(series)}"
+        )
+    return series.values[moment]
+
+
 class ForecastService:
     """Answer weather questions for a location: the value, its unit, the resolved point and the model run."""
 
@@ -88,21 +97,12 @@ class ForecastService:
         """Read one parameter for one point in a worker thread, so a download does not block other requests."""
         return await asyncio.to_thread(self.forecast_source.read_series, parameter, point)
 
-    def _read_value_at(self, series: ForecastSeries, moment: datetime, point: LocationPoint) -> float:
-        """Return the value stamped at a full hour: an average or sum of the hour up to it, or a snapshot."""
-        if moment not in series.values:
-            raise CannotAnswerError(
-                f"{format_swiss_time(moment)} is outside the forecast for {point.display_name}. "
-                f"{_describe_covered_range(series)}"
-            )
-        return series.values[moment]
-
     async def read_freezing_level(self, location: str, moment: datetime) -> Dict[str, Any]:
         """Read the height of the 0 °C line at a moment."""
         _check_full_hour(moment)
         point = await self._find_point(location)
         series = await self._read_series(parameters.FREEZING_LEVEL, point)
-        freezing_level_m = self._read_value_at(series, moment, point)
+        freezing_level_m = _read_value_at(series, moment, point)
         return {
             "value": freezing_level_m,
             "unit": "m above sea level",
@@ -126,10 +126,10 @@ class ForecastService:
             self._read_series(parameters.WIND_DIRECTION, point),
         )
 
-        speed_kmh = self._read_value_at(speed_series, moment, point)
-        gusts_kmh = self._read_value_at(gust_series, moment, point)
-        upper_gusts_kmh = self._read_value_at(upper_gust_series, moment, point)
-        direction_degrees = self._read_value_at(direction_series, moment, point)
+        speed_kmh = _read_value_at(speed_series, moment, point)
+        gusts_kmh = _read_value_at(gust_series, moment, point)
+        upper_gusts_kmh = _read_value_at(upper_gust_series, moment, point)
+        direction_degrees = _read_value_at(direction_series, moment, point)
         compass_point = find_compass_point(direction_degrees)
         return {
             "speed_kmh": speed_kmh,
@@ -186,9 +186,9 @@ class ForecastService:
             self._read_series(parameters.CLOUD_COVER_HIGH, point),
         )
 
-        low_fraction = self._read_value_at(low_series, moment, point)
-        medium_fraction = self._read_value_at(medium_series, moment, point)
-        high_fraction = self._read_value_at(high_series, moment, point)
+        low_fraction = _read_value_at(low_series, moment, point)
+        medium_fraction = _read_value_at(medium_series, moment, point)
+        high_fraction = _read_value_at(high_series, moment, point)
 
         # The layers overlap, so they cannot simply be added. Assuming they are independent, the sky
         # is clear only where all three are clear, which is the standard random overlap estimate.
@@ -346,7 +346,7 @@ class ForecastService:
             "model_run": format_swiss_time(median_series.run_time),
         }
 
-    async def _read_series_if_published(self, parameter: str, point: LocationPoint) -> Optional[ForecastSeries]:
+    async def _read_daily_series_if_published(self, parameter: str, point: LocationPoint) -> Optional[ForecastSeries]:
         """Read one parameter for one point, or return None when MeteoSwiss does not publish it there."""
         try:
             return await self._read_series(parameter, point)
@@ -374,12 +374,12 @@ class ForecastService:
 
         point = await self._find_point(location)
         min_series, max_series, rain_series, rain_lower_series, rain_upper_series, pictogram_series = await asyncio.gather(
-            self._read_series_if_published(parameters.TEMPERATURE_DAY_MIN, point),
-            self._read_series_if_published(parameters.TEMPERATURE_DAY_MAX, point),
-            self._read_series_if_published(parameters.PRECIPITATION_DAY, point),
-            self._read_series_if_published(parameters.PRECIPITATION_DAY_Q10, point),
-            self._read_series_if_published(parameters.PRECIPITATION_DAY_Q90, point),
-            self._read_series_if_published(parameters.WEATHER_PICTOGRAM_DAY, point),
+            self._read_daily_series_if_published(parameters.TEMPERATURE_DAY_MIN, point),
+            self._read_daily_series_if_published(parameters.TEMPERATURE_DAY_MAX, point),
+            self._read_daily_series_if_published(parameters.PRECIPITATION_DAY, point),
+            self._read_daily_series_if_published(parameters.PRECIPITATION_DAY_Q10, point),
+            self._read_daily_series_if_published(parameters.PRECIPITATION_DAY_Q90, point),
+            self._read_daily_series_if_published(parameters.WEATHER_PICTOGRAM_DAY, point),
         )
 
         rows = []
