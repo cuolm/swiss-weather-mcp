@@ -1,7 +1,10 @@
+import csv
+from importlib import resources
+
 import pytest
 
 from swiss_weather_mcp.errors import CannotAnswerError
-from swiss_weather_mcp.locations import ForecastPoint, _normalise_location, _read_other_language_place_name_rows
+from swiss_weather_mcp.locations import OTHER_LANGUAGE_PLACE_NAMES_FILE, ForecastPoint, _normalise_location
 
 
 # --- find_point ---
@@ -69,9 +72,18 @@ def test_find_point_during_loading(mocker, location_finder_fixture):
     assert found_meanwhile[0].point_id == "26"
 
 
-# --- _read_other_language_place_name_rows ---
+# --- other_language_place_names.csv ---
 
-def test_read_other_language_place_name_rows():
+def _read_other_language_place_name_rows():
+    """Read the rows of the shipped file as they are, so duplicates are still visible."""
+    package_files = resources.files("swiss_weather_mcp")
+    names_file = package_files.joinpath(OTHER_LANGUAGE_PLACE_NAMES_FILE)
+    text = names_file.read_text(encoding="utf-8")
+    lines = [line for line in text.splitlines() if not line.startswith("#")]
+    return list(csv.DictReader(lines, delimiter=";"))
+
+
+def test_other_language_place_names_file():
     rows = _read_other_language_place_name_rows()
 
     assert len(rows) > 100
