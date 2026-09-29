@@ -90,7 +90,7 @@ class MeasurementService:
         for field, parameter in MEASURED_FIELDS:
             answer[field] = measurements.values[parameter]
 
-        wind_direction_degrees = answer["wind_direction_degrees"]
+        wind_direction_degrees = measurements.values[parameters.WIND_DIRECTION]
         if wind_direction_degrees is None:
             answer["compass_point"] = None
         else:
