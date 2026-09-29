@@ -412,6 +412,7 @@ class ForecastService:
         for series in (min_series, max_series, rain_series, rain_lower_series, rain_upper_series, pictogram_series):
             if series is not None:
                 run_time = series.run_time
+                break
         if not rows or run_time is None:
             raise CannotAnswerError(f"MeteoSwiss has no daily forecast for {point.display_name} from {first_day.isoformat()}.")
         return {
