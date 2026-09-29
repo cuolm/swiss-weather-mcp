@@ -1,16 +1,22 @@
 """
 Read point forecasts from the MeteoSwiss local forecasting collection.
 
+Terms:
+    STAC item   One JSON document per UTC day, such as 20260929-ch, that lists the
+                files published that day. STAC (SpatioTemporal Asset Catalog) is a
+                standard format for catalogs of geodata files.
+    asset       One file in an item. Its "href" is the file's download URL.
+    run         One hourly computation of the forecast. run_id is its start time in
+                UTC as text, such as "202609290900", and names its files and cache
+                folder; run_time is the same moment as a datetime.
+    parameter   The weather value a file holds, such as tre200h0 (temperature).
+    point       A place with a forecast, identified by point_id and point_type_id
+                together; see locations.py.
+
 What MeteoSwiss publishes:
-- One STAC item per UTC day, such as 20260928-ch. STAC (SpatioTemporal Asset Catalog)
-  is a standard JSON format that lists geodata files. An item is one entry in the
-  catalog, and its "assets" are the files it lists, each with a download URL.
-- Each hourly model run adds one CSV file per forecast parameter to that day's item,
-  such as the temperature or the rainfall.
-- One file holds the forecast values of one parameter, for all 5,614 points and every
-  time step: hourly, or one per day for daily values. A point is identified by point_id
-  and point_type_id together; the type is 1 for a weather station, 2 for a postal code
-  area and 3 for a point of interest.
+- Each hourly run adds one CSV file per parameter to the item of its UTC day.
+- One file holds the values of one parameter for all 5,614 points and every time
+  step: hourly, or one per day for daily values.
 
     collection ch.meteoschweiz.ogd-local-forecasting
     └── item 20260928-ch                           (one per UTC day)
@@ -90,8 +96,24 @@ class ForecastSource:
 
     def _fetch_csv_file_urls_by_run(self, day: date) -> Dict[str, Dict[str, str]]:
         """
-        Return the file URLs of one daily STAC item: for each run, the URL of each parameter's file,
-        such as {"202609280900": {"tre200h0": "https://..."}}.
+        Fetch the STAC item of one UTC day and group its CSV file URLs by run and parameter.
+
+        In, the assets of item 20260929-ch, 12 runs of 32 files each:
+
+            "vnut12.lssw.202609290000.tre200h0.csv": {"href": "https://...", ...}
+            "vnut12.lssw.202609290000.dkl010h0.csv": {"href": "https://...", ...}
+            "vnut12.lssw.202609290100.tre200h0.csv": {"href": "https://...", ...}
+            ...
+
+        Out, one dict per run, with the URL of each parameter's file:
+
+            {
+                "202609290000": {"tre200h0": "https://...", "dkl010h0": "https://...", ...},
+                "202609290100": {"tre200h0": "https://...", ...},
+                ...
+            }
+
+        Return an empty dict when MeteoSwiss has not created the day's item yet.
         """
         item_url = f"{STAC_BASE_URL}/collections/{COLLECTION_ID}/items/{day.strftime('%Y%m%d')}-ch"
         response = requests.get(item_url, timeout=REQUEST_TIMEOUT_SECONDS)
