@@ -1,5 +1,6 @@
 import pytest
 
+from swiss_weather_mcp.errors import CannotAnswerError
 from swiss_weather_mcp.locations import ForecastPoint, _normalise_location, _read_other_language_place_name_rows
 
 
@@ -36,12 +37,12 @@ def test_find_point_reads_the_coordinates(location_finder_fixture):
 
 def test_find_point_rejects_a_near_match(location_finder_fixture):
     # "Wallis" is the canton Valais, its closest name here is a Zurich suburb 150 km away
-    with pytest.raises(ValueError, match="not one of the 4 places"):
+    with pytest.raises(CannotAnswerError, match="not one of the 4 places"):
         location_finder_fixture.find_point("Wallis")
 
 
 def test_find_point_unknown_location(location_finder_fixture):
-    with pytest.raises(ValueError, match="'Tessin'"):
+    with pytest.raises(CannotAnswerError, match="'Tessin'"):
         location_finder_fixture.find_point("Tessin")
 
 

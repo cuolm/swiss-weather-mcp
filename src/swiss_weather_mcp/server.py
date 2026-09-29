@@ -13,6 +13,7 @@ from mcp.server.mcpserver.exceptions import ToolError
 from platformdirs import user_cache_path
 
 from .log import LOG_LEVELS, setup_logging
+from .errors import CannotAnswerError
 from .forecast.service import ForecastService
 from .forecast.source import LocalForecastSource
 from .locations import LocationFinder
@@ -67,7 +68,7 @@ def _parse_swiss_time(timestamp: str) -> datetime:
     try:
         moment = datetime.fromisoformat(timestamp)
     except ValueError as error:
-        raise ValueError(
+        raise CannotAnswerError(
             f"'{timestamp}' is not a valid timestamp, use for example '2026-09-23T14:00' or '2026-09-23'"
         ) from error
     return moment if moment.tzinfo else moment.replace(tzinfo=SWISS_TZ)
@@ -77,8 +78,8 @@ def _handle_tool_call(tool: Callable[..., Awaitable[Dict[str, Any]]]) -> Callabl
     """
     Log each call of a tool, and turn the failures the model can act on into a ToolError.
 
-    A ValueError (a place or time the forecast cannot answer) and a request error (MeteoSwiss out
-    of reach) become a ToolError, whose message mcp shows to the model, and are logged as one
+    A CannotAnswerError (a place or time the forecast cannot answer) and a request error (MeteoSwiss
+    out of reach) become a ToolError, whose message mcp shows to the model, and are logged as one
     warning line. Every other failure stays a crash, which mcp hides from the model and logs with
     its traceback.
 
@@ -92,7 +93,7 @@ def _handle_tool_call(tool: Callable[..., Awaitable[Dict[str, Any]]]) -> Callabl
     async def run_tool(**arguments: Any) -> Dict[str, Any]:
         try:
             answer = await tool(**arguments)
-        except ValueError as error:
+        except CannotAnswerError as error:
             logger.warning(f"{tool.__name__}: {error}")
             raise ToolError(str(error)) from error
         except requests.RequestException as error:

@@ -4,6 +4,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from . import parameters
+from ..errors import CannotAnswerError
 from ..formatting import find_compass_point, format_swiss_time
 from ..locations import ForecastPoint, LocationFinder
 from .source import ForecastSeries, LocalForecastSource
@@ -23,7 +24,7 @@ def _check_full_hour(moment: datetime) -> None:
     """Refuse a time that is not a full hour, as MeteoSwiss forecasts only whole hours."""
     if moment.minute or moment.second or moment.microsecond:
         full_hour = moment.replace(minute=0, second=0, microsecond=0)
-        raise ValueError(
+        raise CannotAnswerError(
             f"{format_swiss_time(moment)} is not a full hour. MeteoSwiss forecasts whole hours, so use a "
             f"full hour such as {format_swiss_time(full_hour)} or {format_swiss_time(full_hour + HOUR)}."
         )
@@ -32,7 +33,7 @@ def _check_full_hour(moment: datetime) -> None:
 def _check_period_order(start_moment: datetime, end_moment: datetime) -> None:
     """Refuse a period whose end is not after its start."""
     if end_moment <= start_moment:
-        raise ValueError(
+        raise CannotAnswerError(
             f"The end of the period, {format_swiss_time(end_moment)}, must be after its start, "
             f"{format_swiss_time(start_moment)}."
         )
@@ -90,7 +91,7 @@ class ForecastService:
     def _read_value_at(self, series: ForecastSeries, moment: datetime, point: ForecastPoint) -> float:
         """Return the value stamped at a full hour: an average or sum of the hour up to it, or a snapshot."""
         if moment not in series.values:
-            raise ValueError(
+            raise CannotAnswerError(
                 f"{format_swiss_time(moment)} is outside the forecast for {point.display_name}. "
                 f"{_describe_covered_range(series)}"
             )
@@ -157,7 +158,7 @@ class ForecastService:
         series = await self._read_series(parameters.SUNSHINE, point)
         period_is_covered = all(stamp in series.values for stamp in hour_stamps)
         if not period_is_covered:
-            raise ValueError(
+            raise CannotAnswerError(
                 f"{format_swiss_time(start_moment)} to {format_swiss_time(end_moment)} is not fully covered "
                 f"by the forecast for {point.display_name}. {_describe_covered_range(series)}"
             )
@@ -234,7 +235,7 @@ class ForecastService:
             _check_period_order(start_moment, end_moment)
             if end_moment - start_moment > MAX_HOURLY_FORECAST:
                 max_hours = int(MAX_HOURLY_FORECAST.total_seconds() // 3600)
-                raise ValueError(f"An hourly forecast covers at most {max_hours} hours; for whole days use daily_forecast.")
+                raise CannotAnswerError(f"An hourly forecast covers at most {max_hours} hours; for whole days use daily_forecast.")
             last_stamp = end_moment.astimezone(timezone.utc)
             period = f"{format_swiss_time(start_moment)} to {format_swiss_time(end_moment)}"
 
@@ -251,7 +252,7 @@ class ForecastService:
         for series in (temperature_series, lower_series, upper_series, chance_series, pictogram_series):
             period_is_covered = all(stamp in series.values for stamp in hour_stamps)
             if not period_is_covered:
-                raise ValueError(
+                raise CannotAnswerError(
                     f"{period} is not fully covered by the forecast for {point.display_name}. "
                     f"{_describe_covered_range(pictogram_series)}"
                 )
@@ -295,7 +296,7 @@ class ForecastService:
         _check_period_order(start_moment, end_moment)
         if end_moment - start_moment > MAX_RAIN_OUTLOOK:
             max_hours = int(MAX_RAIN_OUTLOOK.total_seconds() // 3600)
-            raise ValueError(f"A rain outlook covers at most {max_hours} hours; ask for a shorter period.")
+            raise CannotAnswerError(f"A rain outlook covers at most {max_hours} hours; ask for a shorter period.")
 
         point = await self._find_point(location)
         chance_series, median_series, upper_series = await asyncio.gather(
@@ -320,7 +321,7 @@ class ForecastService:
         ):
             period_is_covered = all(stamp in series.values for stamp in stamps)
             if not period_is_covered:
-                raise ValueError(
+                raise CannotAnswerError(
                     f"{format_swiss_time(start_moment)} to {format_swiss_time(end_moment)} is not fully covered "
                     f"by the forecast for {point.display_name}. {_describe_covered_range(median_series)}"
                 )
@@ -349,7 +350,7 @@ class ForecastService:
         """Read one parameter for one point, or return None when MeteoSwiss does not publish it there."""
         try:
             return await self._read_series(parameter, point)
-        except ValueError as error:
+        except CannotAnswerError as error:
             logger.info(f"No daily {parameter} for {point.display_name}: {error}")
             return None
 
@@ -369,7 +370,7 @@ class ForecastService:
                 does not publish for this location are None.
         """
         if not 1 <= days <= MAX_DAYS:
-            raise ValueError(f"days must be between 1 and {MAX_DAYS}, not {days}.")
+            raise CannotAnswerError(f"days must be between 1 and {MAX_DAYS}, not {days}.")
 
         point = await self._find_point(location)
         min_series, max_series, rain_series, rain_lower_series, rain_upper_series, pictogram_series = await asyncio.gather(
@@ -419,7 +420,7 @@ class ForecastService:
             if series is not None:
                 run_time = series.run_time
         if not rows or run_time is None:
-            raise ValueError(f"MeteoSwiss has no daily forecast for {point.display_name} from {first_day.isoformat()}.")
+            raise CannotAnswerError(f"MeteoSwiss has no daily forecast for {point.display_name} from {first_day.isoformat()}.")
         return {
             "location": point.display_name,
             "altitude_m": point.altitude_m,

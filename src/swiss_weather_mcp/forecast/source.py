@@ -59,6 +59,7 @@ from typing import Dict, NamedTuple, Optional, Tuple
 import requests
 
 from . import parameters
+from ..errors import CannotAnswerError
 from ..locations import ForecastPoint
 from ..opendata import REQUEST_TIMEOUT_SECONDS, download_file, parse_stamp
 
@@ -215,12 +216,12 @@ class LocalForecastSource:
         """
         run_id, file_urls = self.find_latest_run()
         if parameter not in file_urls:
-            raise ValueError(f"MeteoSwiss's newest forecast does not include '{parameter}'.")
+            raise CannotAnswerError(f"MeteoSwiss's newest forecast does not include '{parameter}'.")
 
         parameter_file = self._ensure_parameter_file(parameter, point, run_id, file_urls[parameter])
         values = self._read_point_values(parameter_file, point)
         if not values:
-            raise ValueError(
+            raise CannotAnswerError(
                 f"MeteoSwiss publishes no '{parameter}' values for {point.display_name}. Some entries, "
                 f"such as the regional ones, only carry part of the forecast, try a nearby town."
             )

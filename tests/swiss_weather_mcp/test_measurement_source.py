@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 
 import pytest
 
+from swiss_weather_mcp.errors import CannotAnswerError
 from swiss_weather_mcp.locations import ForecastPoint
 from swiss_weather_mcp.measurements import parameters
 
@@ -66,5 +67,5 @@ def test_find_nearest_measurements_skips_a_station_without_temperature(measureme
 
 def test_find_nearest_measurements_without_any_temperature(mocker, location_finder_fixture, measurement_source_fixture):
     mocker.patch.object(measurement_source_fixture, "_read_current_measurements", return_value=[])
-    with pytest.raises(ValueError, match="no temperature measurements"):
+    with pytest.raises(CannotAnswerError, match="no temperature measurements"):
         measurement_source_fixture.find_nearest_measurements(location_finder_fixture.find_point("8001"))

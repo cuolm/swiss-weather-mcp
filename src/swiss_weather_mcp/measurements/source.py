@@ -49,6 +49,7 @@ from pathlib import Path
 from typing import Dict, List, NamedTuple, Optional
 
 from . import parameters
+from ..errors import CannotAnswerError
 from ..locations import ForecastPoint
 from ..opendata import download_file, parse_stamp
 
@@ -180,7 +181,7 @@ class MeasurementSource:
             if measurements.values[parameters.TEMPERATURE] is not None:
                 measurements_with_temperature.append(measurements)
         if not measurements_with_temperature:
-            raise ValueError("MeteoSwiss currently publishes no temperature measurements, try again later.")
+            raise CannotAnswerError("MeteoSwiss currently publishes no temperature measurements, try again later.")
 
         def distance_to_point(measurements: StationMeasurements) -> float:
             return find_distance_m(point, measurements.station)

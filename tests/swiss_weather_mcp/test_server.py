@@ -8,6 +8,7 @@ import pytest
 import requests
 from mcp.server.mcpserver.exceptions import ToolError, UnexpectedToolError
 
+from swiss_weather_mcp.errors import CannotAnswerError
 from swiss_weather_mcp.server import SwissWeatherMCPServer, _parse_swiss_time
 
 SWISS_TZ = ZoneInfo("Europe/Zurich")
@@ -75,7 +76,7 @@ def test_parse_swiss_time_with_a_space():
 
 
 def test_parse_swiss_time_invalid():
-    with pytest.raises(ValueError, match="2026-09-23T14:00"):
+    with pytest.raises(CannotAnswerError, match="2026-09-23T14:00"):
         _parse_swiss_time("tomorrow afternoon")
 
 
@@ -102,7 +103,7 @@ async def test_handle_tool_call_returns_the_answer(server_fixture):
 
 @pytest.mark.asyncio
 async def test_handle_tool_call_value_error(server_fixture, caplog):
-    server_fixture.forecast_service.read_freezing_level.side_effect = ValueError("Location 'Tessin' is not one of the places")
+    server_fixture.forecast_service.read_freezing_level.side_effect = CannotAnswerError("Location 'Tessin' is not one of the places")
 
     with caplog.at_level(logging.INFO), pytest.raises(ToolError, match="Location 'Tessin' is not one of") as raised:
         await server_fixture.mcp.call_tool("freezing_level", {"location": "Tessin", "when": "2026-09-24T14:00"})
@@ -134,6 +135,16 @@ async def test_handle_tool_call_unexpected_error(server_fixture):
     with pytest.raises(UnexpectedToolError) as raised:
         await server_fixture.mcp.call_tool("freezing_level", FREEZING_LEVEL_CALL)
     assert "internal detail" not in str(raised.value)
+
+
+@pytest.mark.asyncio
+async def test_handle_tool_call_unexpected_value_error(server_fixture):
+    # A ValueError that is not a CannotAnswerError is a bug too, such as a changed MeteoSwiss file
+    server_fixture.forecast_service.read_freezing_level.side_effect = ValueError("could not convert string to float")
+
+    with pytest.raises(UnexpectedToolError) as raised:
+        await server_fixture.mcp.call_tool("freezing_level", FREEZING_LEVEL_CALL)
+    assert "could not convert" not in str(raised.value)
 
 
 # --- current_date_and_time ---

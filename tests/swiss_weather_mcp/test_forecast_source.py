@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 import pytest
 
 from fakes import EARLIER_RUN_ID, RUN_ID, FakeResponse, build_stac_item
+from swiss_weather_mcp.errors import CannotAnswerError
 from swiss_weather_mcp.forecast import parameters
 from swiss_weather_mcp.forecast.source import LocalForecastSource
 
@@ -167,5 +168,5 @@ def test_read_series_leaves_no_partial_file(source_fixture, tmp_path, location_f
 def test_read_series_no_values(source_fixture, location_finder_fixture):
     davos = location_finder_fixture.find_point("Davos")
     # Regional entries are published for some parameters and not others
-    with pytest.raises(ValueError, match="no 'tre200h0' values for Davos"):
+    with pytest.raises(CannotAnswerError, match="no 'tre200h0' values for Davos"):
         source_fixture.read_series("tre200h0", davos)

@@ -12,6 +12,7 @@ from importlib import resources
 from pathlib import Path
 from typing import Dict, List, NamedTuple, Tuple
 
+from .errors import CannotAnswerError
 from .opendata import download_file
 
 logger = logging.getLogger(__name__)
@@ -152,7 +153,7 @@ class LocationFinder:
         if not matches:
             matches = [point for point in points if _normalise_location(point.name) == normalised_location]
         if not matches:
-            raise ValueError(
+            raise CannotAnswerError(
                 f"Location '{location}' is not one of the {len(points)} places MeteoSwiss publishes "
                 f"forecasts for. Check the spelling, or try a nearby town, village or postal code."
             )
