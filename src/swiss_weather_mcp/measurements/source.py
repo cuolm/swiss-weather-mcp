@@ -132,12 +132,7 @@ class MeasurementSource:
         return stations
 
     def _read_current_measurements(self) -> List[StationMeasurements]:
-        """
-        Read the latest measurements of every station that is in the station table.
-
-        Returns:
-            List[StationMeasurements]: One entry per station, with its values keyed by parameter.
-        """
+        """Read the latest measurements of every station in the station table, None where a station has no value."""
         stations = self._load_stations()
         current_values_file = self.cache_dir / "VQHA80.csv"
         current_values = ensure_recent_file(CURRENT_VALUES_URL, current_values_file, CURRENT_VALUES_MAX_AGE)

@@ -235,6 +235,8 @@ class ForecastSource:
         """
         Read one parameter over the whole forecast window at one point.
 
+        Raise CannotAnswerError when the newest run has no values for the parameter at this point.
+
         Parameters:
             parameter (str): MeteoSwiss parameter shortname (e.g., "tre200h0", "fu3010h0").
             point (LocationPoint): The resolved location point.

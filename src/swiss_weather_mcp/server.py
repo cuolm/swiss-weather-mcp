@@ -56,14 +56,9 @@ def _parse_args() -> argparse.Namespace:
 
 def _parse_swiss_time(timestamp: str) -> datetime:
     """
-    Read an ISO 8601 timestamp or date. Without an offset it is read as Swiss local time, and an
-    explicit offset is kept.
-
-    Parameters:
-        timestamp (str): ISO timestamp, e.g. "2026-09-23T14:00", or a date, e.g. "2026-09-23".
-
-    Returns:
-        datetime: The same instant, timezone aware.
+    Read an ISO 8601 timestamp or date, such as "2026-09-23T14:00" or "2026-09-23". Without an
+    offset it is Swiss local time; an explicit offset is kept. Raise CannotAnswerError when the
+    text is not a timestamp.
     """
     try:
         moment = datetime.fromisoformat(timestamp)
@@ -82,12 +77,6 @@ def _handle_tool_call(tool: Callable[..., Awaitable[Dict[str, Any]]]) -> Callabl
     out of reach) become a ToolError, whose message mcp shows to the model, and are logged as one
     warning line. Every other failure stays a crash, which mcp hides from the model and logs with
     its traceback.
-
-    Parameters:
-        tool (Callable): The tool function, called with its arguments as keywords.
-
-    Returns:
-        Callable: The same tool, with its calls logged and its failures handled as above.
     """
     @functools.wraps(tool)
     async def run_tool(**arguments: Any) -> Dict[str, Any]:

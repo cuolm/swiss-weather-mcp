@@ -213,17 +213,11 @@ class ForecastService:
     ) -> Dict[str, Any]:
         """
         Read the temperature with its 10th and 90th percentile, rain chance and weather for every
-        hour from start to end.
+        hour from start to end, or for the one hour from start when end is None.
 
-        Parameters:
-            location (str): Location name or postal code.
-            start_moment (datetime): Start of the period, timezone aware.
-            end_moment (Optional[datetime]): End of the period, at most MAX_HOURLY_FORECAST after the
-                start; None for the one hour starting at start.
-
-        Returns:
-            Dict[str, Any]: The resolved point, one row per hour labelled with its start and end, and
-                the model run.
+        Return the resolved point, one row per hour labelled with its start and end, and the model
+        run. Times are timezone aware full hours, at most MAX_HOURLY_FORECAST apart. Raise
+        CannotAnswerError when they are not, or when the forecast does not cover them.
         """
         _check_full_hour(start_moment)
         # A row covers the hour before its stamp, so the first hour is the row stamped one hour after start.
@@ -285,14 +279,10 @@ class ForecastService:
         """
         Read when and how much it may rain, in 3-hour blocks from start to end.
 
-        Parameters:
-            location (str): Location name or postal code.
-            start_moment (datetime): Start of the period, timezone aware.
-            end_moment (datetime): End of the period, at most MAX_RAIN_OUTLOOK after the start.
-
-        Returns:
-            Dict[str, Any]: The resolved point, one row per block with the rain chance, the median
-                rainfall and the heaviest hour's 90th percentile, and the model run.
+        Return the resolved point, one row per block with the rain chance, the median rainfall and
+        the heaviest hour's 90th percentile, and the model run. Times are timezone aware full hours,
+        at most MAX_RAIN_OUTLOOK apart. Raise CannotAnswerError when they are not, or when the
+        forecast does not cover them.
         """
         _check_full_hour(start_moment)
         _check_full_hour(end_moment)
@@ -359,18 +349,12 @@ class ForecastService:
 
     async def read_daily_forecast(self, location: str, first_day: date, days: int) -> Dict[str, Any]:
         """
-        Read the whole-day forecast for one or several days in a row, one row per day.
+        Read the whole-day forecast for 1 to MAX_DAYS Swiss calendar days in a row from first_day.
 
-        Parameters:
-            location (str): Location name or postal code.
-            first_day (date): The first Swiss calendar day.
-            days (int): How many days, from 1 to MAX_DAYS.
-
-        Returns:
-            Dict[str, Any]: The resolved point, one row per day with published values (date,
-                weekday, minimum and maximum temperature, rainfall median and 10th and 90th
-                percentile, weather in words with its emoji), and the model run. Fields MeteoSwiss
-                does not publish for this location are None.
+        Return the resolved point, the model run and one row per day with its date, weekday,
+        minimum and maximum temperature, rainfall median with its 10th and 90th percentile, and the
+        weather in words with its emoji. A field MeteoSwiss does not publish for the location is
+        None. Raise CannotAnswerError when days is out of range or no day has a forecast.
         """
         if not 1 <= days <= MAX_DAYS:
             raise CannotAnswerError(f"days must be between 1 and {MAX_DAYS}, not {days}.")

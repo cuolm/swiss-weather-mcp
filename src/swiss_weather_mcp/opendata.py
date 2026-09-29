@@ -38,13 +38,8 @@ def _write_rows_starting_with(response: requests.Response, row_prefix: bytes, fi
 
 def download_file(file_url: str, target_file: Path, only_rows_starting_with: Optional[bytes] = None) -> None:
     """
-    Stream a file from MeteoSwiss to disk.
-
-    Parameters:
-        file_url (str): The file to download.
-        target_file (Path): Where the finished file ends up.
-        only_rows_starting_with (Optional[bytes]): Keep only the rows that start with this, or every
-            line when None.
+    Stream a file from MeteoSwiss to disk. With only_rows_starting_with, keep only the rows
+    that start with it.
     """
     target_file.parent.mkdir(parents=True, exist_ok=True)
     # A unique name, moved into place only when complete, so an interrupted download is never

@@ -64,13 +64,10 @@ class MeasurementService:
         """
         Read the latest measurements of the station nearest to a location.
 
-        Parameters:
-            location (str): Location name or postal code.
-
-        Returns:
-            Dict[str, Any]: The resolved location, the station with its distance and its height
-                above the location (negative when lower), the time of the measurements, and the
-                measured values, None where the station does not measure them.
+        Return the resolved location, the station with its distance and its height above the
+        location (negative when lower), the time of the measurements, and the measured values, None
+        where the station does not measure them. Raise CannotAnswerError for an unknown location or
+        when no station publishes a temperature.
         """
         point = await self._find_point(location)
         measurements = await self._find_nearest_measurements(point)
