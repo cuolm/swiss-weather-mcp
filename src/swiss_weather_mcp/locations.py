@@ -118,7 +118,7 @@ def _choose_point_per_name(ranked_points: List[LocationPoint]) -> Dict[str, Loca
     return chosen_point_by_name
 
 
-def _load_other_language_place_names() -> Dict[str, str]:
+def _read_other_language_place_names() -> Dict[str, str]:
     """Map each other language place name, normalised, to its normalised MeteoSwiss point name."""
     package_files = resources.files("swiss_weather_mcp")
     names_file = package_files.joinpath(OTHER_LANGUAGE_PLACE_NAMES_FILE)
@@ -142,7 +142,7 @@ class LocationFinder:
         self._point_count = 0
         self._chosen_point_by_postal_code: Dict[str, LocationPoint] = {}
         self._chosen_point_by_name: Dict[str, LocationPoint] = {}
-        self._point_names_by_other_language_place_name = _load_other_language_place_names()
+        self._point_names_by_other_language_place_name = _read_other_language_place_names()
 
     def _read_point_table(self) -> List[LocationPoint]:
         """Read every point of the point table, downloading it when it is missing or old."""
