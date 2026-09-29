@@ -63,7 +63,7 @@ def _describe_pictogram(pictogram_code: int) -> Tuple[str, Optional[str]]:
     return pictogram
 
 
-def _read_day_value(series: Optional[ForecastSeries], day: date) -> Optional[float]:
+def _get_daily_value(series: Optional[ForecastSeries], day: date) -> Optional[float]:
     """Return the value of a daily series for one day, or None when the series or the day is missing."""
     if series is None:
         return None
@@ -72,8 +72,11 @@ def _read_day_value(series: Optional[ForecastSeries], day: date) -> Optional[flo
     return series.values.get(day_stamp)
 
 
-def _read_value_at(series: ForecastSeries, moment: datetime, point: LocationPoint) -> float:
-    """Return the value stamped at a full hour: an average or sum of the hour up to it, or a snapshot."""
+def _get_hourly_value(series: ForecastSeries, moment: datetime, point: LocationPoint) -> float:
+    """
+    Return the value of an hourly series at a full hour: an average or sum of the hour up to it,
+    or a snapshot. Raise CannotAnswerError when the forecast does not cover that hour.
+    """
     if moment not in series.values:
         raise CannotAnswerError(
             f"{format_swiss_time(moment)} is outside the forecast for {point.display_name}. "
@@ -102,7 +105,7 @@ class ForecastService:
         _check_full_hour(moment)
         point = await self._find_point(location)
         series = await self._read_series(parameters.FREEZING_LEVEL, point)
-        freezing_level_m = _read_value_at(series, moment, point)
+        freezing_level_m = _get_hourly_value(series, moment, point)
         return {
             "value": freezing_level_m,
             "unit": "m above sea level",
@@ -126,10 +129,10 @@ class ForecastService:
             self._read_series(parameters.WIND_DIRECTION, point),
         )
 
-        speed_kmh = _read_value_at(speed_series, moment, point)
-        gusts_kmh = _read_value_at(gust_series, moment, point)
-        upper_gusts_kmh = _read_value_at(upper_gust_series, moment, point)
-        direction_degrees = _read_value_at(direction_series, moment, point)
+        speed_kmh = _get_hourly_value(speed_series, moment, point)
+        gusts_kmh = _get_hourly_value(gust_series, moment, point)
+        upper_gusts_kmh = _get_hourly_value(upper_gust_series, moment, point)
+        direction_degrees = _get_hourly_value(direction_series, moment, point)
         compass_point = find_compass_point(direction_degrees)
         return {
             "speed_kmh": speed_kmh,
@@ -186,9 +189,9 @@ class ForecastService:
             self._read_series(parameters.CLOUD_COVER_HIGH, point),
         )
 
-        low_fraction = _read_value_at(low_series, moment, point)
-        medium_fraction = _read_value_at(medium_series, moment, point)
-        high_fraction = _read_value_at(high_series, moment, point)
+        low_fraction = _get_hourly_value(low_series, moment, point)
+        medium_fraction = _get_hourly_value(medium_series, moment, point)
+        high_fraction = _get_hourly_value(high_series, moment, point)
 
         # The layers overlap, so they cannot simply be added. Assuming they are independent, the sky
         # is clear only where all three are clear, which is the standard random overlap estimate.
@@ -385,12 +388,12 @@ class ForecastService:
         rows = []
         for offset in range(days):
             day = first_day + timedelta(days=offset)
-            temperature_min_c = _read_day_value(min_series, day)
-            temperature_max_c = _read_day_value(max_series, day)
-            rainfall_median_mm = _read_day_value(rain_series, day)
-            rainfall_lower_mm = _read_day_value(rain_lower_series, day)
-            rainfall_upper_mm = _read_day_value(rain_upper_series, day)
-            pictogram_value = _read_day_value(pictogram_series, day)
+            temperature_min_c = _get_daily_value(min_series, day)
+            temperature_max_c = _get_daily_value(max_series, day)
+            rainfall_median_mm = _get_daily_value(rain_series, day)
+            rainfall_lower_mm = _get_daily_value(rain_lower_series, day)
+            rainfall_upper_mm = _get_daily_value(rain_upper_series, day)
+            pictogram_value = _get_daily_value(pictogram_series, day)
             day_values = (
                 temperature_min_c, temperature_max_c, rainfall_median_mm, rainfall_lower_mm, rainfall_upper_mm,
                 pictogram_value,
