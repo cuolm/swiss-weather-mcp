@@ -29,8 +29,10 @@ What MeteoSwiss publishes:
     └────────────────────────────────────────────────────────────────┘
 
 How we use it:
-1. Download both files and keep them for a while: the current values for 5 minutes, the
-   station table for 7 days. The station table is read into memory once per process.
+1. Read the current values on every question; the file is downloaded again when it is
+   older than 5 minutes. Read the station table on the first question and keep it in
+   memory for as long as the process runs; the file is downloaded first when it is
+   missing or older than 7 days.
 2. Join each current values row to its station by abbreviation. A station missing from
    the station table has no position, so it is left out.
 3. Find the station nearest to the requested location point that measures the
@@ -39,7 +41,7 @@ How we use it:
 
     <cache dir>/measurements/
     ├── VQHA80.csv                    (current values, downloaded again after 5 minutes)
-    └── ogd-smn_meta_stations.csv     (station table, downloaded again after 7 days)
+    └── ogd-smn_meta_stations.csv     (station table, downloaded again when older than 7 days)
 """
 import csv
 import logging

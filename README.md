@@ -6,7 +6,7 @@
 [![Tests](https://github.com/cuolm/swiss-weather-mcp/actions/workflows/tests.yaml/badge.svg)](https://github.com/cuolm/swiss-weather-mcp/actions/workflows/tests.yaml)
 
 A **Model Context Protocol ([MCP](https://modelcontextprotocol.info/))** server that exposes Swiss weather forecast data as callable tools.
-It reads the official [MeteoSwiss local forecast collection](https://opendatadocs.meteoswiss.ch/e-forecast-data/e4-local-forecast-data), caches it locally, and serves predictions such as rainfall, sunshine, temperature, wind and a worded weather summary. MeteoSwiss publishes these forecasts for **5,614 Swiss locations** (weather stations, postal code areas and points of interest), for **today and the next 8 days**, refreshed **every hour**.
+It reads the official [MeteoSwiss local forecast collection](https://opendatadocs.meteoswiss.ch/e-forecast-data/e4-local-forecast-data), caches it locally, and serves predictions such as rainfall, sunshine, temperature, wind and a worded weather summary. MeteoSwiss publishes these forecasts for **5,614 Swiss locations** (weather stations, postal code centers and points of interest), for **today and the next 8 days**, refreshed **every hour**.
 It also reads the [latest measurements](https://opendatadocs.meteoswiss.ch/a-data-groundbased/a1-automatic-weather-stations) of the SwissMetNet weather stations, refreshed **every 10 minutes**, for the weather right now.
 
 There is also an MCP client that can be run to test the server using the stdio transport.
@@ -31,6 +31,8 @@ There is also an MCP client that can be run to test the server using the stdio t
 swiss-weather-mcp/
 ├── src/swiss_weather_mcp/
 │   ├── server.py           # MCP server
+│   ├── errors.py           # The error for questions the data cannot answer
+│   ├── log.py              # Logging setup for the server and the client
 │   ├── locations.py        # Location lookup by name or postal code
 │   ├── opendata.py         # Downloads and timestamps from MeteoSwiss Open Data
 │   ├── formatting.py       # Swiss time and compass points in the answers

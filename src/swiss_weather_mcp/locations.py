@@ -25,8 +25,9 @@ names in Romansh, French, German, Italian and English, such as Genf, Ginevra and
 Geneva for Genève.
 
 How we use it:
-1. On the first question, download the point table, or reuse it for 7 days, and
-   read it once per process.
+1. On the first question, read the point table and keep it in memory for as long as
+   the process runs. The file is downloaded first when it is missing or older than
+   7 days.
 2. Sort the points by rank and keep the first one per postal code and per name:
    postal code centers first, then the lowest postal code, then the lowest point ID.
 
@@ -43,7 +44,7 @@ How we use it:
       3. a name in another language?  yes: "geneve", Genève 1201 (381 m)
 
     <cache dir>/locations/
-    └── ogd-local-forecasting_meta_point.csv   (downloaded again after 7 days)
+    └── ogd-local-forecasting_meta_point.csv   (downloaded again when older than 7 days)
 """
 import csv
 import logging
