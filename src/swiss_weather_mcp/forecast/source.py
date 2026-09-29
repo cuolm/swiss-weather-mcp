@@ -76,7 +76,7 @@ class ForecastSeries(NamedTuple):
     values: Dict[datetime, float]
 
 
-class LocalForecastSource:
+class ForecastSource:
     """Read point forecasts from the MeteoSwiss local forecasting collection, cached per model run."""
 
     def __init__(self, cache_dir: Path, cache_all_locations: bool = False):

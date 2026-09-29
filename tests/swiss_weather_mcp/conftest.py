@@ -5,7 +5,7 @@ from fakes import (
     build_station_table_csv,
 )
 from swiss_weather_mcp.forecast.service import ForecastService
-from swiss_weather_mcp.forecast.source import LocalForecastSource
+from swiss_weather_mcp.forecast.source import ForecastSource
 from swiss_weather_mcp.locations import LocationFinder
 from swiss_weather_mcp.measurements.service import MeasurementService
 from swiss_weather_mcp.measurements.source import MeasurementSource
@@ -14,7 +14,7 @@ from swiss_weather_mcp.measurements.source import MeasurementSource
 @pytest.fixture
 def source_fixture(mocker, tmp_path):
     """
-    Return a LocalForecastSource backed by fake HTTP responses, plus the mock, so tests can count
+    Return a ForecastSource backed by fake HTTP responses, plus the mock, so tests can count
     downloads and swap in different published data.
     """
     published = {
@@ -54,7 +54,7 @@ def source_fixture(mocker, tmp_path):
         return FakeResponse(body=build_parameter_csv(parameter, published[parameter]))
 
     get_mock = mocker.patch("swiss_weather_mcp.forecast.source.requests.get", side_effect=fake_get)
-    forecast_source = LocalForecastSource(tmp_path)
+    forecast_source = ForecastSource(tmp_path)
     forecast_source.get_mock = get_mock
     forecast_source.published = published
     return forecast_source

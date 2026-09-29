@@ -7,7 +7,7 @@ from . import parameters
 from ..errors import CannotAnswerError
 from ..formatting import find_compass_point, format_swiss_time
 from ..locations import ForecastPoint, LocationFinder
-from .source import ForecastSeries, LocalForecastSource
+from .source import ForecastSeries, ForecastSource
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +76,7 @@ def _read_day_value(series: Optional[ForecastSeries], day: date) -> Optional[flo
 class ForecastService:
     """Answer weather questions for a location: the value, its unit, the resolved point and the model run."""
 
-    def __init__(self, location_finder: LocationFinder, forecast_source: LocalForecastSource):
+    def __init__(self, location_finder: LocationFinder, forecast_source: ForecastSource):
         self.location_finder = location_finder
         self.forecast_source = forecast_source
 
