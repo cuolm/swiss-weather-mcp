@@ -12,7 +12,7 @@ from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from platformdirs import user_cache_path
 
-from .log import LOG_LEVELS, setup_logging
+from .log import LOG_LEVELS, LogLevel, setup_logging
 from .errors import CannotAnswerError
 from .forecast.service import ForecastService
 from .forecast.source import LocalForecastSource
@@ -109,10 +109,11 @@ def _handle_tool_call(tool: Callable[..., Awaitable[Dict[str, Any]]]) -> Callabl
 class SwissWeatherMCPServer:
     """The MCP server: registers the weather tools and runs them over stdio or streamable HTTP."""
 
-    def __init__(self, args: argparse.Namespace) -> None:
-        self.host = args.host
-        self.port = args.port
-        self.transport = args.transport
+    def __init__(
+        self, forecast_service: ForecastService, measurement_service: MeasurementService, log_level: LogLevel
+    ) -> None:
+        self.forecast_service = forecast_service
+        self.measurement_service = measurement_service
         self.mcp = MCPServer(
             name="swiss_weather_mcp_server",
             instructions=(
@@ -121,13 +122,8 @@ class SwissWeatherMCPServer:
                 "MeteoSwiss forecasts whole hours, so forecast times must be full hours such as 14:00; "
                 "other times are refused."
             ),
-            log_level=args.log_level,  # forwarded to uvicorn, which configures its own loggers
+            log_level=log_level,  # forwarded to uvicorn, which configures its own loggers
         )
-
-        location_finder = LocationFinder(CACHE_DIR)
-        forecast_source = LocalForecastSource(CACHE_DIR, cache_all_locations=args.cache_all_locations)
-        self.forecast_service = ForecastService(location_finder, forecast_source)
-        self.measurement_service = MeasurementService(location_finder, MeasurementSource(CACHE_DIR))
         self._register_tools()
 
     def _register_tools(self) -> None:
@@ -381,14 +377,24 @@ class SwissWeatherMCPServer:
             """
             return await self.measurement_service.read_current_conditions(location)
 
-    def run(self):
-        """Serve the tools over the transport given on the command line."""
-        if self.transport == "stdio":
+    def run(self, transport: str, host: str, port: int) -> None:
+        """Serve the tools over stdio, or over streamable HTTP on host and port, until the process stops."""
+        if transport == "stdio":
             logger.info("Running server with stdio transport")
             self.mcp.run(transport="stdio")
         else:
             logger.info("Running server with Streamable HTTP transport")
-            self.mcp.run(transport="streamable-http", host=self.host, port=self.port, stateless_http=True)
+            self.mcp.run(transport="streamable-http", host=host, port=port, stateless_http=True)
+
+
+def _build_server(args: argparse.Namespace) -> SwissWeatherMCPServer:
+    """Build the sources and services from the command line options, and the server that uses them."""
+    location_finder = LocationFinder(CACHE_DIR)
+    forecast_source = LocalForecastSource(CACHE_DIR, cache_all_locations=args.cache_all_locations)
+    forecast_service = ForecastService(location_finder, forecast_source)
+    measurement_source = MeasurementSource(CACHE_DIR)
+    measurement_service = MeasurementService(location_finder, measurement_source)
+    return SwissWeatherMCPServer(forecast_service, measurement_service, args.log_level)
 
 
 def main():
@@ -396,8 +402,8 @@ def main():
     try:
         args = _parse_args()
         setup_logging(args.log_level)
-        server = SwissWeatherMCPServer(args)
-        server.run()
+        server = _build_server(args)
+        server.run(args.transport, args.host, args.port)
     except KeyboardInterrupt:
         logger.info("Received KeyboardInterrupt, shutting down.")
     except Exception:

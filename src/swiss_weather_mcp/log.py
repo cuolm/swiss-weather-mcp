@@ -1,8 +1,10 @@
 """Set up logging for the server and client entry points."""
 import logging
 import logging.config
+from typing import Literal, get_args
 
-LOG_LEVELS = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+LOG_LEVELS = list(get_args(LogLevel))
 
 
 def setup_logging(log_level: str = "INFO") -> None:

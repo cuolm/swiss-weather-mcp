@@ -1,4 +1,3 @@
-import argparse
 import json
 import logging
 from datetime import datetime, timezone
@@ -30,16 +29,11 @@ FREEZING_LEVEL_CALL = {"location": "Zurich", "when": "2026-09-24T14:00"}
 
 
 @pytest.fixture
-def server_fixture(mocker, tmp_path):
-    """Return the MCP server with its weather layer replaced by a mock, so no tool reaches the network."""
-    mocker.patch("swiss_weather_mcp.server.CACHE_DIR", tmp_path)
-    args = argparse.Namespace(
-        host="localhost", port=8050, transport="stdio", cache_all_locations=False, log_level="INFO"
-    )
-    server = SwissWeatherMCPServer(args)
-    server.forecast_service = mocker.AsyncMock()
-    server.measurement_service = mocker.AsyncMock()
-    return server
+def server_fixture(mocker):
+    """Return the MCP server with mock services, so no tool reaches the network."""
+    forecast_service = mocker.AsyncMock()
+    measurement_service = mocker.AsyncMock()
+    return SwissWeatherMCPServer(forecast_service, measurement_service, "INFO")
 
 
 # --- _parse_swiss_time ---
