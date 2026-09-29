@@ -3,13 +3,16 @@ Download files from the MeteoSwiss Open Data portal and read its timestamps.
 
 Shared by the forecast and the measurement code. All MeteoSwiss timestamps are UTC.
 """
+import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import BinaryIO, Optional
 from zoneinfo import ZoneInfo
 
 import requests
+
+logger = logging.getLogger(__name__)
 
 SWISS_TZ = ZoneInfo("Europe/Zurich")
 
@@ -62,3 +65,15 @@ def download_file(file_url: str, target_file: Path, only_rows_starting_with: Opt
         partial_file.replace(target_file)
     finally:
         partial_file.unlink(missing_ok=True)
+
+
+def ensure_recent_file(file_url: str, target_file: Path, max_age: timedelta) -> Path:
+    """Return a cached file, downloading it again when it is missing or older than max_age."""
+    if target_file.exists():
+        modified_at = datetime.fromtimestamp(target_file.stat().st_mtime, timezone.utc)
+        if datetime.now(timezone.utc) - modified_at < max_age:
+            return target_file
+
+    logger.info(f"Downloading {file_url}")
+    download_file(file_url, target_file)
+    return target_file

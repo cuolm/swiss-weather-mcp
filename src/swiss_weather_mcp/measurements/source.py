@@ -44,14 +44,14 @@ How we use it:
 import csv
 import logging
 import math
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, NamedTuple, Optional
 
 from . import parameters
 from ..errors import CannotAnswerError
 from ..locations import ForecastPoint
-from ..opendata import download_file, parse_stamp
+from ..opendata import ensure_recent_file, parse_stamp
 
 logger = logging.getLogger(__name__)
 
@@ -99,18 +99,6 @@ def _parse_value(value_text: str) -> Optional[float]:
     return float(value_text)
 
 
-def _ensure_recent_file(file_url: str, target_file: Path, max_age: timedelta) -> Path:
-    """Return a cached file, downloading it again when it is missing or older than max_age."""
-    if target_file.exists():
-        modified_at = datetime.fromtimestamp(target_file.stat().st_mtime, timezone.utc)
-        if datetime.now(timezone.utc) - modified_at < max_age:
-            return target_file
-
-    logger.info(f"Downloading {file_url}")
-    download_file(file_url, target_file)
-    return target_file
-
-
 class MeasurementSource:
     """Read the latest SwissMetNet measurements and find the station nearest to a forecast point."""
 
@@ -123,7 +111,7 @@ class MeasurementSource:
         if self._stations:
             return self._stations
 
-        station_table = _ensure_recent_file(
+        station_table = ensure_recent_file(
             STATION_TABLE_URL, self.cache_dir / "ogd-smn_meta_stations.csv", STATION_TABLE_MAX_AGE
         )
         stations: Dict[str, Station] = {}
@@ -149,7 +137,7 @@ class MeasurementSource:
             List[StationMeasurements]: One entry per station, with its values keyed by parameter.
         """
         stations = self._load_stations()
-        current_values = _ensure_recent_file(
+        current_values = ensure_recent_file(
             CURRENT_VALUES_URL, self.cache_dir / "VQHA80.csv", CURRENT_VALUES_MAX_AGE
         )
 

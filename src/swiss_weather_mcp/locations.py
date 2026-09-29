@@ -7,13 +7,13 @@ stations and points of interest.
 import csv
 import logging
 import unicodedata
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 from importlib import resources
 from pathlib import Path
 from typing import Dict, List, NamedTuple, Tuple
 
 from .errors import CannotAnswerError
-from .opendata import download_file
+from .opendata import ensure_recent_file
 
 logger = logging.getLogger(__name__)
 
@@ -95,25 +95,14 @@ class LocationFinder:
         self._points: List[ForecastPoint] = []
         self._point_names_by_other_language_place_name = _load_other_language_place_names()
 
-    def _ensure_point_table(self) -> Path:
-        """Return the cached point table, downloading it when it is missing or stale."""
-        point_table = self.cache_dir / "ogd-local-forecasting_meta_point.csv"
-        if point_table.exists():
-            modified_at = datetime.fromtimestamp(point_table.stat().st_mtime, timezone.utc)
-            age = datetime.now(timezone.utc) - modified_at
-            if age < POINT_TABLE_MAX_AGE:
-                return point_table
-
-        logger.info("Downloading the MeteoSwiss forecast point table")
-        download_file(POINT_TABLE_URL, point_table)
-        return point_table
-
     def _load_points(self) -> List[ForecastPoint]:
         """Read the point table into memory once per process."""
         if self._points:
             return self._points
 
-        point_table = self._ensure_point_table()
+        point_table = ensure_recent_file(
+            POINT_TABLE_URL, self.cache_dir / "ogd-local-forecasting_meta_point.csv", POINT_TABLE_MAX_AGE
+        )
         points: List[ForecastPoint] = []
         with open(point_table, newline="", encoding="latin-1") as file:
             for row in csv.DictReader(file, delimiter=";"):
