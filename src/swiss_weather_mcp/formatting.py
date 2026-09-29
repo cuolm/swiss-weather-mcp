@@ -1,7 +1,8 @@
 """Write times and wind directions the way the tools answer with them."""
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
-from .opendata import SWISS_TZ
+SWISS_TZ = ZoneInfo("Europe/Zurich")
 
 # Compass points the wind direction in degrees is reported as, clockwise from north
 COMPASS_POINTS = ("N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",

@@ -8,13 +8,10 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import BinaryIO, Optional
-from zoneinfo import ZoneInfo
 
 import requests
 
 logger = logging.getLogger(__name__)
-
-SWISS_TZ = ZoneInfo("Europe/Zurich")
 
 REQUEST_TIMEOUT_SECONDS = 60
 DOWNLOAD_CHUNK_SIZE_BYTES = 1024 * 1024

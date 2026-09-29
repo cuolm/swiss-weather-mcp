@@ -3,9 +3,8 @@ import logging
 from typing import Any, Dict
 
 from . import parameters
-from ..formatting import find_compass_point, format_swiss_time
+from ..formatting import SWISS_TZ, find_compass_point, format_swiss_time
 from ..locations import LocationPoint, LocationFinder
-from ..opendata import SWISS_TZ
 from .source import MeasurementSource, StationMeasurements, find_distance_m
 
 logger = logging.getLogger(__name__)

@@ -19,7 +19,7 @@ from .forecast.source import ForecastSource
 from .locations import LocationFinder
 from .measurements.service import MeasurementService
 from .measurements.source import MeasurementSource
-from .opendata import SWISS_TZ
+from .formatting import SWISS_TZ
 
 logger = logging.getLogger(__name__)
 
