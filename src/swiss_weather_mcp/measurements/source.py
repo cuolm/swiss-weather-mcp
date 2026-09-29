@@ -156,23 +156,21 @@ class MeasurementSource:
         Find the latest measurements of the station nearest to a location point that measures the
         temperature.
 
-        Parameters:
-            point (LocationPoint): The resolved location point.
-
-        Returns:
-            StationMeasurements: The station, the time of its measurements and its values.
+        Raise CannotAnswerError when no station currently publishes a temperature.
         """
-        # Some stations measure only a few values, such as wind on a tower, and would answer with
-        # almost every value None; a temperature marks a station that measures the usual set
-        measurements_with_temperature = []
+        nearest_measurements: Optional[StationMeasurements] = None
+        nearest_distance_m = math.inf
         current_measurements = self._read_current_measurements()
         for measurements in current_measurements:
-            if measurements.values[parameters.TEMPERATURE] is not None:
-                measurements_with_temperature.append(measurements)
-        if not measurements_with_temperature:
+            # Some stations measure only a few values, such as wind on a tower, and would answer
+            # with almost every value None; a temperature marks a station that measures the usual set
+            if measurements.values[parameters.TEMPERATURE] is None:
+                continue
+            distance_m = find_distance_m(point, measurements.station)
+            if distance_m < nearest_distance_m:
+                nearest_measurements = measurements
+                nearest_distance_m = distance_m
+
+        if nearest_measurements is None:
             raise CannotAnswerError("MeteoSwiss currently publishes no temperature measurements, try again later.")
-
-        def distance_to_point(measurements: StationMeasurements) -> float:
-            return find_distance_m(point, measurements.station)
-
-        return min(measurements_with_temperature, key=distance_to_point)
+        return nearest_measurements
