@@ -88,7 +88,7 @@ class StationMeasurements(NamedTuple):
     values: Dict[str, Optional[float]]
 
 
-def find_distance_m(point: LocationPoint, station: Station) -> float:
+def calculate_distance_m(point: LocationPoint, station: Station) -> float:
     """Return the distance in metres between a location point and a station."""
     # LV95 is a flat grid in metres, so Pythagoras is exact enough within Switzerland
     return math.hypot(station.east_m - point.east_m, station.north_m - point.north_m)
@@ -168,7 +168,7 @@ class MeasurementSource:
             # with almost every value None; a temperature marks a station that measures the usual set
             if measurements.values[parameters.TEMPERATURE] is None:
                 continue
-            distance_m = find_distance_m(point, measurements.station)
+            distance_m = calculate_distance_m(point, measurements.station)
             if distance_m < nearest_distance_m:
                 nearest_measurements = measurements
                 nearest_distance_m = distance_m

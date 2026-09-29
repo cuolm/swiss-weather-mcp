@@ -5,7 +5,7 @@ from typing import Any, Dict
 from . import parameters
 from ..formatting import SWISS_TZ, find_compass_point, format_swiss_time
 from ..locations import LocationPoint, LocationFinder
-from .source import MeasurementSource, StationMeasurements, find_distance_m
+from .source import MeasurementSource, StationMeasurements, calculate_distance_m
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +75,7 @@ class MeasurementService:
         point = await self._find_point(location)
         measurements = await self._find_nearest_measurements(point)
         station = measurements.station
-        distance_km = round(find_distance_m(point, station) / METRES_PER_KILOMETRE, 1)
+        distance_km = round(calculate_distance_m(point, station) / METRES_PER_KILOMETRE, 1)
         difference_m = round(station.altitude_m - point.altitude_m)
 
         answer: Dict[str, Any] = {
