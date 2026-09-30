@@ -8,7 +8,9 @@ from fakes import MEASUREMENTS_NOW
 from swiss_weather_mcp.errors import CannotAnswerError
 from swiss_weather_mcp.locations import LocationPoint
 from swiss_weather_mcp.measurements import parameters
-from swiss_weather_mcp.measurements.source import MAX_STATIONS_TRIED, _parse_reference_timestamp
+from swiss_weather_mcp.measurements.source import (
+    MAX_STATIONS_TRIED, _find_canton_name, _parse_reference_timestamp,
+)
 
 # How far back a cached file is dated to make it older than the 5 minutes it is kept
 OLD_FILE_AGE_SECONDS = 10 * 60
@@ -33,6 +35,15 @@ def count_downloads(source_fixture, file_name: str) -> int:
 
 def find_station(measurement_source_fixture, abbr: str):
     return measurement_source_fixture._load_stations()[abbr]
+
+
+# --- _find_canton_name ---
+
+def test_find_canton_name():
+    # Liechtenstein is listed like a canton, and an abbreviation MeteoSwiss adds later stays as it is
+    assert [_find_canton_name(abbreviation) for abbreviation in ("GR", "FL", "XX")] == [
+        "Graubünden", "Liechtenstein", "XX",
+    ]
 
 
 # --- _parse_reference_timestamp ---
@@ -125,7 +136,7 @@ def test_read_all_stations_latest_measurements_skips_a_station_not_in_the_table(
 def test_read_all_stations_latest_measurements_time_and_canton(measurement_source_fixture):
     fluntern = measurement_source_fixture.read_all_stations_latest_measurements()[0]
     assert fluntern.measured_at == datetime(2026, 9, 25, 14, tzinfo=timezone.utc)
-    assert fluntern.station.canton == "ZH"
+    assert fluntern.station.canton == "Zurich"
 
 
 def test_read_all_stations_latest_measurements_missing_value(measurement_source_fixture):

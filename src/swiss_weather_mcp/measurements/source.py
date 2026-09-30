@@ -11,7 +11,7 @@ What MeteoSwiss publishes:
   rows, all with the same timestamp. It holds no earlier rows. A value a station does
   not measure, or has not delivered yet, is "-".
 - A station table, ogd-smn_meta_stations.csv, with one row per station: its name,
-  canton, altitude and position in LV95, the Swiss grid in metres.
+  the abbreviation of its canton, altitude and position in LV95, the Swiss grid in metres.
 - All files use ";" between columns. A station abbreviation, such as SMA, links the
   station table to the station's now file and to its row in the all stations file.
 
@@ -89,12 +89,22 @@ MAX_STATIONS_TRIED = 3
 
 MISSING_VALUE_MARKERS = {"", "-"}
 
+# The station table names a canton by its abbreviation, and lists Liechtenstein like a canton
+CANTON_NAMES = {
+    "AG": "Aargau", "AI": "Appenzell Innerrhoden", "AR": "Appenzell Ausserrhoden", "BE": "Bern",
+    "BL": "Basel-Landschaft", "BS": "Basel-Stadt", "FR": "Fribourg", "GE": "Geneva", "GL": "Glarus",
+    "GR": "Graubünden", "JU": "Jura", "LU": "Lucerne", "NE": "Neuchâtel", "NW": "Nidwalden",
+    "OW": "Obwalden", "SG": "St. Gallen", "SH": "Schaffhausen", "SO": "Solothurn", "SZ": "Schwyz",
+    "TG": "Thurgau", "TI": "Ticino", "UR": "Uri", "VD": "Vaud", "VS": "Valais", "ZG": "Zug",
+    "ZH": "Zurich", "FL": "Liechtenstein",
+}
+
 
 class Station(NamedTuple):
     """A SwissMetNet weather station as the MeteoSwiss station table describes it."""
     abbr: str
     name: str
-    canton: str
+    canton: str  # the full name, such as "Zurich"
     altitude_m: float
     east_m: float   # LV95, the Swiss grid in metres
     north_m: float  # LV95
@@ -125,6 +135,11 @@ def _parse_value(value_text: str) -> Optional[float]:
     return float(value_text)
 
 
+def _find_canton_name(abbreviation: str) -> str:
+    """Find the full name of a canton, such as "Zurich" for "ZH"; an unknown abbreviation stays as it is."""
+    return CANTON_NAMES.get(abbreviation, abbreviation)
+
+
 def _parse_reference_timestamp(timestamp_text: str) -> datetime:
     """Read a now file timestamp such as "30.09.2026 07:40", which is always UTC."""
     return datetime.strptime(timestamp_text, "%d.%m.%Y %H:%M").replace(tzinfo=timezone.utc)
@@ -150,7 +165,7 @@ class MeasurementSource:
                 station = Station(
                     abbr=row["station_abbr"],
                     name=row["station_name"],
-                    canton=row["station_canton"],
+                    canton=_find_canton_name(row["station_canton"]),
                     altitude_m=float(row["station_height_masl"]),
                     east_m=float(row["station_coordinates_lv95_east"]),
                     north_m=float(row["station_coordinates_lv95_north"]),

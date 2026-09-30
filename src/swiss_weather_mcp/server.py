@@ -391,7 +391,7 @@ class SwissWeatherMCPServer:
             each canton with at least one sunny or rainy station, as the number of sunny or rainy
             stations out of the stations that measure it. Always give both numbers, because a
             canton with one station says little. A canton that is not listed has no sunny or rainy
-            station. At night no station is sunny.
+            station. Liechtenstein is listed like a canton. At night no station is sunny.
 
             Args:
                 extreme (str): One of "warmest", "coldest", "windiest", "wettest" or "sunniest".

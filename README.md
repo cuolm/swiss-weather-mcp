@@ -252,6 +252,7 @@ they resolved, its altitude, the time or day it applies to, and the model run th
 > least 5 of the last 10 minutes, and rainy when it measured rain in the last 10 minutes. The counts
 > are given for Switzerland and for each canton with at least one such station, always as "2 of 3
 > stations", with the canton with the highest share first, because a small canton has few stations.
+> Cantons are named in full, and Liechtenstein, whose station is Vaduz, is listed like a canton.
 > A station that does not measure a value, or has not delivered it yet, is left out of both numbers.
 > The wettest also lists the 5 stations with the most rain. These are the values of stations, so the
 > coldest and the windiest are usually high mountain stations.
