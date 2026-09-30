@@ -198,13 +198,13 @@ class MeasurementService:
         """Find the location point for a location in a worker thread, so a download does not block other requests."""
         return await asyncio.to_thread(self.location_finder.find_point, location)
 
-    async def _find_nearest_measurements(self, point: LocationPoint) -> List[StationMeasurements]:
+    async def _find_nearest_station_measurements(self, point: LocationPoint) -> List[StationMeasurements]:
         """Find the nearest station's measurements in a worker thread, so a download does not block other requests."""
-        return await asyncio.to_thread(self.measurement_source.find_nearest_measurements, point)
+        return await asyncio.to_thread(self.measurement_source.find_nearest_station_measurements, point)
 
-    async def _read_current_measurements(self) -> List[StationMeasurements]:
+    async def _read_all_stations_latest_measurements(self) -> List[StationMeasurements]:
         """Read every station's latest measurements in a worker thread, so a download does not block other requests."""
-        return await asyncio.to_thread(self.measurement_source.read_current_measurements)
+        return await asyncio.to_thread(self.measurement_source.read_all_stations_latest_measurements)
 
     async def read_current_conditions(self, location: str) -> Dict[str, Any]:
         """
@@ -218,7 +218,7 @@ class MeasurementService:
         station publishes a temperature.
         """
         point = await self._find_point(location)
-        all_measurements = await self._find_nearest_measurements(point)
+        all_measurements = await self._find_nearest_station_measurements(point)
         latest_measurements = all_measurements[-1]
         station = latest_measurements.station
         distance_km = round(calculate_distance_m(point, station) / METRES_PER_KILOMETRE, 1)
@@ -262,7 +262,7 @@ class MeasurementService:
         if extreme not in EXTREMES:
             raise CannotAnswerError(f"'{extreme}' is not a known extreme, use one of: {', '.join(EXTREMES)}.")
 
-        all_measurements = await self._read_current_measurements()
+        all_measurements = await self._read_all_stations_latest_measurements()
         if not all_measurements:
             raise CannotAnswerError("MeteoSwiss currently publishes no measurements, try again later.")
 
@@ -270,7 +270,7 @@ class MeasurementService:
         station_values = _find_station_values(all_measurements, ranked_by.parameter)
         answer: Dict[str, Any] = {
             "extreme": extreme,
-            # Every row of the current values file has the same time
+            # Every row of the all stations file has the same time
             "measured_at": format_swiss_time(all_measurements[0].measured_at),
         }
         if extreme == "sunniest":
