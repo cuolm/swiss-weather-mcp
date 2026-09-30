@@ -4,13 +4,15 @@ import pytest
 
 from fakes import (
     ALL_STATIONS_LATEST_VALUES_CSV, MEASUREMENTS_NOW, RUN_ID, FakeResponse, build_parameter_csv,
-    build_point_table_csv, build_stac_item, build_station_now_values_csv, build_station_table_csv,
+    build_place_names_archive, build_place_names_editions, build_point_table_csv, build_stac_item,
+    build_station_now_values_csv, build_station_table_csv,
 )
 from swiss_weather_mcp.forecast.service import ForecastService
 from swiss_weather_mcp.forecast.source import ForecastSource
 from swiss_weather_mcp.locations import LocationFinder
 from swiss_weather_mcp.measurements.service import MeasurementService
 from swiss_weather_mcp.measurements.source import MeasurementSource
+from swiss_weather_mcp.locations.swisstopo_places import SwisstopoPlaceSource
 
 
 @pytest.fixture
@@ -53,6 +55,10 @@ def source_fixture(mocker, tmp_path):
         if url.endswith("_t_now.csv"):
             abbr = url.rsplit("/", 2)[-2]
             return FakeResponse(body=build_station_now_values_csv(abbr))
+        if url.endswith("swissnames3d/items"):
+            return FakeResponse(payload=build_place_names_editions())
+        if url.endswith(".csv.zip"):
+            return FakeResponse(body=build_place_names_archive())
         if "/items/" in url:
             return FakeResponse(payload=build_stac_item(RUN_ID, published))
         parameter = url.rsplit("/", 1)[-1].removesuffix(".csv")
@@ -92,3 +98,9 @@ def measurement_source_fixture(mocker, source_fixture, tmp_path):
 def measurement_service_fixture(location_finder_fixture, measurement_source_fixture):
     """Return a MeasurementService reading from the fake station files."""
     return MeasurementService(location_finder_fixture, measurement_source_fixture)
+
+
+@pytest.fixture
+def swisstopo_place_source_fixture(source_fixture, tmp_path):
+    """Return a SwisstopoPlaceSource reading the fake swissNAMES3D archive, served by the same fake responses."""
+    return SwisstopoPlaceSource(tmp_path)

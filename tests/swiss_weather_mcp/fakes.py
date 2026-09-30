@@ -1,4 +1,6 @@
-"""Fake MeteoSwiss data and responses shared by the tests."""
+"""Fake MeteoSwiss and swisstopo data and responses shared by the tests."""
+import io
+import zipfile
 from datetime import datetime, timezone
 from typing import Optional
 from zoneinfo import ZoneInfo
@@ -141,3 +143,46 @@ def build_station_now_values_csv(abbr: str) -> bytes:
     """Build a station's now file the way MeteoSwiss publishes it, with CRLF line ends."""
     lines = [STATION_NOW_VALUES_COLUMNS, *STATION_NOW_VALUES_ROWS[abbr]]
     return ("\r\n".join(lines) + "\r\n").encode("latin-1")
+
+
+# Some columns of the swissNAMES3D files, with real places. Oerlikon is a city district in the
+# points file and again in the areas file, where it is not read. Rüti is a field name and
+# Zürich HB a railway station, which are not read either. The Rheinfall is a waterfall.
+PLACE_NAMES_COLUMNS = "UUID;NAME;STATUS;OBJEKTART;E;N;Z"
+PLACE_NAMES_ROWS_BY_FILE = {
+    "swissNAMES3D_PKT.csv": (
+        "{1};Oerlikon;offiziell;Quartier;2683618;1251448;444",
+        "{2};Rüti;offiziell;Flurname swisstopo;2707453;1226029;526",
+        "{3};Zürich HB;offiziell;Haltestelle Bahn;2683190;1248066;408",
+        "{4};Matterhorn;offiziell;Alpiner Gipfel;2617049;1091673;4478",
+        "{7};Rheinfall;offiziell;Wasserfall;2688390;1281451;376",
+    ),
+    "swissNAMES3D_PLY.csv": (
+        "{5};Oerlikon;offiziell;Quartier;2683539;1251401;448",
+        "{6};Zürichsee;offiziell;See;2698596;1230913;406",
+    ),
+    "swissNAMES3D_LIN.csv": (),
+}
+PLACE_NAMES_EDITION_YEARS = (2025, 2026)
+
+
+def build_place_names_archive() -> bytes:
+    """Build the zip archive of an edition the way swisstopo publishes it, each file with a byte order mark."""
+    archive_bytes = io.BytesIO()
+    with zipfile.ZipFile(archive_bytes, "w") as archive:
+        for file_name, rows in PLACE_NAMES_ROWS_BY_FILE.items():
+            lines = [PLACE_NAMES_COLUMNS, *rows]
+            archive.writestr(file_name, ("\r\n".join(lines) + "\r\n").encode("utf-8-sig"))
+    return archive_bytes.getvalue()
+
+
+def build_place_names_editions() -> dict:
+    """Build the catalogue answer that lists the editions, each with its archives in several formats."""
+    editions = []
+    for year in PLACE_NAMES_EDITION_YEARS:
+        edition_id = f"swissnames3d_{year}"
+        assets = {}
+        for suffix in ("_2056.csv.zip", "_2056.shp.zip"):
+            assets[f"{edition_id}{suffix}"] = {"href": f"https://example.test/{edition_id}/{edition_id}{suffix}"}
+        editions.append({"id": edition_id, "assets": assets})
+    return {"features": editions}
