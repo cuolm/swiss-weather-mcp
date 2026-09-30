@@ -35,6 +35,7 @@ swiss-weather-mcp/
 │   ├── log.py              # Logging setup for the server and the client
 │   ├── locations/
 │   │   ├── meteoswiss_points.py  # The places MeteoSwiss publishes a forecast for
+│   │   ├── swisstopo_places.py   # The named places of swissNAMES3D
 │   │   ├── finder.py       # Location lookup by name or postal code
 │   │   └── other_language_place_names.csv  # Place names in other languages
 │   ├── opendata.py         # Downloads and timestamps from MeteoSwiss Open Data
