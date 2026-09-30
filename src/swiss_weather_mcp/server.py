@@ -346,7 +346,9 @@ class SwissWeatherMCPServer:
 
             Temperature, humidity, dew point and pressure are measured at measured_at. Rain,
             sunshine, wind speed, the strongest gust and the wind direction cover the 10 minutes up
-            to it. For later today or the coming days use hourly_forecast or daily_forecast.
+            to it. The temperature and pressure changes compare measured_at with 3 hours before it,
+            negative when the value fell. For later today or the coming days use hourly_forecast or
+            daily_forecast.
 
             Args:
                 location (str): Location name (e.g., "Zurich") or Swiss postal code (e.g., "8001").
@@ -357,8 +359,12 @@ class SwissWeatherMCPServer:
                     when lower), the time of the measurements, the temperature and dew point in
                     Celsius, humidity in percent, rain in millimetres and sunshine in minutes over
                     the last 10 minutes, wind speed and gust in kilometres per hour, the wind
-                    direction in degrees and as a compass point, and the sea-level pressure (QNH) in
-                    hectopascals. A value is None when the station does not measure it.
+                    direction in degrees and as a compass point, the sea-level pressure (QNH) in
+                    hectopascals, the change of the temperature and of the pressure over the last
+                    3 hours, and the sunshine in minutes over the last hour. A value is None when the
+                    station does not measure it. The changes and the sunshine of the last hour are
+                    None when the station has not published all the measurements they need, such as
+                    shortly after midnight UTC.
 
             Examples:
                 current_conditions("Zurich")

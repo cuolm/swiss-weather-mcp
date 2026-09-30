@@ -208,7 +208,7 @@ they resolved, its altitude, the time or day it applies to, and the model run th
 | `wind(location, when)` | Mean speed and strongest gust (km/h) in the hour up to that time, how strong that gust may get (its 90th percentile), and the direction as degrees and compass point | `wind("Säntis", "2026-09-23T14:00")` |
 | `total_cloud_cover(location, when)` | Estimated total cloud cover (%) plus the low, medium and high layers | `total_cloud_cover("Zurich", "2026-09-23T14:00")` |
 | `freezing_level(location, when)` | Height of the 0 °C line (m above sea level) | `freezing_level("Zermatt", "2026-09-23T14:00")` |
-| `current_conditions(location)` | Measured now at the nearest weather station: temperature, humidity, dew point, rain and sunshine in the last 10 minutes, wind, gust, direction and sea-level pressure | `current_conditions("Zurich")` |
+| `current_conditions(location)` | Measured now at the nearest weather station: temperature, humidity, dew point, rain and sunshine in the last 10 minutes, wind, gust, direction and sea-level pressure, plus the temperature and pressure change over the last 3 hours and the sunshine in the last hour | `current_conditions("Zurich")` |
 
 **Time**
 - Send times as Swiss clock time in ISO 8601 without an offset, e.g. `"2026-09-23T14:00"`. The server
@@ -239,7 +239,9 @@ they resolved, its altitude, the time or day it applies to, and the model run th
 > station to Braunwald 8784 (1318 m), 11.8 km away and 801 m lower. It measured the following values at
 > 20:50.", so the values are not mistaken for the location's own. The file of a station is about
 > 6 KB and is kept for 5 minutes. A station that has not published a temperature in the last hour is
-> passed over for the next nearest one, at most three stations.
+> passed over for the next nearest one, at most three stations. The changes over the last 3 hours
+> and the sunshine in the last hour come from the earlier rows of that file. They are empty when the
+> station has not published all the rows they need, such as shortly after midnight UTC.
 
 > **Note:** `daily_forecast` is by far the cheapest tool, about 8 MB for all its files against about
 > 31 MB for each hourly file, so prefer it when the question is about a day rather than an hour.
