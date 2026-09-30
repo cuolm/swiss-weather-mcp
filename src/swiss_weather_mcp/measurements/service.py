@@ -168,14 +168,14 @@ def _count_stations_by_canton(station_values: List[StationValue]) -> Dict[str, i
 def _build_canton_rows(station_values: List[StationValue], matching_values: List[StationValue],
                        label: str) -> List[Dict[str, Any]]:
     """
-    Build one answer row for each canton with a matching station, such as a sunny one: how many
-    of the canton's measuring stations match. The canton with the highest share comes first.
+    Build one answer row for each canton with a measuring station: how many of its measuring
+    stations match, such as the sunny ones. The canton with the highest share comes first.
     """
     measuring_counts = _count_stations_by_canton(station_values)
     matching_counts = _count_stations_by_canton(matching_values)
     rows: List[Dict[str, Any]] = []
-    for canton, matching_count in matching_counts.items():
-        measuring_count = measuring_counts[canton]
+    for canton, measuring_count in measuring_counts.items():
+        matching_count = matching_counts.get(canton, 0)
         rows.append({
             "canton": canton,
             f"{label}_stations": matching_count,
@@ -254,9 +254,9 @@ class MeasurementService:
 
         extreme is one of EXTREMES. Return the time of the measurements and, for the warmest, the
         coldest and the windiest, the first 5 stations. For the sunniest and the wettest return
-        how many of the measuring stations are sunny or rainy, in all and for each canton with at
-        least one, and for the wettest also the first 5 rainy stations. A station without a value
-        is left out everywhere. Raise CannotAnswerError for an unknown extreme or when MeteoSwiss
+        how many of the measuring stations are sunny or rainy, in all and for each canton with a
+        measuring station, and for the wettest also the first 5 rainy stations. A station without
+        a value is left out everywhere. Raise CannotAnswerError for an unknown extreme or when MeteoSwiss
         publishes no measurements.
         """
         if extreme not in EXTREMES:
