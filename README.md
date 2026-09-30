@@ -237,8 +237,9 @@ they resolved, its altitude, the time or day it applies to, and the model run th
 > 20 km away and several hundred metres higher or lower: Braunwald is measured in Glarus, 801 m lower.
 > Every answer starts with one sentence that says so, such as "Glarus (517 m) is the nearest MeteoSwiss
 > station to Braunwald 8784 (1318 m), 11.8 km away and 801 m lower. It measured the following values at
-> 20:50.", so the values are not mistaken for the location's own. The file with all stations is about
-> 17 KB and is kept for 5 minutes.
+> 20:50.", so the values are not mistaken for the location's own. The file of a station is about
+> 6 KB and is kept for 5 minutes. A station that has not published a temperature in the last hour is
+> passed over for the next nearest one, at most three stations.
 
 > **Note:** `daily_forecast` is by far the cheapest tool, about 8 MB for all its files against about
 > 31 MB for each hourly file, so prefer it when the question is about a day rather than an hour.
