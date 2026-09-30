@@ -225,7 +225,7 @@ they resolved, its altitude, the time or day it applies to, and the model run th
 > "tonight", because the tools take a real date rather than an offset.
 
 > **Note:** A location must be one of the places MeteoSwiss publishes. Names are matched exactly,
-> ignoring case and accents, so `zurich` finds `Zürich` but a region such as `Tessin` does not match
+> ignoring case, accents and periods, so `zurich` finds `Zürich` and `St Moritz` finds `St. Moritz`, but a region such as `Tessin` does not match
 > and is rejected rather than guessed at. Names in the other national languages and in English, such
 > as `Genf` or `Geneva` for `Genève`, work too. They come from Wikipedia lists (CC BY-SA 4.0), collected
 > by `scripts/build_other_language_place_names.py` into `other_language_place_names.csv`. A city covers

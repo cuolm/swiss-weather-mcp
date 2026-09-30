@@ -87,14 +87,16 @@ def _rank_point(point: LocationPoint) -> Tuple[bool, str, int]:
 
 
 def _normalise_location(location: str) -> str:
-    """Fold case and strip accents, so "zurich" finds "Zürich"."""
+    """Fold case, strip accents and drop periods, so "zurich" finds "Zürich" and "St Moritz" finds "St. Moritz"."""
     # NFKD splits "ü" into "u" and a separate accent mark, which is dropped here
     decomposed = unicodedata.normalize("NFKD", location.casefold())
     without_accents = ""
     for character in decomposed:
         if not unicodedata.combining(character):
             without_accents += character
-    return without_accents.strip()
+    # A period becomes a space, so "i.E." and "i. E." are the same once the words are joined by one space
+    words = without_accents.replace(".", " ").split()
+    return " ".join(words)
 
 
 def _choose_point_per_postal_code(ranked_points: List[LocationPoint]) -> Dict[str, LocationPoint]:
