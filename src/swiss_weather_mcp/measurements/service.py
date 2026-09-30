@@ -79,12 +79,15 @@ def _sum_sunshine_last_hour(all_measurements: List[StationMeasurements]) -> Opti
     latest_measurements = all_measurements[-1]
     period_start = latest_measurements.measured_at - SUNSHINE_PERIOD
 
-    sunshine_values = []
+    sunshine_values: List[float] = []
     for measurements in all_measurements:
         if measurements.measured_at > period_start:
-            sunshine_values.append(measurements.values[parameters.SUNSHINE])
+            sunshine_min = measurements.values[parameters.SUNSHINE]
+            if sunshine_min is None:
+                return None
+            sunshine_values.append(sunshine_min)
 
-    if len(sunshine_values) < MEASUREMENTS_PER_HOUR or None in sunshine_values:
+    if len(sunshine_values) < MEASUREMENTS_PER_HOUR:
         return None
     return sum(sunshine_values)
 
