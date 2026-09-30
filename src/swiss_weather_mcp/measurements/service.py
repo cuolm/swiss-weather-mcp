@@ -1,6 +1,7 @@
 import asyncio
 import logging
-from typing import Any, Dict
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional
 
 from . import parameters
 from ..formatting import SWISS_TZ, find_compass_point, format_swiss_time
@@ -10,6 +11,12 @@ from .source import MeasurementSource, StationMeasurements, calculate_distance_m
 logger = logging.getLogger(__name__)
 
 METRES_PER_KILOMETRE = 1000
+
+# The usual period for a pressure tendency
+CHANGE_PERIOD = timedelta(hours=3)
+SUNSHINE_PERIOD = timedelta(hours=1)
+# A station publishes a row every 10 minutes
+MEASUREMENTS_PER_HOUR = 6
 
 # The field each measured value fills in the answer
 MEASURED_FIELDS = (
@@ -45,6 +52,43 @@ def _build_nearest_station_sentence(point: LocationPoint, measurements: StationM
     )
 
 
+def _find_measurements_at(all_measurements: List[StationMeasurements],
+                          measured_at: datetime) -> Optional[StationMeasurements]:
+    """Find the measurements of a time, or None when the station published none for it."""
+    for measurements in all_measurements:
+        if measurements.measured_at == measured_at:
+            return measurements
+    return None
+
+
+def _calculate_change(all_measurements: List[StationMeasurements], parameter: str) -> Optional[float]:
+    """Return how much a value changed over the last 3 hours, or None when either value is missing."""
+    latest_measurements = all_measurements[-1]
+    earlier_measurements = _find_measurements_at(all_measurements, latest_measurements.measured_at - CHANGE_PERIOD)
+    if earlier_measurements is None:
+        return None
+    latest_value = latest_measurements.values[parameter]
+    earlier_value = earlier_measurements.values[parameter]
+    if latest_value is None or earlier_value is None:
+        return None
+    return round(latest_value - earlier_value, 1)
+
+
+def _sum_sunshine_last_hour(all_measurements: List[StationMeasurements]) -> Optional[float]:
+    """Return the minutes of sunshine in the last hour, or None when one of its 10-minute values is missing."""
+    latest_measurements = all_measurements[-1]
+    period_start = latest_measurements.measured_at - SUNSHINE_PERIOD
+
+    sunshine_values = []
+    for measurements in all_measurements:
+        if measurements.measured_at > period_start:
+            sunshine_values.append(measurements.values[parameters.SUNSHINE])
+
+    if len(sunshine_values) < MEASUREMENTS_PER_HOUR or None in sunshine_values:
+        return None
+    return sum(sunshine_values)
+
+
 class MeasurementService:
     """Answer what the weather is now at a location, from the nearest station's measurements."""
 
@@ -56,7 +100,7 @@ class MeasurementService:
         """Find the location point for a location in a worker thread, so a download does not block other requests."""
         return await asyncio.to_thread(self.location_finder.find_point, location)
 
-    async def _find_nearest_measurements(self, point: LocationPoint) -> StationMeasurements:
+    async def _find_nearest_measurements(self, point: LocationPoint) -> List[StationMeasurements]:
         """Find the nearest station's measurements in a worker thread, so a download does not block other requests."""
         return await asyncio.to_thread(self.measurement_source.find_nearest_measurements, point)
 
@@ -66,30 +110,37 @@ class MeasurementService:
 
         Return the resolved location, the station with its distance and its height above the
         location (negative when lower), the time of the measurements, and the measured values, None
-        where the station does not measure them. Raise CannotAnswerError for an unknown location or
-        when no station publishes a temperature.
+        where the station does not measure them. The temperature and pressure changes over the last
+        3 hours and the sunshine of the last hour are None when the station has not published all
+        the measurements they need. Raise CannotAnswerError for an unknown location or when no
+        station publishes a temperature.
         """
         point = await self._find_point(location)
-        measurements = await self._find_nearest_measurements(point)
-        station = measurements.station
+        all_measurements = await self._find_nearest_measurements(point)
+        latest_measurements = all_measurements[-1]
+        station = latest_measurements.station
         distance_km = round(calculate_distance_m(point, station) / METRES_PER_KILOMETRE, 1)
         difference_m = round(station.altitude_m - point.altitude_m)
 
         answer: Dict[str, Any] = {
-            "nearest_station": _build_nearest_station_sentence(point, measurements, distance_km, difference_m),
+            "nearest_station": _build_nearest_station_sentence(point, latest_measurements, distance_km, difference_m),
             "location": point.display_name,
             "altitude_m": point.altitude_m,
             "station": station.display_name,
             "station_distance_km": distance_km,
             "station_altitude_difference_m": difference_m,
-            "measured_at": format_swiss_time(measurements.measured_at),
+            "measured_at": format_swiss_time(latest_measurements.measured_at),
         }
         for field, parameter in MEASURED_FIELDS:
-            answer[field] = measurements.values[parameter]
+            answer[field] = latest_measurements.values[parameter]
 
-        wind_direction_degrees = measurements.values[parameters.WIND_DIRECTION]
+        wind_direction_degrees = latest_measurements.values[parameters.WIND_DIRECTION]
         if wind_direction_degrees is None:
             answer["compass_point"] = None
         else:
             answer["compass_point"] = find_compass_point(wind_direction_degrees)
+
+        answer["temperature_change_last_3_hours_c"] = _calculate_change(all_measurements, parameters.TEMPERATURE)
+        answer["pressure_change_last_3_hours_hpa"] = _calculate_change(all_measurements, parameters.PRESSURE_SEA_LEVEL)
+        answer["sunshine_last_hour_min"] = _sum_sunshine_last_hour(all_measurements)
         return answer

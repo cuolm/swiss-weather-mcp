@@ -33,7 +33,8 @@ How we use it:
    the process runs; the file is downloaded first when it is missing or older than 7 days.
 2. Sort the stations by their distance to the requested location point.
 3. Read the now file of the nearest station; the file is downloaded again when it is
-   older than 5 minutes. Its last row holds the latest measurements.
+   older than 5 minutes. Its last row holds the latest measurements, and its earlier rows
+   show how the values changed.
 4. Take the next station when the latest measurements have no temperature or are older
    than 1 hour, at most 3 stations. Stations without a temperature, such as a wind tower,
    would answer with almost every value missing, and a station that stopped publishing
@@ -48,7 +49,7 @@ import logging
 import math
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Dict, NamedTuple, Optional
+from typing import Dict, List, NamedTuple, Optional
 
 from . import parameters
 from ..errors import CannotAnswerError
@@ -85,7 +86,7 @@ class Station(NamedTuple):
 
 
 class StationMeasurements(NamedTuple):
-    """The latest measurements of one station, keyed by parameter; None where it has no value."""
+    """The measurements of one station at one time, keyed by parameter; None where it has no value."""
     station: Station
     measured_at: datetime
     values: Dict[str, Optional[float]]
@@ -139,30 +140,28 @@ class MeasurementSource:
         logger.info(f"Loaded {len(stations)} weather stations")
         return stations
 
-    def _read_latest_measurements(self, station: Station) -> Optional[StationMeasurements]:
-        """Read the last row of a station's now file, or None when the file has no rows."""
+    def _read_measurements(self, station: Station) -> List[StationMeasurements]:
+        """Read every row of a station's now file, the oldest first."""
         abbr = station.abbr.lower()
         now_values_url = NOW_VALUES_URL.format(abbr=abbr)
         now_values_file = self.cache_dir / f"ogd-smn_{abbr}_t_now.csv"
         now_values = ensure_recent_file(now_values_url, now_values_file, NOW_VALUES_MAX_AGE)
 
-        latest_row = None
+        all_measurements = []
         with open(now_values, newline="", encoding="latin-1") as file:
             for row in csv.DictReader(file, delimiter=";"):
-                latest_row = row
-        if latest_row is None:
-            return None
+                measured_at = _parse_reference_timestamp(row["reference_timestamp"])
+                values: Dict[str, Optional[float]] = {}
+                for parameter in parameters.ALL_PARAMETERS:
+                    values[parameter] = _parse_value(row[parameter])
+                measurements = StationMeasurements(station, measured_at, values)
+                all_measurements.append(measurements)
+        return all_measurements
 
-        measured_at = _parse_reference_timestamp(latest_row["reference_timestamp"])
-        values: Dict[str, Optional[float]] = {}
-        for parameter in parameters.ALL_PARAMETERS:
-            values[parameter] = _parse_value(latest_row[parameter])
-        return StationMeasurements(station, measured_at, values)
-
-    def find_nearest_measurements(self, point: LocationPoint) -> StationMeasurements:
+    def find_nearest_measurements(self, point: LocationPoint) -> List[StationMeasurements]:
         """
-        Find the latest measurements of the station nearest to a location point that measures the
-        temperature.
+        Find the measurements of the station nearest to a location point that measures the
+        temperature, the oldest first, so the last entry holds the latest measurements.
 
         Raise CannotAnswerError when none of the nearest stations published a temperature in the last hour.
         """
@@ -170,16 +169,17 @@ class MeasurementSource:
         nearest_stations = sorted(stations.values(), key=lambda station: calculate_distance_m(point, station))
         now = datetime.now(timezone.utc)
         for station in nearest_stations[:MAX_STATIONS_TRIED]:
-            measurements = self._read_latest_measurements(station)
+            all_measurements = self._read_measurements(station)
             # Some stations measure only a few values, such as wind on a tower, and would answer
             # with almost every value None; a temperature marks a station that measures the usual set
-            if measurements is None or measurements.values[parameters.TEMPERATURE] is None:
+            if not all_measurements or all_measurements[-1].values[parameters.TEMPERATURE] is None:
                 logger.info(f"Station {station.abbr} has no current temperature, trying the next station")
                 continue
-            if now - measurements.measured_at > LATEST_MEASUREMENTS_MAX_AGE:
-                logger.info(f"Station {station.abbr} last published at {measurements.measured_at}, trying the next station")
+            latest_measurements = all_measurements[-1]
+            if now - latest_measurements.measured_at > LATEST_MEASUREMENTS_MAX_AGE:
+                logger.info(f"Station {station.abbr} has no measurements in the last hour, trying the next station")
                 continue
-            return measurements
+            return all_measurements
 
         raise CannotAnswerError(
             f"None of the {MAX_STATIONS_TRIED} stations nearest to {point.display_name} published a "

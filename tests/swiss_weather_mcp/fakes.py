@@ -94,13 +94,19 @@ STATION_TABLE_ROWS = (
     ("DAV", "Davos", "GR", "1594.0", "2783519.0", "1187459.0"),
 )
 
-# Some columns of the now files, with real values, except that DAV has no rain and no wind direction
+# Some columns of the now files, with real values, except that DAV has no rain and no wind direction.
+# SMA has the row of 3 hours before its last one and the six rows of its last hour, DAV only one row.
 NOW_VALUES_COLUMNS = (
     "station_abbr;reference_timestamp;tre200s0;ure200s0;tde200s0;pp0qnhs0;dkl010z0;fu3010z0;"
     "fu3010z1;rre150z0;sre000z0;gre000z0"
 )
 NOW_VALUES_ROWS = {
     "sma": (
+        "SMA;25.09.2026 11:00;18.40;45.20;6.40;1022.80;12.00;5.40;11.50;0;10;489",
+        "SMA;25.09.2026 13:10;20.50;36.00;4.90;1021.90;18.00;4.30;9.40;0;10;560",
+        "SMA;25.09.2026 13:20;20.60;35.80;4.80;1021.80;20.00;4.00;9.00;0;10;549",
+        "SMA;25.09.2026 13:30;20.60;35.60;4.70;1021.80;25.00;3.60;7.90;0;4;402",
+        "SMA;25.09.2026 13:40;20.70;35.30;4.70;1021.70;28.00;4.10;8.30;0;0;268",
         "SMA;25.09.2026 13:50;20.80;35.10;4.60;1021.70;31.00;3.90;8.60;0;10;509",
         "SMA;25.09.2026 14:00;21.00;34.30;4.70;1021.60;23.00;4.70;10.10;0.00;10.00;516.00",
     ),
