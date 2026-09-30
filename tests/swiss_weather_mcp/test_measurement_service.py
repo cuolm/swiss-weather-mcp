@@ -10,7 +10,7 @@ from swiss_weather_mcp.measurements.service import (
 from swiss_weather_mcp.measurements.source import Station, StationMeasurements
 
 FLUNTERN = Station(
-    abbr="SMA", name="Zürich / Fluntern", canton="ZH", altitude_m=604.0, east_m=2685223.0, north_m=1248410.0,
+    abbr="SMA", name="Zürich / Fluntern", canton="Zurich", altitude_m=604.0, east_m=2685223.0, north_m=1248410.0,
 )
 
 
@@ -113,9 +113,9 @@ async def test_read_current_extremes_warmest(measurement_service_fixture):
         "extreme": "warmest",
         "measured_at": "2026-09-25T16:00+02:00",
         "stations": [
-            {"station": "Zürich / Kloten (426 m)", "canton": "ZH", "temperature_c": 22.4},
-            {"station": "Zürich / Fluntern (604 m)", "canton": "ZH", "temperature_c": 21.0},
-            {"station": "Davos (1594 m)", "canton": "GR", "temperature_c": 16.5},
+            {"station": "Zürich / Kloten (426 m)", "canton": "Zurich", "temperature_c": 22.4},
+            {"station": "Zürich / Fluntern (604 m)", "canton": "Zurich", "temperature_c": 21.0},
+            {"station": "Davos (1594 m)", "canton": "Graubünden", "temperature_c": 16.5},
         ],
     }
 
@@ -144,7 +144,7 @@ async def test_read_current_extremes_lists_5_stations(mocker, measurement_servic
 @pytest.mark.asyncio
 async def test_read_current_extremes_windiest(measurement_service_fixture):
     answer = await measurement_service_fixture.read_current_extremes("windiest")
-    assert answer["stations"][0] == {"station": "Davos (1594 m)", "canton": "GR", "gusts_kmh": 28.8}
+    assert answer["stations"][0] == {"station": "Davos (1594 m)", "canton": "Graubünden", "gusts_kmh": 28.8}
 
 
 @pytest.mark.asyncio
@@ -158,8 +158,8 @@ async def test_read_current_extremes_sunniest(measurement_service_fixture):
         "sunny_stations": 3,
         "measuring_stations": 4,
         "cantons": [
-            {"canton": "GR", "sunny_stations": 1, "measuring_stations": 1, "sunny_percent": 100},
-            {"canton": "ZH", "sunny_stations": 2, "measuring_stations": 3, "sunny_percent": 67},
+            {"canton": "Graubünden", "sunny_stations": 1, "measuring_stations": 1, "sunny_percent": 100},
+            {"canton": "Zurich", "sunny_stations": 2, "measuring_stations": 3, "sunny_percent": 67},
         ],
     }
 
@@ -175,8 +175,8 @@ async def test_read_current_extremes_wettest(measurement_service_fixture):
         "measured_at": "2026-09-25T16:00+02:00",
         "rainy_stations": 1,
         "measuring_stations": 2,
-        "cantons": [{"canton": "ZH", "rainy_stations": 1, "measuring_stations": 2, "rainy_percent": 50}],
-        "stations": [{"station": "Zürich / Kloten (426 m)", "canton": "ZH", "rain_last_10_minutes_mm": 0.3}],
+        "cantons": [{"canton": "Zurich", "rainy_stations": 1, "measuring_stations": 2, "rainy_percent": 50}],
+        "stations": [{"station": "Zürich / Kloten (426 m)", "canton": "Zurich", "rain_last_10_minutes_mm": 0.3}],
     }
 
 
@@ -212,8 +212,8 @@ async def test_read_current_extremes_without_measurements(mocker, measurement_se
 
 def test_build_canton_rows_puts_the_canton_with_more_stations_first():
     # Both cantons are fully sunny, but the share of Zürich rests on two stations
-    appenzell = Station(abbr="APP", name="Appenzell", canton="AI", altitude_m=769.0, east_m=0.0, north_m=0.0)
+    appenzell = Station(abbr="APP", name="Appenzell", canton="Appenzell Innerrhoden", altitude_m=769.0, east_m=0.0, north_m=0.0)
     station_values = [StationValue(appenzell, 10.0), StationValue(FLUNTERN, 10.0), StationValue(FLUNTERN, 10.0)]
 
     rows = _build_canton_rows(station_values, station_values, "sunny")
-    assert [(row["canton"], row["measuring_stations"]) for row in rows] == [("ZH", 2), ("AI", 1)]
+    assert [(row["canton"], row["measuring_stations"]) for row in rows] == [("Zurich", 2), ("Appenzell Innerrhoden", 1)]
