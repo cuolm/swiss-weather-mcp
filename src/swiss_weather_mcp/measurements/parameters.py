@@ -16,7 +16,7 @@ WIND_GUSTS = "fu3010z1"          # Gust peak (one second); maximum in km/h
 WIND_DIRECTION = "dkl010z0"      # Wind direction; ten minutes mean [°]
 PRESSURE_SEA_LEVEL = "pp0qnhs0"  # Pressure reduced to sea level according to standard atmosphere (QNH); current value [hPa]
 
-# Every column the server reads from a station's now file and from the current values file
+# Every column the server reads from a station's now file and from the all stations file
 ALL_PARAMETERS = (
     TEMPERATURE, HUMIDITY, DEW_POINT, PRECIPITATION, SUNSHINE, WIND_SPEED, WIND_GUSTS,
     WIND_DIRECTION, PRESSURE_SEA_LEVEL,

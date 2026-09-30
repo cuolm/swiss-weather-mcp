@@ -3,8 +3,8 @@ from datetime import datetime
 import pytest
 
 from fakes import (
-    CURRENT_VALUES_CSV, MEASUREMENTS_NOW, RUN_ID, FakeResponse, build_now_values_csv, build_parameter_csv, build_point_table_csv,
-    build_stac_item, build_station_table_csv,
+    ALL_STATIONS_LATEST_VALUES_CSV, MEASUREMENTS_NOW, RUN_ID, FakeResponse, build_parameter_csv,
+    build_point_table_csv, build_stac_item, build_station_now_values_csv, build_station_table_csv,
 )
 from swiss_weather_mcp.forecast.service import ForecastService
 from swiss_weather_mcp.forecast.source import ForecastSource
@@ -49,10 +49,10 @@ def source_fixture(mocker, tmp_path):
         if url.endswith("ogd-smn_meta_stations.csv"):
             return FakeResponse(body=build_station_table_csv())
         if url.endswith("VQHA80.csv"):
-            return FakeResponse(body=CURRENT_VALUES_CSV.encode("latin-1"))
+            return FakeResponse(body=ALL_STATIONS_LATEST_VALUES_CSV.encode("latin-1"))
         if url.endswith("_t_now.csv"):
             abbr = url.rsplit("/", 2)[-2]
-            return FakeResponse(body=build_now_values_csv(abbr))
+            return FakeResponse(body=build_station_now_values_csv(abbr))
         if "/items/" in url:
             return FakeResponse(payload=build_stac_item(RUN_ID, published))
         parameter = url.rsplit("/", 1)[-1].removesuffix(".csv")

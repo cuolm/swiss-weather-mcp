@@ -96,11 +96,11 @@ STATION_TABLE_ROWS = (
 
 # Some columns of the now files, with real values, except that DAV has no rain and no wind direction.
 # SMA has the row of 3 hours before its last one and the six rows of its last hour, DAV only one row.
-NOW_VALUES_COLUMNS = (
+STATION_NOW_VALUES_COLUMNS = (
     "station_abbr;reference_timestamp;tre200s0;ure200s0;tde200s0;pp0qnhs0;dkl010z0;fu3010z0;"
     "fu3010z1;rre150z0;sre000z0;gre000z0"
 )
-NOW_VALUES_ROWS = {
+STATION_NOW_VALUES_ROWS = {
     "sma": (
         "SMA;25.09.2026 11:00;18.40;45.20;6.40;1022.80;12.00;5.40;11.50;0;10;489",
         "SMA;25.09.2026 13:10;20.50;36.00;4.90;1021.90;18.00;4.30;9.40;0;10;560",
@@ -117,7 +117,7 @@ NOW_VALUES_ROWS = {
 # Rows of VQHA80.csv at the time of the latest rows of the now files. UEB measures neither the
 # temperature nor the rain, KLO had 4 minutes of sun and some rain, and DAV measures no rain. MRP is
 # published there but missing from the station table.
-CURRENT_VALUES_CSV = (
+ALL_STATIONS_LATEST_VALUES_CSV = (
     "Station/Location;Date;tre200s0;rre150z0;sre000z0;gre000z0;ure200s0;tde200s0;dkl010z0;fu3010z0;"
     "fu3010z1;prestas0;pp0qffs0;pp0qnhs0;ppz850s0;ppz700s0;dv1towz0;fu3towz0;fu3towz1;ta1tows0;uretows0;tdetows0\n"
     "SMA;202609251400;21.00;0.00;10.00;516.00;34.30;4.70;23.00;4.70;10.10;950.60;1018.90;1021.60;-;-;-;-;-;18.40;39.70;4.50\n"
@@ -137,7 +137,7 @@ def build_station_table_csv() -> bytes:
     return ("\n".join(lines) + "\n").encode("latin-1")
 
 
-def build_now_values_csv(abbr: str) -> bytes:
+def build_station_now_values_csv(abbr: str) -> bytes:
     """Build a station's now file the way MeteoSwiss publishes it, with CRLF line ends."""
-    lines = [NOW_VALUES_COLUMNS, *NOW_VALUES_ROWS[abbr]]
+    lines = [STATION_NOW_VALUES_COLUMNS, *STATION_NOW_VALUES_ROWS[abbr]]
     return ("\r\n".join(lines) + "\r\n").encode("latin-1")
