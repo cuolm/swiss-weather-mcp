@@ -1,8 +1,10 @@
+from datetime import datetime
+
 import pytest
 
 from fakes import (
-    CURRENT_VALUES_CSV, RUN_ID, FakeResponse, build_parameter_csv, build_point_table_csv, build_stac_item,
-    build_station_table_csv,
+    MEASUREMENTS_NOW, RUN_ID, FakeResponse, build_now_values_csv, build_parameter_csv, build_point_table_csv,
+    build_stac_item, build_station_table_csv,
 )
 from swiss_weather_mcp.forecast.service import ForecastService
 from swiss_weather_mcp.forecast.source import ForecastSource
@@ -46,8 +48,9 @@ def source_fixture(mocker, tmp_path):
             return FakeResponse(body=build_point_table_csv())
         if url.endswith("ogd-smn_meta_stations.csv"):
             return FakeResponse(body=build_station_table_csv())
-        if url.endswith("VQHA80.csv"):
-            return FakeResponse(body=CURRENT_VALUES_CSV.encode("latin-1"))
+        if url.endswith("_t_now.csv"):
+            abbr = url.rsplit("/", 2)[-2]
+            return FakeResponse(body=build_now_values_csv(abbr))
         if "/items/" in url:
             return FakeResponse(payload=build_stac_item(RUN_ID, published))
         parameter = url.rsplit("/", 1)[-1].removesuffix(".csv")
@@ -73,8 +76,13 @@ def service_fixture(location_finder_fixture, source_fixture):
 
 
 @pytest.fixture
-def measurement_source_fixture(source_fixture, tmp_path):
-    """Return a MeasurementSource reading the fake station files, served by the same fake HTTP responses."""
+def measurement_source_fixture(mocker, source_fixture, tmp_path):
+    """
+    Return a MeasurementSource reading the fake station files, served by the same fake HTTP responses,
+    at a time when their latest rows are 5 minutes old.
+    """
+    datetime_mock = mocker.patch("swiss_weather_mcp.measurements.source.datetime", wraps=datetime)
+    datetime_mock.now.return_value = MEASUREMENTS_NOW
     return MeasurementSource(tmp_path)
 
 

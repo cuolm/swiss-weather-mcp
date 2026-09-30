@@ -2,23 +2,23 @@
 Read the latest measurements of the SwissMetNet weather stations from MeteoSwiss Open Data.
 
 What MeteoSwiss publishes:
-- A current values file, VQHA80.csv, with one row per automatic weather station and
-  about 160 stations, all with the same timestamp. Some values are measured at that
-  time, such as the temperature; others cover the 10 minutes up to it, such as the
-  rainfall and the sunshine. MeteoSwiss replaces the file about every 10 minutes.
-  A value a station does not measure is "-".
+- A now file per station, such as ogd-smn_sma_t_now.csv, with one row every 10 minutes
+  since 00:00 UTC today. Some values are measured at a row's time, such as the
+  temperature; others cover the 10 minutes up to it, such as the rainfall and the
+  sunshine. MeteoSwiss adds a row about every 10 minutes. A value a station does not
+  measure is empty.
 - A station table, ogd-smn_meta_stations.csv, with one row per station: its name,
   altitude and position in LV95, the Swiss grid in metres.
-- Both files use ";" between columns. A station abbreviation, such as SMA, links a row
-  in one file to the row in the other.
+- Both files use ";" between columns. A station abbreviation, such as SMA, links the
+  station table to the station's now file.
 
-    VQHA80.csv  (current values, 22 columns, the server reads 9 parameters)
-    ┌──────────────────────────────────────────────────────┐
-    │ Station/Location;Date;tre200s0;rre150z0;sre000z0;... │  station, time, temperature, rainfall, sunshine
-    │ ARO;202609281020;19.10;-;10.00;...                   │  Arosa: 19.1 °C, no rainfall value, 10 min of sun
-    │ SMA;202609281020;21.80;0.00;10.00;...                │  Zürich / Fluntern: 21.8 °C, 0.0 mm, 10 min of sun
-    │ ...                                                  │  about 160 rows
-    └──────────────────────────────────────────────────────┘
+    ogd-smn_sma_t_now.csv  (now file of Zürich / Fluntern, 34 columns, the server reads 9 parameters)
+    ┌───────────────────────────────────────────────────────────┐
+    │ station_abbr;reference_timestamp;tre200s0;...;rre150z0;... │  station, time, temperature, ..., rainfall
+    │ SMA;30.09.2026 00:00;17;...;0;...                         │  17.0 °C, 0.0 mm
+    │ SMA;30.09.2026 00:10;16.8;...;0;...                       │
+    │ ...                                                       │  one row every 10 minutes
+    └───────────────────────────────────────────────────────────┘
 
     ogd-smn_meta_stations.csv  (station table)
     ┌────────────────────────────────────────────────────────────────┐
@@ -29,40 +29,43 @@ What MeteoSwiss publishes:
     └────────────────────────────────────────────────────────────────┘
 
 How we use it:
-1. Read the current values on every question; the file is downloaded again when it is
-   older than 5 minutes. Read the station table on the first question and keep it in
-   memory for as long as the process runs; the file is downloaded first when it is
-   missing or older than 7 days.
-2. Join each current values row to its station by abbreviation. A station missing from
-   the station table has no position, so it is left out.
-3. Find the station nearest to the requested location point that measures the
-   temperature. Stations without it, such as a wind tower, would answer with almost
-   every value missing.
+1. Read the station table on the first question and keep it in memory for as long as
+   the process runs; the file is downloaded first when it is missing or older than 7 days.
+2. Sort the stations by their distance to the requested location point.
+3. Read the now file of the nearest station; the file is downloaded again when it is
+   older than 5 minutes. Its last row holds the latest measurements.
+4. Take the next station when the latest measurements have no temperature or are older
+   than 1 hour, at most 3 stations. Stations without a temperature, such as a wind tower,
+   would answer with almost every value missing, and a station that stopped publishing
+   would answer with old values.
 
     <cache dir>/measurements/
-    ├── VQHA80.csv                    (current values, downloaded again after 5 minutes)
-    └── ogd-smn_meta_stations.csv     (station table, downloaded again when older than 7 days)
+    ├── ogd-smn_meta_stations.csv     (station table, downloaded again when older than 7 days)
+    └── ogd-smn_sma_t_now.csv         (now file per station, downloaded again after 5 minutes)
 """
 import csv
 import logging
 import math
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Dict, List, NamedTuple, Optional
+from typing import Dict, NamedTuple, Optional
 
 from . import parameters
 from ..errors import CannotAnswerError
 from ..locations import LocationPoint
-from ..opendata import ensure_recent_file, parse_stamp
+from ..opendata import ensure_recent_file
 
 logger = logging.getLogger(__name__)
 
 STATION_TABLE_URL = "https://data.geo.admin.ch/ch.meteoschweiz.ogd-smn/ogd-smn_meta_stations.csv"
-CURRENT_VALUES_URL = "https://data.geo.admin.ch/ch.meteoschweiz.messwerte-aktuell/VQHA80.csv"
+NOW_VALUES_URL = "https://data.geo.admin.ch/ch.meteoschweiz.ogd-smn/{abbr}/ogd-smn_{abbr}_t_now.csv"
 
 STATION_TABLE_MAX_AGE = timedelta(days=7)
 # Shorter than MeteoSwiss's 10-minute update, so a new file is used at most 5 minutes after it appears
-CURRENT_VALUES_MAX_AGE = timedelta(minutes=5)
+NOW_VALUES_MAX_AGE = timedelta(minutes=5)
+# Older latest measurements mean the station stopped publishing
+LATEST_MEASUREMENTS_MAX_AGE = timedelta(hours=1)
+MAX_STATIONS_TRIED = 3
 
 MISSING_VALUE_MARKERS = {"", "-"}
 
@@ -101,6 +104,11 @@ def _parse_value(value_text: str) -> Optional[float]:
     return float(value_text)
 
 
+def _parse_reference_timestamp(timestamp_text: str) -> datetime:
+    """Read a now file timestamp such as "30.09.2026 07:40", which is always UTC."""
+    return datetime.strptime(timestamp_text, "%d.%m.%Y %H:%M").replace(tzinfo=timezone.utc)
+
+
 class MeasurementSource:
     """Read the latest SwissMetNet measurements and find the station nearest to a location point."""
 
@@ -131,46 +139,49 @@ class MeasurementSource:
         logger.info(f"Loaded {len(stations)} weather stations")
         return stations
 
-    def _read_current_measurements(self) -> List[StationMeasurements]:
-        """Read the latest measurements of every station in the station table, None where a station has no value."""
-        stations = self._load_stations()
-        current_values_file = self.cache_dir / "VQHA80.csv"
-        current_values = ensure_recent_file(CURRENT_VALUES_URL, current_values_file, CURRENT_VALUES_MAX_AGE)
+    def _read_latest_measurements(self, station: Station) -> Optional[StationMeasurements]:
+        """Read the last row of a station's now file, or None when the file has no rows."""
+        abbr = station.abbr.lower()
+        now_values_url = NOW_VALUES_URL.format(abbr=abbr)
+        now_values_file = self.cache_dir / f"ogd-smn_{abbr}_t_now.csv"
+        now_values = ensure_recent_file(now_values_url, now_values_file, NOW_VALUES_MAX_AGE)
 
-        all_measurements = []
-        with open(current_values, newline="", encoding="latin-1") as file:
+        latest_row = None
+        with open(now_values, newline="", encoding="latin-1") as file:
             for row in csv.DictReader(file, delimiter=";"):
-                station = stations.get(row["Station/Location"])
-                if station is None:
-                    continue  # a station without a place in the station table cannot be located
-                measured_at = parse_stamp(row["Date"])
-                values: Dict[str, Optional[float]] = {}
-                for parameter in parameters.ALL_PARAMETERS:
-                    values[parameter] = _parse_value(row[parameter])
-                measurements = StationMeasurements(station, measured_at, values)
-                all_measurements.append(measurements)
-        return all_measurements
+                latest_row = row
+        if latest_row is None:
+            return None
+
+        measured_at = _parse_reference_timestamp(latest_row["reference_timestamp"])
+        values: Dict[str, Optional[float]] = {}
+        for parameter in parameters.ALL_PARAMETERS:
+            values[parameter] = _parse_value(latest_row[parameter])
+        return StationMeasurements(station, measured_at, values)
 
     def find_nearest_measurements(self, point: LocationPoint) -> StationMeasurements:
         """
         Find the latest measurements of the station nearest to a location point that measures the
         temperature.
 
-        Raise CannotAnswerError when no station currently publishes a temperature.
+        Raise CannotAnswerError when none of the nearest stations published a temperature in the last hour.
         """
-        nearest_measurements: Optional[StationMeasurements] = None
-        nearest_distance_m = math.inf
-        current_measurements = self._read_current_measurements()
-        for measurements in current_measurements:
+        stations = self._load_stations()
+        nearest_stations = sorted(stations.values(), key=lambda station: calculate_distance_m(point, station))
+        now = datetime.now(timezone.utc)
+        for station in nearest_stations[:MAX_STATIONS_TRIED]:
+            measurements = self._read_latest_measurements(station)
             # Some stations measure only a few values, such as wind on a tower, and would answer
             # with almost every value None; a temperature marks a station that measures the usual set
-            if measurements.values[parameters.TEMPERATURE] is None:
+            if measurements is None or measurements.values[parameters.TEMPERATURE] is None:
+                logger.info(f"Station {station.abbr} has no current temperature, trying the next station")
                 continue
-            distance_m = calculate_distance_m(point, measurements.station)
-            if distance_m < nearest_distance_m:
-                nearest_measurements = measurements
-                nearest_distance_m = distance_m
+            if now - measurements.measured_at > LATEST_MEASUREMENTS_MAX_AGE:
+                logger.info(f"Station {station.abbr} last published at {measurements.measured_at}, trying the next station")
+                continue
+            return measurements
 
-        if nearest_measurements is None:
-            raise CannotAnswerError("MeteoSwiss currently publishes no temperature measurements, try again later.")
-        return nearest_measurements
+        raise CannotAnswerError(
+            f"None of the {MAX_STATIONS_TRIED} stations nearest to {point.display_name} published a "
+            f"temperature in the last hour, try again later."
+        )
