@@ -190,7 +190,11 @@ async def test_read_current_extremes_wettest_when_dry(mocker, measurement_servic
     answer = await measurement_service_fixture.read_current_extremes("wettest")
 
     assert (answer["rainy_stations"], answer["measuring_stations"]) == (0, 1)
-    assert (answer["cantons"], answer["stations"]) == ([], [])
+    # The canton is listed with 0, so it is not mistaken for a canton without measurements
+    assert answer["cantons"] == [
+        {"canton": "Zurich", "rainy_stations": 0, "measuring_stations": 1, "rainy_percent": 0},
+    ]
+    assert answer["stations"] == []
 
 
 @pytest.mark.asyncio

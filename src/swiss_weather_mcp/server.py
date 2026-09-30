@@ -388,10 +388,10 @@ class SwissWeatherMCPServer:
             strongest gust. For the sunniest and the wettest the answer counts stations: a station
             is sunny when the sun shone for at least 5 of the last 10 minutes, and rainy when it
             measured rain in the last 10 minutes. The counts are given for Switzerland and for
-            each canton with at least one sunny or rainy station, as the number of sunny or rainy
-            stations out of the stations that measure it. Always give both numbers, because a
-            canton with one station says little. A canton that is not listed has no sunny or rainy
-            station. Liechtenstein is listed like a canton. At night no station is sunny.
+            each canton, as the number of sunny or rainy stations out of the stations that measure
+            it. Always give both numbers, because a canton with one station says little. A canton
+            with 0 sunny or rainy stations has none. A canton that is not listed has no station
+            that measures it. Liechtenstein is listed like a canton. At night no station is sunny.
 
             Args:
                 extreme (str): One of "warmest", "coldest", "windiest", "wettest" or "sunniest".
