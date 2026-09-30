@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from . import parameters
 from ..errors import CannotAnswerError
 from ..formatting import find_compass_point, format_swiss_time
-from ..locations import LocationPoint, LocationFinder
+from ..locations import MeteoSwissPoint, LocationFinder
 from .source import ForecastSeries, ForecastSource
 
 logger = logging.getLogger(__name__)
@@ -72,7 +72,7 @@ def _get_daily_value(series: Optional[ForecastSeries], day: date) -> Optional[fl
     return series.values.get(day_stamp)
 
 
-def _get_hourly_value(series: ForecastSeries, moment: datetime, point: LocationPoint) -> float:
+def _get_hourly_value(series: ForecastSeries, moment: datetime, point: MeteoSwissPoint) -> float:
     """
     Return the value of an hourly series at a full hour: an average or sum of the hour up to it,
     or a snapshot. Raise CannotAnswerError when the forecast does not cover that hour.
@@ -92,11 +92,11 @@ class ForecastService:
         self.location_finder = location_finder
         self.forecast_source = forecast_source
 
-    async def _find_point(self, location: str) -> LocationPoint:
-        """Find the location point for a location in a worker thread, so a download does not block other requests."""
+    async def _find_point(self, location: str) -> MeteoSwissPoint:
+        """Find the MeteoSwiss point for a location in a worker thread, so a download does not block other requests."""
         return await asyncio.to_thread(self.location_finder.find_point, location)
 
-    async def _read_series(self, parameter: str, point: LocationPoint) -> ForecastSeries:
+    async def _read_series(self, parameter: str, point: MeteoSwissPoint) -> ForecastSeries:
         """Read one parameter for one point in a worker thread, so a download does not block other requests."""
         return await asyncio.to_thread(self.forecast_source.read_series, parameter, point)
 
@@ -339,7 +339,7 @@ class ForecastService:
             "model_run": format_swiss_time(median_series.run_time),
         }
 
-    async def _read_daily_series_if_published(self, parameter: str, point: LocationPoint) -> Optional[ForecastSeries]:
+    async def _read_daily_series_if_published(self, parameter: str, point: MeteoSwissPoint) -> Optional[ForecastSeries]:
         """Read one parameter for one point, or return None when MeteoSwiss does not publish it there."""
         try:
             return await self._read_series(parameter, point)

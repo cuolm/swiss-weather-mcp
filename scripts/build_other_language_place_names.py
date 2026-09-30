@@ -1,5 +1,5 @@
 """
-Build src/swiss_weather_mcp/other_language_place_names.csv: names of Swiss places in other
+Build src/swiss_weather_mcp/locations/other_language_place_names.csv: names of Swiss places in other
 languages, each mapped to the MeteoSwiss point name, so that "Genf" or "Geneva" finds "Genève".
 
 Every name comes from one of the Wikipedia lists in SOURCES; nothing is written by hand. A row is
@@ -16,9 +16,9 @@ from typing import Dict, List, Set, Tuple
 
 import requests
 
-from swiss_weather_mcp.locations import POINT_TABLE_URL
+from swiss_weather_mcp.locations.meteoswiss_points import POINT_TABLE_URL
 
-OUTPUT_FILE = Path("src/swiss_weather_mcp/other_language_place_names.csv")
+OUTPUT_FILE = Path("src/swiss_weather_mcp/locations/other_language_place_names.csv")
 LANGUAGES = ("de", "fr", "it", "rm", "en")
 REQUEST_TIMEOUT_SECONDS = 60
 USER_AGENT = "swiss-weather-mcp place name builder (https://github.com/cuolm/swiss-weather-mcp)"

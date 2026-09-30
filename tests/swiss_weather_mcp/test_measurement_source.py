@@ -6,7 +6,7 @@ import pytest
 
 from fakes import MEASUREMENTS_NOW
 from swiss_weather_mcp.errors import CannotAnswerError
-from swiss_weather_mcp.locations import LocationPoint
+from swiss_weather_mcp.locations import MeteoSwissPoint
 from swiss_weather_mcp.measurements import parameters
 from swiss_weather_mcp.measurements.source import (
     MAX_STATIONS_TRIED, _find_canton_name, _parse_reference_timestamp,
@@ -15,11 +15,11 @@ from swiss_weather_mcp.measurements.source import (
 # How far back a cached file is dated to make it older than the 5 minutes it is kept
 OLD_FILE_AGE_SECONDS = 10 * 60
 
-UETLIBERG = LocationPoint(
+UETLIBERG = MeteoSwissPoint(
     point_id="1", point_type_id="3", name="Uetliberg", postal_code="", altitude_m=869.0,
     east_m=2679455.0, north_m=1245034.0,
 )
-KLOTEN = LocationPoint(
+KLOTEN = MeteoSwissPoint(
     point_id="2", point_type_id="2", name="Kloten", postal_code="8302", altitude_m=447.0,
     east_m=2686100.0, north_m=1256500.0,
 )

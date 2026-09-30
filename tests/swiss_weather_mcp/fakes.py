@@ -82,7 +82,7 @@ def build_swiss_time(timestamp: str) -> datetime:
 
 # The columns of ogd-smn_meta_stations.csv the server reads, with real SwissMetNet stations. UEB has
 # no thermometer, so it must be passed over, KLO has published no rows yet, and DAV stands where
-# the Davos location point is.
+# the Davos MeteoSwiss point is.
 STATION_TABLE_COLUMNS = (
     "station_abbr;station_name;station_canton;station_height_masl;"
     "station_coordinates_lv95_east;station_coordinates_lv95_north"
