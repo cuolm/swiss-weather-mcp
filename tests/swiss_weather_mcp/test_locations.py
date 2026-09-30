@@ -7,6 +7,14 @@ from swiss_weather_mcp.errors import CannotAnswerError
 from swiss_weather_mcp.locations import OTHER_LANGUAGE_PLACE_NAMES_FILE, LocationPoint, _normalise_location
 
 
+# --- _normalise_location ---
+
+def test_normalise_location_ignores_periods():
+    # MeteoSwiss writes "St. Moritz", which is often typed without the period
+    assert _normalise_location("St Moritz") == _normalise_location("St. Moritz")
+    assert _normalise_location("Affoltern i.E.") == _normalise_location("Affoltern i. E.")
+
+
 # --- find_point ---
 
 def test_find_point_ignores_case_and_accents(location_finder_fixture):
