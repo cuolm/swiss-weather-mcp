@@ -17,7 +17,7 @@ from .errors import CannotAnswerError
 from .forecast.service import ForecastService
 from .forecast.source import ForecastSource
 from .locations import LocationFinder
-from .measurements.service import MeasurementService
+from .measurements.service import ExtremeName, MeasurementService
 from .measurements.source import MeasurementSource
 from .formatting import SWISS_TZ
 
@@ -107,7 +107,8 @@ class SwissWeatherMCPServer:
             name="swiss_weather_mcp_server",
             instructions=(
                 "This MCP server provides hourly and daily weather forecasts for Switzerland for today "
-                "and the next 8 days, and the weather measured now at the nearest MeteoSwiss station. "
+                "and the next 8 days, the weather measured now at the nearest MeteoSwiss station, and "
+                "where in Switzerland it is warmest, coldest, windiest, wettest or sunniest now. "
                 "MeteoSwiss forecasts whole hours, so forecast times must be full hours such as 14:00; "
                 "other times are refused."
             ),
@@ -371,6 +372,44 @@ class SwissWeatherMCPServer:
                 current_conditions("Braunwald")
             """
             return await self.measurement_service.read_current_conditions(location)
+
+        @self.mcp.tool()
+        @_handle_tool_call
+        async def current_extremes(extreme: ExtremeName) -> dict:
+            """
+            Get where in Switzerland it is warmest, coldest, windiest, wettest or sunniest now.
+
+            This compares the latest measurements of about 160 MeteoSwiss stations. They are the
+            values of stations, not of towns, and not a forecast. A high mountain station is
+            colder and windier than the valleys, so name the altitude with a station. MeteoSwiss
+            publishes new values about every 10 minutes.
+
+            The warmest, coldest and windiest stations are ranked by the temperature and by the
+            strongest gust. For the sunniest and the wettest the answer counts stations: a station
+            is sunny when the sun shone for at least 5 of the last 10 minutes, and rainy when it
+            measured rain in the last 10 minutes. The counts are given for Switzerland and for
+            each canton with at least one sunny or rainy station, as the number of sunny or rainy
+            stations out of the stations that measure it. Always give both numbers, because a
+            canton with one station says little. A canton that is not listed has no sunny or rainy
+            station. At night no station is sunny.
+
+            Args:
+                extreme (str): One of "warmest", "coldest", "windiest", "wettest" or "sunniest".
+
+            Returns:
+                dict: The time of the measurements. For the warmest, coldest and windiest, the
+                    first 5 stations with their altitude, canton and the temperature in Celsius or
+                    the gust in kilometres per hour. For the sunniest and the wettest, the number of
+                    sunny or rainy stations and of measuring stations, in all and for each canton
+                    with its share in percent, the canton with the highest share first. For the
+                    wettest also the first 5 rainy stations with their rain in millimetres over the
+                    last 10 minutes. A station that does not measure the value is left out everywhere.
+
+            Examples:
+                current_extremes("warmest")
+                current_extremes("sunniest")
+            """
+            return await self.measurement_service.read_current_extremes(extreme)
 
     def run(self, transport: str, host: str, port: int) -> None:
         """Serve the tools over stdio, or over streamable HTTP on host and port, until the process stops."""

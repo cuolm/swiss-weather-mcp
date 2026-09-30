@@ -2,13 +2,16 @@ from datetime import datetime, timezone
 
 import pytest
 
+from swiss_weather_mcp.errors import CannotAnswerError
 from swiss_weather_mcp.measurements import parameters
 from swiss_weather_mcp.measurements.service import (
-    _calculate_change, _describe_height_difference, _sum_sunshine_last_hour,
+    StationValue, _build_canton_rows, _calculate_change, _describe_height_difference, _sum_sunshine_last_hour,
 )
 from swiss_weather_mcp.measurements.source import Station, StationMeasurements
 
-FLUNTERN = Station(abbr="SMA", name="Zürich / Fluntern", altitude_m=604.0, east_m=2685223.0, north_m=1248410.0)
+FLUNTERN = Station(
+    abbr="SMA", name="Zürich / Fluntern", canton="ZH", altitude_m=604.0, east_m=2685223.0, north_m=1248410.0,
+)
 
 
 def build_measurements(utc_time: str, values: dict) -> StationMeasurements:
@@ -97,3 +100,116 @@ def test_describe_height_difference():
     assert [_describe_height_difference(difference_m) for difference_m in (195, -801, 0)] == [
         "195 m higher", "801 m lower", "at the same height",
     ]
+
+
+# --- read_current_extremes ---
+
+@pytest.mark.asyncio
+async def test_read_current_extremes_warmest(measurement_service_fixture):
+    # The Uetliberg station has no thermometer, so it is not ranked
+    answer = await measurement_service_fixture.read_current_extremes("warmest")
+
+    assert answer == {
+        "extreme": "warmest",
+        "measured_at": "2026-09-25T16:00+02:00",
+        "stations": [
+            {"station": "Zürich / Kloten (426 m)", "canton": "ZH", "temperature_c": 22.4},
+            {"station": "Zürich / Fluntern (604 m)", "canton": "ZH", "temperature_c": 21.0},
+            {"station": "Davos (1594 m)", "canton": "GR", "temperature_c": 16.5},
+        ],
+    }
+
+
+@pytest.mark.asyncio
+async def test_read_current_extremes_coldest(measurement_service_fixture):
+    answer = await measurement_service_fixture.read_current_extremes("coldest")
+    assert [row["station"] for row in answer["stations"]] == [
+        "Davos (1594 m)", "Zürich / Fluntern (604 m)", "Zürich / Kloten (426 m)",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_read_current_extremes_lists_5_stations(mocker, measurement_service_fixture):
+    all_measurements = []
+    for temperature_c in (11.0, 12.0, 13.0, 14.0, 15.0, 16.0):
+        all_measurements.append(build_measurements("2026-09-25T14:00", {parameters.TEMPERATURE: temperature_c}))
+    mocker.patch.object(
+        measurement_service_fixture.measurement_source, "read_current_measurements", return_value=all_measurements,
+    )
+    answer = await measurement_service_fixture.read_current_extremes("warmest")
+    assert [row["temperature_c"] for row in answer["stations"]] == [16.0, 15.0, 14.0, 13.0, 12.0]
+
+
+@pytest.mark.asyncio
+async def test_read_current_extremes_windiest(measurement_service_fixture):
+    answer = await measurement_service_fixture.read_current_extremes("windiest")
+    assert answer["stations"][0] == {"station": "Davos (1594 m)", "canton": "GR", "gusts_kmh": 28.8}
+
+
+@pytest.mark.asyncio
+async def test_read_current_extremes_sunniest(measurement_service_fixture):
+    # Kloten had only 4 minutes of sun, so 2 of the 3 stations in Zürich are sunny
+    answer = await measurement_service_fixture.read_current_extremes("sunniest")
+
+    assert answer == {
+        "extreme": "sunniest",
+        "measured_at": "2026-09-25T16:00+02:00",
+        "sunny_stations": 3,
+        "measuring_stations": 4,
+        "cantons": [
+            {"canton": "GR", "sunny_stations": 1, "measuring_stations": 1, "sunny_percent": 100},
+            {"canton": "ZH", "sunny_stations": 2, "measuring_stations": 3, "sunny_percent": 67},
+        ],
+    }
+
+
+@pytest.mark.asyncio
+async def test_read_current_extremes_wettest(measurement_service_fixture):
+    # The Uetliberg and Davos stations measure no rain, so they count neither as rainy nor as
+    # measuring, and Graubünden has no measuring station left
+    answer = await measurement_service_fixture.read_current_extremes("wettest")
+
+    assert answer == {
+        "extreme": "wettest",
+        "measured_at": "2026-09-25T16:00+02:00",
+        "rainy_stations": 1,
+        "measuring_stations": 2,
+        "cantons": [{"canton": "ZH", "rainy_stations": 1, "measuring_stations": 2, "rainy_percent": 50}],
+        "stations": [{"station": "Zürich / Kloten (426 m)", "canton": "ZH", "rain_last_10_minutes_mm": 0.3}],
+    }
+
+
+@pytest.mark.asyncio
+async def test_read_current_extremes_wettest_when_dry(mocker, measurement_service_fixture):
+    dry_fluntern = build_measurements("2026-09-25T14:00", {parameters.PRECIPITATION: 0.0})
+    mocker.patch.object(
+        measurement_service_fixture.measurement_source, "read_current_measurements", return_value=[dry_fluntern],
+    )
+    answer = await measurement_service_fixture.read_current_extremes("wettest")
+
+    assert (answer["rainy_stations"], answer["measuring_stations"]) == (0, 1)
+    assert (answer["cantons"], answer["stations"]) == ([], [])
+
+
+@pytest.mark.asyncio
+async def test_read_current_extremes_unknown_extreme(measurement_service_fixture):
+    with pytest.raises(CannotAnswerError, match="warmest, coldest, windiest, wettest, sunniest"):
+        await measurement_service_fixture.read_current_extremes("foggiest")
+
+
+@pytest.mark.asyncio
+async def test_read_current_extremes_without_measurements(mocker, measurement_service_fixture):
+    mocker.patch.object(measurement_service_fixture.measurement_source, "read_current_measurements", return_value=[])
+    with pytest.raises(CannotAnswerError, match="publishes no measurements"):
+        await measurement_service_fixture.read_current_extremes("warmest")
+
+
+# --- _build_canton_rows ---
+
+def test_build_canton_rows_puts_the_canton_with_more_stations_first():
+    # Both cantons are fully sunny, but the share of Zürich rests on two stations
+    appenzell = Station(abbr="APP", name="Appenzell", canton="AI", altitude_m=769.0, east_m=0.0, north_m=0.0)
+    station_values = [StationValue(appenzell, 10.0), StationValue(FLUNTERN, 10.0), StationValue(FLUNTERN, 10.0)]
+
+    rows = _build_canton_rows(station_values, station_values, "sunny")
+    assert [(row["canton"], row["measuring_stations"]) for row in rows] == [("ZH", 2), ("AI", 1)]

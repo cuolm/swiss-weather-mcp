@@ -1,12 +1,13 @@
 import asyncio
 import logging
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, NamedTuple, Optional
 
 from . import parameters
+from ..errors import CannotAnswerError
 from ..formatting import SWISS_TZ, find_compass_point, format_swiss_time
 from ..locations import LocationPoint, LocationFinder
-from .source import MeasurementSource, StationMeasurements, calculate_distance_m
+from .source import MeasurementSource, Station, StationMeasurements, calculate_distance_m
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +31,35 @@ MEASURED_FIELDS = (
     ("wind_direction_degrees", parameters.WIND_DIRECTION),
     ("pressure_sea_level_hpa", parameters.PRESSURE_SEA_LEVEL),
 )
+
+
+class Extreme(NamedTuple):
+    """The measured value an extreme ranks the stations by."""
+    parameter: str
+    field: str  # the field the value fills in the answer
+    highest_first: bool
+
+
+ExtremeName = Literal["warmest", "coldest", "windiest", "wettest", "sunniest"]
+EXTREMES: Dict[ExtremeName, Extreme] = {
+    "warmest": Extreme(parameters.TEMPERATURE, "temperature_c", highest_first=True),
+    "coldest": Extreme(parameters.TEMPERATURE, "temperature_c", highest_first=False),
+    "windiest": Extreme(parameters.WIND_GUSTS, "gusts_kmh", highest_first=True),
+    "wettest": Extreme(parameters.PRECIPITATION, "rain_last_10_minutes_mm", highest_first=True),
+    "sunniest": Extreme(parameters.SUNSHINE, "sunshine_last_10_minutes_min", highest_first=True),
+}
+# How many stations a ranking lists
+STATION_COUNT = 5
+# A station is sunny when the sun shone for at least half of the last 10 minutes
+SUNNY_MIN_SUNSHINE_MIN = 5.0
+# The smallest amount a rain gauge reports
+RAINY_MIN_RAIN_MM = 0.1
+
+
+class StationValue(NamedTuple):
+    """One measured value of one station."""
+    station: Station
+    value: float
 
 
 def _describe_height_difference(difference_m: int) -> str:
@@ -92,8 +122,73 @@ def _sum_sunshine_last_hour(all_measurements: List[StationMeasurements]) -> Opti
     return sum(sunshine_values)
 
 
+def _find_station_values(all_measurements: List[StationMeasurements], parameter: str) -> List[StationValue]:
+    """Find the stations that have a value for a parameter, so a station without one is never counted."""
+    station_values = []
+    for measurements in all_measurements:
+        value = measurements.values[parameter]
+        if value is not None:
+            station_values.append(StationValue(measurements.station, value))
+    return station_values
+
+
+def _find_station_values_from(station_values: List[StationValue], minimum: float) -> List[StationValue]:
+    """Find the stations whose value is at least a minimum."""
+    matching_values = []
+    for station_value in station_values:
+        if station_value.value >= minimum:
+            matching_values.append(station_value)
+    return matching_values
+
+
+def _build_station_rows(station_values: List[StationValue], extreme: Extreme) -> List[Dict[str, Any]]:
+    """Build the answer rows of the first 5 stations in the order of an extreme."""
+    ranked_values = sorted(
+        station_values, key=lambda station_value: station_value.value, reverse=extreme.highest_first
+    )
+    rows = []
+    for station_value in ranked_values[:STATION_COUNT]:
+        rows.append({
+            "station": station_value.station.display_name,
+            "canton": station_value.station.canton,
+            extreme.field: station_value.value,
+        })
+    return rows
+
+
+def _count_stations_by_canton(station_values: List[StationValue]) -> Dict[str, int]:
+    """Count the stations of each canton."""
+    counts: Dict[str, int] = {}
+    for station_value in station_values:
+        canton = station_value.station.canton
+        counts[canton] = counts.get(canton, 0) + 1
+    return counts
+
+
+def _build_canton_rows(station_values: List[StationValue], matching_values: List[StationValue],
+                       label: str) -> List[Dict[str, Any]]:
+    """
+    Build one answer row for each canton with a matching station, such as a sunny one: how many
+    of the canton's measuring stations match. The canton with the highest share comes first.
+    """
+    measuring_counts = _count_stations_by_canton(station_values)
+    matching_counts = _count_stations_by_canton(matching_values)
+    rows: List[Dict[str, Any]] = []
+    for canton, matching_count in matching_counts.items():
+        measuring_count = measuring_counts[canton]
+        rows.append({
+            "canton": canton,
+            f"{label}_stations": matching_count,
+            "measuring_stations": measuring_count,
+            f"{label}_percent": round(100 * matching_count / measuring_count),
+        })
+    # Among equal shares the canton with more stations comes first, because its share is better supported
+    rows.sort(key=lambda row: (-row[f"{label}_percent"], -row["measuring_stations"], row["canton"]))
+    return rows
+
+
 class MeasurementService:
-    """Answer what the weather is now at a location, from the nearest station's measurements."""
+    """Answer what the weather is now, at a location and across all stations, from the station measurements."""
 
     def __init__(self, location_finder: LocationFinder, measurement_source: MeasurementSource):
         self.location_finder = location_finder
@@ -106,6 +201,10 @@ class MeasurementService:
     async def _find_nearest_measurements(self, point: LocationPoint) -> List[StationMeasurements]:
         """Find the nearest station's measurements in a worker thread, so a download does not block other requests."""
         return await asyncio.to_thread(self.measurement_source.find_nearest_measurements, point)
+
+    async def _read_current_measurements(self) -> List[StationMeasurements]:
+        """Read every station's latest measurements in a worker thread, so a download does not block other requests."""
+        return await asyncio.to_thread(self.measurement_source.read_current_measurements)
 
     async def read_current_conditions(self, location: str) -> Dict[str, Any]:
         """
@@ -146,4 +245,45 @@ class MeasurementService:
         answer["temperature_change_last_3_hours_c"] = _calculate_change(all_measurements, parameters.TEMPERATURE)
         answer["pressure_change_last_3_hours_hpa"] = _calculate_change(all_measurements, parameters.PRESSURE_SEA_LEVEL)
         answer["sunshine_last_hour_min"] = _sum_sunshine_last_hour(all_measurements)
+        return answer
+
+    async def read_current_extremes(self, extreme: str) -> Dict[str, Any]:
+        """
+        Read where in Switzerland a measured value is at its extreme now, from every station's
+        latest measurements.
+
+        extreme is one of EXTREMES. Return the time of the measurements and, for the warmest, the
+        coldest and the windiest, the first 5 stations. For the sunniest and the wettest return
+        how many of the measuring stations are sunny or rainy, in all and for each canton with at
+        least one, and for the wettest also the first 5 rainy stations. A station without a value
+        is left out everywhere. Raise CannotAnswerError for an unknown extreme or when MeteoSwiss
+        publishes no measurements.
+        """
+        if extreme not in EXTREMES:
+            raise CannotAnswerError(f"'{extreme}' is not a known extreme, use one of: {', '.join(EXTREMES)}.")
+
+        all_measurements = await self._read_current_measurements()
+        if not all_measurements:
+            raise CannotAnswerError("MeteoSwiss currently publishes no measurements, try again later.")
+
+        ranked_by = EXTREMES[extreme]
+        station_values = _find_station_values(all_measurements, ranked_by.parameter)
+        answer: Dict[str, Any] = {
+            "extreme": extreme,
+            # Every row of the current values file has the same time
+            "measured_at": format_swiss_time(all_measurements[0].measured_at),
+        }
+        if extreme == "sunniest":
+            sunny_values = _find_station_values_from(station_values, SUNNY_MIN_SUNSHINE_MIN)
+            answer["sunny_stations"] = len(sunny_values)
+            answer["measuring_stations"] = len(station_values)
+            answer["cantons"] = _build_canton_rows(station_values, sunny_values, "sunny")
+        elif extreme == "wettest":
+            rainy_values = _find_station_values_from(station_values, RAINY_MIN_RAIN_MM)
+            answer["rainy_stations"] = len(rainy_values)
+            answer["measuring_stations"] = len(station_values)
+            answer["cantons"] = _build_canton_rows(station_values, rainy_values, "rainy")
+            answer["stations"] = _build_station_rows(rainy_values, ranked_by)
+        else:
+            answer["stations"] = _build_station_rows(station_values, ranked_by)
         return answer

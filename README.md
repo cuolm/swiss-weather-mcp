@@ -7,7 +7,7 @@
 
 A **Model Context Protocol ([MCP](https://modelcontextprotocol.info/))** server that exposes Swiss weather forecast data as callable tools.
 It reads the official [MeteoSwiss local forecast collection](https://opendatadocs.meteoswiss.ch/e-forecast-data/e4-local-forecast-data), caches it locally, and serves predictions such as rainfall, sunshine, temperature, wind and a worded weather summary. MeteoSwiss publishes these forecasts for **5,614 Swiss locations** (weather stations, postal code centers and points of interest), for **today and the next 8 days**, refreshed **every hour**.
-It also reads the [latest measurements](https://opendatadocs.meteoswiss.ch/a-data-groundbased/a1-automatic-weather-stations) of the SwissMetNet weather stations, refreshed **every 10 minutes**, for the weather right now.
+It also reads the [latest measurements](https://opendatadocs.meteoswiss.ch/a-data-groundbased/a1-automatic-weather-stations) of the SwissMetNet weather stations, refreshed **every 10 minutes**, for the weather right now at a location and across Switzerland.
 
 There is also an MCP client that can be run to test the server using the stdio transport.
 
@@ -209,6 +209,7 @@ they resolved, its altitude, the time or day it applies to, and the model run th
 | `total_cloud_cover(location, when)` | Estimated total cloud cover (%) plus the low, medium and high layers | `total_cloud_cover("Zurich", "2026-09-23T14:00")` |
 | `freezing_level(location, when)` | Height of the 0 °C line (m above sea level) | `freezing_level("Zermatt", "2026-09-23T14:00")` |
 | `current_conditions(location)` | Measured now at the nearest weather station: temperature, humidity, dew point, rain and sunshine in the last 10 minutes, wind, gust, direction and sea-level pressure, plus the temperature and pressure change over the last 3 hours and the sunshine in the last hour | `current_conditions("Zurich")` |
+| `current_extremes(extreme)` | Where in Switzerland it is `warmest`, `coldest`, `windiest`, `wettest` or `sunniest` now, from the measurements of all weather stations: the first 5 stations by temperature or gust, or how many stations are sunny or rainy in Switzerland and in each canton | `current_extremes("sunniest")` |
 
 **Time**
 - Send times as Swiss clock time in ISO 8601 without an offset, e.g. `"2026-09-23T14:00"`. The server
@@ -242,6 +243,18 @@ they resolved, its altitude, the time or day it applies to, and the model run th
 > passed over for the next nearest one, at most three stations. The changes over the last 3 hours
 > and the sunshine in the last hour come from the earlier rows of that file. They are empty when the
 > station has not published all the rows they need, such as shortly after midnight UTC.
+
+> **Note:** `current_extremes` compares the newest values of all about 160 SwissMetNet stations, which
+> MeteoSwiss publishes in one file of about 17 KB, kept for 5 minutes. The warmest, coldest and
+> windiest stations are ranked by the temperature and by the strongest gust, and the first 5 are
+> listed. For the sunniest and the wettest a ranking says little, because many stations share the
+> highest value, so the answer counts stations instead: a station is sunny when the sun shone for at
+> least 5 of the last 10 minutes, and rainy when it measured rain in the last 10 minutes. The counts
+> are given for Switzerland and for each canton with at least one such station, always as "2 of 3
+> stations", with the canton with the highest share first, because a small canton has few stations.
+> A station that does not measure a value, or has not delivered it yet, is left out of both numbers.
+> The wettest also lists the 5 stations with the most rain. These are the values of stations, so the
+> coldest and the windiest are usually high mountain stations.
 
 > **Note:** `daily_forecast` is by far the cheapest tool, about 8 MB for all its files against about
 > 31 MB for each hourly file, so prefer it when the question is about a day rather than an hour.
