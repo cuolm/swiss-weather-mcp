@@ -42,7 +42,7 @@ What MeteoSwiss publishes:
 How we use it for the weather at one location:
 1. Read the station table on the first question and keep it in memory for as long as
    the process runs; the file is downloaded first when it is missing or older than 7 days.
-2. Sort the stations by their distance to the requested location point.
+2. Sort the stations by their distance to the requested MeteoSwiss point.
 3. Read the now file of the nearest station; the file is downloaded again when it is
    older than 5 minutes. Its last row holds the latest measurements, and its earlier rows
    show how the values changed.
@@ -70,7 +70,7 @@ from typing import Dict, List, NamedTuple, Optional
 
 from . import parameters
 from ..errors import CannotAnswerError
-from ..locations import LocationPoint
+from ..locations import MeteoSwissPoint
 from ..opendata import ensure_recent_file, parse_stamp
 
 logger = logging.getLogger(__name__)
@@ -122,8 +122,8 @@ class StationMeasurements(NamedTuple):
     values: Dict[str, Optional[float]]
 
 
-def calculate_distance_m(point: LocationPoint, station: Station) -> float:
-    """Return the distance in metres between a location point and a station."""
+def calculate_distance_m(point: MeteoSwissPoint, station: Station) -> float:
+    """Return the distance in metres between a MeteoSwiss point and a station."""
     # LV95 is a flat grid in metres, so Pythagoras is exact enough within Switzerland
     return math.hypot(station.east_m - point.east_m, station.north_m - point.north_m)
 
@@ -146,7 +146,7 @@ def _parse_reference_timestamp(timestamp_text: str) -> datetime:
 
 
 class MeasurementSource:
-    """Read the latest SwissMetNet measurements and find the station nearest to a location point."""
+    """Read the latest SwissMetNet measurements and find the station nearest to a MeteoSwiss point."""
 
     def __init__(self, cache_dir: Path):
         self.cache_dir = cache_dir / "measurements"
@@ -196,9 +196,9 @@ class MeasurementSource:
                 all_measurements.append(measurements)
         return all_measurements
 
-    def find_nearest_station_measurements(self, point: LocationPoint) -> List[StationMeasurements]:
+    def find_nearest_station_measurements(self, point: MeteoSwissPoint) -> List[StationMeasurements]:
         """
-        Find the measurements of the station nearest to a location point that measures the
+        Find the measurements of the station nearest to a MeteoSwiss point that measures the
         temperature, the oldest first, so the last entry holds the latest measurements.
 
         Raise CannotAnswerError when none of the nearest stations published a temperature in the last hour.

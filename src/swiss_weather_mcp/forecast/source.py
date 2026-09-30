@@ -11,7 +11,7 @@ Terms:
                 folder; run_time is the same moment as a datetime.
     parameter   The weather value a file holds, such as tre200h0 (temperature).
     point       A place with a forecast, identified by point_id and point_type_id
-                together; see locations.py.
+                together; see locations/meteoswiss_points.py.
 
 What MeteoSwiss publishes:
 - Each hourly run adds one CSV file per parameter to the item of its UTC day.
@@ -66,7 +66,7 @@ import requests
 
 from . import parameters
 from ..errors import CannotAnswerError
-from ..locations import LocationPoint
+from ..locations import MeteoSwissPoint
 from ..opendata import REQUEST_TIMEOUT_SECONDS, download_file, parse_stamp
 
 logger = logging.getLogger(__name__)
@@ -82,7 +82,7 @@ class ForecastSeries(NamedTuple):
     values: Dict[datetime, float]
 
 
-def _build_row_prefix(point: LocationPoint) -> bytes:
+def _build_row_prefix(point: MeteoSwissPoint) -> bytes:
     """Return the start every row of a point has in a parameter file, such as b"800100;2;"."""
     return f"{point.point_id};{point.point_type_id};".encode()
 
@@ -188,7 +188,7 @@ class ForecastSource:
             logger.info(f"Deleting old cached run {folder.name}")
             shutil.rmtree(folder, ignore_errors=True)
 
-    def _ensure_parameter_file(self, parameter: str, point: LocationPoint, run_id: str, file_url: str) -> Path:
+    def _ensure_parameter_file(self, parameter: str, point: MeteoSwissPoint, run_id: str, file_url: str) -> Path:
         """Return the cached file with this parameter for this point and run, downloading it if missing."""
         run_dir = self.cache_dir / "runs" / run_id
         full_file = run_dir / f"{parameter}.csv"
@@ -212,7 +212,7 @@ class ForecastSource:
         self._delete_old_cached_runs(run_id)
         return downloaded_file
 
-    def _read_point_values(self, parameter_file: Path, point: LocationPoint) -> Dict[datetime, float]:
+    def _read_point_values(self, parameter_file: Path, point: MeteoSwissPoint) -> Dict[datetime, float]:
         """Read one point's values from a cached file, keyed by UTC timestamp."""
         row_prefix = _build_row_prefix(point)
         values: Dict[datetime, float] = {}
@@ -231,7 +231,7 @@ class ForecastSource:
 
         return values
 
-    def read_series(self, parameter: str, point: LocationPoint) -> ForecastSeries:
+    def read_series(self, parameter: str, point: MeteoSwissPoint) -> ForecastSeries:
         """
         Read one parameter over the whole forecast window at one point.
 
@@ -239,7 +239,7 @@ class ForecastSource:
 
         Parameters:
             parameter (str): MeteoSwiss parameter shortname (e.g., "tre200h0", "fu3010h0").
-            point (LocationPoint): The resolved location point.
+            point (MeteoSwissPoint): The resolved MeteoSwiss point.
 
         Returns:
             ForecastSeries: The run the values came from, and the values keyed by UTC timestamp.
