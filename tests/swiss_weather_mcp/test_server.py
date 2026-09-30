@@ -23,6 +23,7 @@ EXPECTED_TOOLS = {
     "total_cloud_cover": ["location", "when"],
     "freezing_level": ["location", "when"],
     "current_conditions": ["location"],
+    "current_extremes": ["extreme"],
 }
 
 FREEZING_LEVEL_CALL = {"location": "Zurich", "when": "2026-09-24T14:00"}
@@ -82,6 +83,13 @@ async def test_register_tools(server_fixture):
     for tool in await server_fixture.mcp.list_tools():
         offered[tool.name] = list(tool.input_schema.get("properties", {}))
     assert offered == EXPECTED_TOOLS
+
+
+@pytest.mark.asyncio
+async def test_current_extremes_refuses_an_unknown_extreme(server_fixture):
+    with pytest.raises(ToolError, match="'warmest', 'coldest', 'windiest', 'wettest' or 'sunniest'"):
+        await server_fixture.mcp.call_tool("current_extremes", {"extreme": "hottest"})
+    server_fixture.measurement_service.read_current_extremes.assert_not_awaited()
 
 
 # --- _handle_tool_call ---

@@ -23,10 +23,10 @@ KLOTEN = LocationPoint(
 )
 
 
-def count_now_values_downloads(source_fixture, abbr: str) -> int:
+def count_downloads(source_fixture, file_name: str) -> int:
     downloads = 0
     for call in source_fixture.get_mock.call_args_list:
-        if call.args[0].endswith(f"ogd-smn_{abbr}_t_now.csv"):
+        if call.args[0].endswith(file_name):
             downloads += 1
     return downloads
 
@@ -66,7 +66,7 @@ def test_read_measurements_downloads_once(source_fixture, measurement_source_fix
     fluntern = find_station(measurement_source_fixture, "SMA")
     measurement_source_fixture._read_measurements(fluntern)
     measurement_source_fixture._read_measurements(fluntern)
-    assert count_now_values_downloads(source_fixture, "sma") == 1
+    assert count_downloads(source_fixture, "ogd-smn_sma_t_now.csv") == 1
 
 
 def test_read_measurements_downloads_again_when_old(source_fixture, measurement_source_fixture, tmp_path):
@@ -76,7 +76,42 @@ def test_read_measurements_downloads_again_when_old(source_fixture, measurement_
     os.utime(tmp_path / "measurements" / "ogd-smn_sma_t_now.csv", (old_time, old_time))
 
     measurement_source_fixture._read_measurements(fluntern)
-    assert count_now_values_downloads(source_fixture, "sma") == 2
+    assert count_downloads(source_fixture, "ogd-smn_sma_t_now.csv") == 2
+
+
+# --- read_current_measurements ---
+
+def test_read_current_measurements_skips_a_station_not_in_the_table(measurement_source_fixture):
+    # MRP is published in the current values, but the station table does not say where it is
+    all_measurements = measurement_source_fixture.read_current_measurements()
+    assert [measurements.station.abbr for measurements in all_measurements] == ["SMA", "UEB", "KLO", "DAV"]
+
+
+def test_read_current_measurements_time_and_canton(measurement_source_fixture):
+    fluntern = measurement_source_fixture.read_current_measurements()[0]
+    assert fluntern.measured_at == datetime(2026, 9, 25, 14, tzinfo=timezone.utc)
+    assert fluntern.station.canton == "ZH"
+
+
+def test_read_current_measurements_missing_value(measurement_source_fixture):
+    davos = measurement_source_fixture.read_current_measurements()[3]
+    assert davos.values[parameters.PRECIPITATION] is None
+    assert davos.values[parameters.TEMPERATURE] == 16.5
+
+
+def test_read_current_measurements_downloads_once(source_fixture, measurement_source_fixture):
+    measurement_source_fixture.read_current_measurements()
+    measurement_source_fixture.read_current_measurements()
+    assert count_downloads(source_fixture, "VQHA80.csv") == 1
+
+
+def test_read_current_measurements_downloads_again_when_old(source_fixture, measurement_source_fixture, tmp_path):
+    measurement_source_fixture.read_current_measurements()
+    old_time = time.time() - OLD_FILE_AGE_SECONDS
+    os.utime(tmp_path / "measurements" / "VQHA80.csv", (old_time, old_time))
+
+    measurement_source_fixture.read_current_measurements()
+    assert count_downloads(source_fixture, "VQHA80.csv") == 2
 
 
 # --- find_nearest_measurements ---

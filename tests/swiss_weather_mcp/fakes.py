@@ -114,6 +114,18 @@ NOW_VALUES_ROWS = {
     "klo": (),
     "dav": ("DAV;25.09.2026 14:00;16.50;17.70;-8.10;1024.10;;16.60;28.80;;10.00;537.00",),
 }
+# Rows of VQHA80.csv at the time of the latest rows of the now files. UEB measures neither the
+# temperature nor the rain, KLO had 4 minutes of sun and some rain, and DAV measures no rain. MRP is
+# published there but missing from the station table.
+CURRENT_VALUES_CSV = (
+    "Station/Location;Date;tre200s0;rre150z0;sre000z0;gre000z0;ure200s0;tde200s0;dkl010z0;fu3010z0;"
+    "fu3010z1;prestas0;pp0qffs0;pp0qnhs0;ppz850s0;ppz700s0;dv1towz0;fu3towz0;fu3towz1;ta1tows0;uretows0;tdetows0\n"
+    "SMA;202609251400;21.00;0.00;10.00;516.00;34.30;4.70;23.00;4.70;10.10;950.60;1018.90;1021.60;-;-;-;-;-;18.40;39.70;4.50\n"
+    "UEB;202609251400;-;-;10.00;561.00;-;-;-;-;-;-;-;-;-;-;16.00;7.60;13.00;15.40;46.20;3.90\n"
+    "KLO;202609251400;22.40;0.30;4.00;301.00;40.10;8.10;250.00;6.10;14.80;966.20;1019.00;1021.40;-;-;-;-;-;-;-;-\n"
+    "DAV;202609251400;16.50;-;10.00;537.00;17.70;-8.10;-;16.60;28.80;845.00;-;1024.10;1545.30;-;-;-;-;-;-;-\n"
+    "MRP;202609251400;-;-;-;-;-;-;-;-;-;-;-;-;-;-;-;-;-;-;-;-\n"
+)
 # Five minutes after the latest rows of the now files
 MEASUREMENTS_NOW = datetime(2026, 9, 25, 14, 5, tzinfo=timezone.utc)
 
