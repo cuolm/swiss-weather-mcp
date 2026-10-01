@@ -1,5 +1,5 @@
 """
-Read the places MeteoSwiss publishes a local forecast for.
+Read the places MeteoSwiss publishes a local forecast for, and find one by its name or postal code.
 
 What MeteoSwiss publishes:
 - A point table, ogd-local-forecasting_meta_point.csv, with the 5,614 places it
@@ -20,23 +20,47 @@ What MeteoSwiss publishes:
     │ ...                                       │  5,614 rows
     └───────────────────────────────────────────┘
 
+The package also ships other_language_place_names.csv, built from Wikipedia: 349
+names in Romansh, French, German, Italian and English, such as Genf, Ginevra and
+Geneva for Genève.
+
 How we use it:
-Read every point of the table on the first question and keep the points in memory for
-as long as the process runs. The file is downloaded first when it is missing or older
-than 7 days.
+1. Read every point of the table on the first question and keep the points in memory
+   for as long as the process runs. The file is downloaded first when it is missing or
+   older than 7 days.
+2. Sort the points by rank and keep the first one per postal code and per name:
+   postal code centers first, then the lowest postal code, then the lowest point ID.
+
+    "Zürich", 24 points                 "Säntis", 2 points
+      800100  Zürich 8001   kept          35   station             kept
+      800200  Zürich 8002                 711  point of interest
+      ...                                 (no postal codes, lowest ID wins)
+
+3. Ignore case, accents and periods, then look the location up:
+
+    "Genf"  ──>  "genf"
+      1. a postal code?               no
+      2. a MeteoSwiss name?           no
+      3. a name in another language?  yes: "geneve", Genève 1201 (381 m)
 
     <cache dir>/locations/
     └── ogd-local-forecasting_meta_point.csv   (downloaded again when older than 7 days)
 """
 import csv
+import logging
 from datetime import timedelta
+from importlib import resources
 from pathlib import Path
-from typing import List, NamedTuple
+from typing import Dict, List, NamedTuple, Optional, Tuple
 
 from ..opendata import ensure_recent_file
+from .names import Position, calculate_distance_m, normalise_location
+
+logger = logging.getLogger(__name__)
 
 POINT_TABLE_URL = "https://data.geo.admin.ch/ch.meteoschweiz.ogd-local-forecasting/ogd-local-forecasting_meta_point.csv"
 POINT_TABLE_MAX_AGE = timedelta(days=7)
+OTHER_LANGUAGE_PLACE_NAMES_FILE = "other_language_place_names.csv"
 
 
 class MeteoSwissPoint(NamedTuple):
@@ -87,3 +111,100 @@ class MeteoSwissPointSource:
         # Published only once complete, so a parallel request never sees part of the points
         self._points = points
         return points
+
+
+def _rank_point(point: MeteoSwissPoint) -> Tuple[bool, str, int]:
+    """Sort key for points that share a postal code or name; the first one is used."""
+    return (not point.postal_code, point.postal_code, int(point.point_id))
+
+
+def _choose_point_per_postal_code(ranked_points: List[MeteoSwissPoint]) -> Dict[str, MeteoSwissPoint]:
+    """Map each postal code to its first ranked point."""
+    chosen_point_by_postal_code: Dict[str, MeteoSwissPoint] = {}
+    for point in ranked_points:
+        if not point.postal_code:
+            continue  # stations and points of interest have none
+        if point.postal_code not in chosen_point_by_postal_code:
+            chosen_point_by_postal_code[point.postal_code] = point
+    return chosen_point_by_postal_code
+
+
+def _choose_point_per_name(ranked_points: List[MeteoSwissPoint]) -> Dict[str, MeteoSwissPoint]:
+    """Map each normalised name to its first ranked point."""
+    chosen_point_by_name: Dict[str, MeteoSwissPoint] = {}
+    for point in ranked_points:
+        point_name = normalise_location(point.name)
+        if point_name not in chosen_point_by_name:
+            chosen_point_by_name[point_name] = point
+    return chosen_point_by_name
+
+
+def _read_other_language_place_names() -> Dict[str, str]:
+    """Map each other language place name, normalised, to its normalised MeteoSwiss point name."""
+    package_files = resources.files("swiss_weather_mcp.locations")
+    names_file = package_files.joinpath(OTHER_LANGUAGE_PLACE_NAMES_FILE)
+    text = names_file.read_text(encoding="utf-8")
+    # The file starts with comment lines that name its sources
+    lines = [line for line in text.splitlines() if not line.startswith("#")]
+
+    point_names_by_other_language_place_name = {}
+    for row in csv.DictReader(lines, delimiter=";"):
+        other_language_place_name = normalise_location(row["other_language_place_name"])
+        point_name = normalise_location(row["meteoswiss_point_name"])
+        point_names_by_other_language_place_name[other_language_place_name] = point_name
+    return point_names_by_other_language_place_name
+
+
+class MeteoSwissPointLookup:
+    """Find a MeteoSwiss point by postal code, name or name in another language, or the one nearest to a position."""
+
+    def __init__(self, point_source: MeteoSwissPointSource):
+        self.point_source = point_source
+        self._points: List[MeteoSwissPoint] = []
+        # The points with a postal code, which name a village or town a reader knows
+        self._villages: List[MeteoSwissPoint] = []
+        self._chosen_point_by_postal_code: Dict[str, MeteoSwissPoint] = {}
+        self._chosen_point_by_name: Dict[str, MeteoSwissPoint] = {}
+        self._point_names_by_other_language_place_name = _read_other_language_place_names()
+
+    def _ensure_chosen_points(self) -> None:
+        """Read the point table and choose one point per postal code and per name, once per process."""
+        if self._chosen_point_by_postal_code and self._chosen_point_by_name:
+            return
+
+        points = self.point_source.load_points()
+        ranked_points = sorted(points, key=_rank_point)
+        self._points = points
+        self._villages = [point for point in points if point.postal_code]
+        self._chosen_point_by_postal_code = _choose_point_per_postal_code(ranked_points)
+        self._chosen_point_by_name = _choose_point_per_name(ranked_points)
+        logger.info(f"Loaded {len(points)} forecast locations")
+
+    def find_point(self, location: str) -> Optional[MeteoSwissPoint]:
+        """Find the point for a postal code, a name or a name in another language, or None."""
+        self._ensure_chosen_points()
+        normalised_location = normalise_location(location)
+
+        if normalised_location in self._chosen_point_by_postal_code:
+            return self._chosen_point_by_postal_code[normalised_location]
+
+        if normalised_location in self._chosen_point_by_name:
+            return self._chosen_point_by_name[normalised_location]
+
+        if normalised_location in self._point_names_by_other_language_place_name:
+            meteoswiss_name = self._point_names_by_other_language_place_name[normalised_location]
+            # The names file was built from an older point table, so its place may be gone
+            if meteoswiss_name in self._chosen_point_by_name:
+                return self._chosen_point_by_name[meteoswiss_name]
+        return None
+
+    def find_nearest_point(self, position: Position) -> MeteoSwissPoint:
+        """Find the point nearest to a position."""
+        self._ensure_chosen_points()
+        return min(self._points, key=lambda point: calculate_distance_m(point, position))
+
+    def find_nearest_village_name(self, position: Position) -> str:
+        """Find the name of the point with a postal code nearest to a position, such as "Bettmeralp"."""
+        self._ensure_chosen_points()
+        village = min(self._villages, key=lambda point: calculate_distance_m(point, position))
+        return village.name

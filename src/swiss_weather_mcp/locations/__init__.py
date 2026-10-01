@@ -5,7 +5,7 @@ Find the place a user means.
     point      one of the places MeteoSwiss publishes a local forecast for
     place      a named place of swissNAMES3D, the swisstopo collection of geographical names
 """
-from .finder import LocationFinder
+from .finder import LocationFinder, ResolvedLocation
 from .meteoswiss_points import MeteoSwissPoint
 
-__all__ = ["LocationFinder", "MeteoSwissPoint"]
+__all__ = ["LocationFinder", "MeteoSwissPoint", "ResolvedLocation"]
