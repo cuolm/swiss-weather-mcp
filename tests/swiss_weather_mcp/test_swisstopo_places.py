@@ -45,7 +45,8 @@ def test_load_places_reads_only_the_chosen_object_types(swisstopo_place_source_f
     places = swisstopo_place_source_fixture.load_places()
     assert [(place.name, place.object_type) for place in places] == [
         ("Oerlikon", "Quartier"), ("Matterhorn", "Alpiner Gipfel"), ("Rheinfall", "Wasserfall"),
-        ("Zürichsee", "See"),
+        ("Blausee", "Ort"), ("Blausee", "Quartier"), ("Uetliberg", "Huegel"), ("Uetliberg", "Ort"),
+        ("Lindenhof", "Quartierteil"), ("Davos", "Ort"), ("Zürichsee", "See"), ("Blausee", "See"),
     ]
 
 

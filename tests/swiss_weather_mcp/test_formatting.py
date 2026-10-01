@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from swiss_weather_mcp.formatting import find_compass_point, format_swiss_time
+from swiss_weather_mcp.formatting import describe_height_difference, find_compass_point, format_swiss_time
 
 
 # --- format_swiss_time ---
@@ -18,3 +18,11 @@ def test_format_swiss_time_winter():
 def testfind_compass_point():
     # Each of the 16 points covers 22.5 degrees, and a bearing just short of north wraps round to N
     assert [find_compass_point(degrees) for degrees in (0, 11, 12, 90, 217, 355)] == ["N", "N", "NNE", "E", "SW", "N"]
+
+
+# --- describe_height_difference ---
+
+def test_describe_height_difference():
+    assert [describe_height_difference(difference_m) for difference_m in (195, -801, 0)] == [
+        "195 m higher", "801 m lower", "at the same height",
+    ]

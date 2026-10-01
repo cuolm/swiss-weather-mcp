@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Literal, NamedTuple, Optional
 
 from . import parameters
 from ..errors import CannotAnswerError
-from ..formatting import SWISS_TZ, find_compass_point, format_swiss_time
+from ..formatting import SWISS_TZ, describe_height_difference, find_compass_point, format_swiss_time
 from ..locations import MeteoSwissPoint, LocationFinder
 from .source import MeasurementSource, Station, StationMeasurements, calculate_distance_m
 
@@ -62,22 +62,13 @@ class StationValue(NamedTuple):
     value: float
 
 
-def _describe_height_difference(difference_m: int) -> str:
-    """Say how much higher or lower the station is, such as "801 m lower"."""
-    if difference_m > 0:
-        return f"{difference_m} m higher"
-    if difference_m < 0:
-        return f"{-difference_m} m lower"
-    return "at the same height"
-
-
 def _build_nearest_station_sentence(point: MeteoSwissPoint, measurements: StationMeasurements,
                                     distance_km: float, difference_m: int) -> str:
     """Build the sentence that says which station measured the values, such as "Glarus (517 m) is ..."."""
     measured_at = measurements.measured_at.astimezone(SWISS_TZ)
     return (
         f"{measurements.station.display_name} is the nearest MeteoSwiss station to {point.display_name}, "
-        f"{distance_km} km away and {_describe_height_difference(difference_m)}. "
+        f"{distance_km} km away and {describe_height_difference(difference_m)}. "
         f"It measured the following values at {measured_at:%H:%M}."
     )
 
