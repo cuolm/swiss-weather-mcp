@@ -77,11 +77,12 @@ class LocationFinder:
         thread.start()
         return thread
 
-    def _build_options_error(self, swisstopo_places: List[SwisstopoPlace], near: Optional[str]) -> CannotAnswerError:
+    def _build_options_error(self, swisstopo_place_candidates: List[SwisstopoPlace],
+                             near: Optional[str]) -> CannotAnswerError:
         """Build the refusal of a name of several places, listing the village to call again with for each."""
-        name = swisstopo_places[0].name
+        name = swisstopo_place_candidates[0].name
         option_lines = []
-        for place in swisstopo_places:
+        for place in swisstopo_place_candidates:
             village_name = self.meteoswiss_point_lookup.find_nearest_village_name(place)
             option_lines.append(f'  near="{village_name}": {place.object_type_name}, {place.altitude_m:.0f} m')
         listed_options = "\n".join(option_lines)
@@ -90,11 +91,11 @@ class LocationFinder:
         if near is not None:
             no_place_near = f"No '{name}' lies near '{near}'. "
         return CannotAnswerError(
-            f"{no_place_near}'{name}' is the name of {len(swisstopo_places)} places. Call again with location "
-            f"'{name}' and near set to one of these villages:\n{listed_options}"
+            f"{no_place_near}'{name}' is the name of {len(swisstopo_place_candidates)} places. Call again with "
+            f"location '{name}' and near set to one of these villages:\n{listed_options}"
         )
 
-    def _choose_swisstopo_place_near(self, swisstopo_places: List[SwisstopoPlace],
+    def _choose_swisstopo_place_near(self, swisstopo_place_candidates: List[SwisstopoPlace],
                                      near: Optional[str]) -> SwisstopoPlace:
         """
         Choose the one of several places with the same name that is closest to near. Raise
@@ -102,18 +103,21 @@ class LocationFinder:
         no place lies within MAX_NEAR_DISTANCE_M of it.
         """
         if near is None:
-            raise self._build_options_error(swisstopo_places, near)
+            raise self._build_options_error(swisstopo_place_candidates, near)
 
         # near is looked up in the MeteoSwiss points, not the swisstopo places: a MeteoSwiss name or postal
         # code leads to exactly one point, while many swisstopo names belong to several places themselves
-        near_point = self.meteoswiss_point_lookup.find_point(near)
-        if near_point is None:
-            raise self._build_options_error(swisstopo_places, near)
+        near_meteoswiss_point = self.meteoswiss_point_lookup.find_point(near)
+        if near_meteoswiss_point is None:
+            raise self._build_options_error(swisstopo_place_candidates, near)
 
-        closest_place = min(swisstopo_places, key=lambda place: calculate_distance_m(place, near_point))
-        if calculate_distance_m(closest_place, near_point) > MAX_NEAR_DISTANCE_M:
-            raise self._build_options_error(swisstopo_places, near)
-        return closest_place
+        closest_swisstopo_place = min(
+            swisstopo_place_candidates,
+            key=lambda swisstopo_place: calculate_distance_m(swisstopo_place, near_meteoswiss_point),
+        )
+        if calculate_distance_m(closest_swisstopo_place, near_meteoswiss_point) > MAX_NEAR_DISTANCE_M:
+            raise self._build_options_error(swisstopo_place_candidates, near)
+        return closest_swisstopo_place
 
     def find_location(self, location: str, near: Optional[str] = None) -> ResolvedLocation:
         """
@@ -128,16 +132,16 @@ class LocationFinder:
         if meteoswiss_point is not None:
             return ResolvedLocation(meteoswiss_point, None)
 
-        swisstopo_places = self.swisstopo_place_lookup.find_places(location)
-        if not swisstopo_places:
+        swisstopo_place_candidates = self.swisstopo_place_lookup.find_places(location)
+        if not swisstopo_place_candidates:
             raise CannotAnswerError(
                 f"Location '{location}' was not found. Check the spelling, or try a nearby town, village or "
                 f"postal code."
             )
 
-        if len(swisstopo_places) == 1:
-            swisstopo_place = swisstopo_places[0]
+        if len(swisstopo_place_candidates) == 1:
+            swisstopo_place = swisstopo_place_candidates[0]
         else:
-            swisstopo_place = self._choose_swisstopo_place_near(swisstopo_places, near)
+            swisstopo_place = self._choose_swisstopo_place_near(swisstopo_place_candidates, near)
         nearest_meteoswiss_point = self.meteoswiss_point_lookup.find_nearest_point(swisstopo_place)
         return ResolvedLocation(nearest_meteoswiss_point, swisstopo_place)
