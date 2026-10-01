@@ -118,7 +118,10 @@ class SwissWeatherMCPServer:
                 "and the next 8 days, the weather measured now at the nearest MeteoSwiss station, and "
                 "where in Switzerland it is warmest, coldest, windiest, wettest or sunniest now. "
                 "MeteoSwiss forecasts whole hours, so forecast times must be full hours such as 14:00; "
-                "other times are refused."
+                "other times are refused. A location can be a town, a postal code, or a smaller place such "
+                "as a city district, a lake or a peak. A place MeteoSwiss does not forecast for is answered "
+                "from the nearest MeteoSwiss point, and the nearest_forecast_point sentence of the answer "
+                "names that point."
             ),
             log_level=log_level,  # forwarded to uvicorn, which configures its own loggers
         )
