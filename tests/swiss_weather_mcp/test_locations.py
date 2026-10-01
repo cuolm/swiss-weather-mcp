@@ -1,7 +1,10 @@
 import csv
+import logging
+import time
 from importlib import resources
 
 import pytest
+import requests
 
 from swiss_weather_mcp.errors import CannotAnswerError
 from swiss_weather_mcp.locations import MeteoSwissPoint
@@ -135,6 +138,42 @@ def test_find_location_takes_free_text_that_names_a_village(location_finder_fixt
 def test_find_location_lists_the_options_for_free_text_without_a_village(location_finder_fixture):
     with pytest.raises(CannotAnswerError, match="'Blausee' is the name of 2 places"):
         location_finder_fixture.find_location("Blausee im Kandertal")
+
+
+# --- start_loading_swisstopo_places ---
+
+# Long enough that a request comes while the background load is still downloading
+SLOW_DOWNLOAD_SECONDS = 0.2
+
+
+def test_start_loading_swisstopo_places(source_fixture, location_finder_fixture):
+    location_finder_fixture.start_loading_swisstopo_places().join()
+    location_finder_fixture.find_location("Lindenhof")
+    assert count_archive_downloads(source_fixture) == 1
+
+
+def test_start_loading_swisstopo_places_while_a_request_needs_them(source_fixture, location_finder_fixture):
+    fast_get = source_fixture.get_mock.side_effect
+
+    def slow_get(url, **kwargs):
+        if url.endswith(".csv.zip"):
+            time.sleep(SLOW_DOWNLOAD_SECONDS)
+        return fast_get(url, **kwargs)
+
+    source_fixture.get_mock.side_effect = slow_get
+    loading_thread = location_finder_fixture.start_loading_swisstopo_places()
+    resolved_location = location_finder_fixture.find_location("Lindenhof")
+    loading_thread.join()
+
+    assert resolved_location.place.name == "Lindenhof"
+    assert count_archive_downloads(source_fixture) == 1
+
+
+def test_start_loading_swisstopo_places_without_a_connection(caplog, source_fixture, location_finder_fixture):
+    source_fixture.get_mock.side_effect = requests.ConnectionError("no connection")
+    with caplog.at_level(logging.WARNING):
+        location_finder_fixture.start_loading_swisstopo_places().join()
+    assert "Could not load the swisstopo places at start" in caplog.text
 
 
 # --- other_language_place_names.csv ---

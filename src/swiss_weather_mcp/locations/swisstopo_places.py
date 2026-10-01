@@ -50,6 +50,7 @@ import csv
 import io
 import logging
 import re
+import threading
 import zipfile
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
@@ -223,21 +224,23 @@ class SwisstopoPlaceLookup:
         # Names the village an option is "near", such as Bettmeralp
         self.find_nearest_village_name = find_nearest_village_name
         self._place_groups_by_name: Dict[str, List[List[SwisstopoPlace]]] = {}
+        # The load at server start and a request may come at the same time, and only one may download
+        self._loading_lock = threading.Lock()
 
-    def _ensure_place_groups(self) -> None:
-        """Read the places and group them by name, once per process."""
-        if self._place_groups_by_name:
-            return
+    def load_place_groups(self) -> None:
+        """Read the places and group them by name into memory once per process."""
+        with self._loading_lock:
+            if self._place_groups_by_name:
+                return
 
-        places = self.place_source.load_places()
-        places_by_name: Dict[str, List[SwisstopoPlace]] = defaultdict(list)
-        for place in places:
-            places_by_name[normalise_location(place.name)].append(place)
-        place_groups_by_name = {}
-        for name, named_places in places_by_name.items():
-            place_groups_by_name[name] = _group_close_places(named_places)
-        # Published only once complete, so a parallel request never sees part of the groups
-        self._place_groups_by_name = place_groups_by_name
+            places = self.place_source.load_places()
+            places_by_name: Dict[str, List[SwisstopoPlace]] = defaultdict(list)
+            for place in places:
+                places_by_name[normalise_location(place.name)].append(place)
+            place_groups_by_name = {}
+            for name, named_places in places_by_name.items():
+                place_groups_by_name[name] = _group_close_places(named_places)
+            self._place_groups_by_name = place_groups_by_name
 
     def _build_option(self, place: SwisstopoPlace) -> str:
         """Build the text that picks one of several places, such as "Blausee (lake, 2205 m, near Bettmeralp)"."""
@@ -290,7 +293,7 @@ class SwisstopoPlaceLookup:
         Raise CannotAnswerError for a name of several places with no option or village to pick
         one, listing the options to ask again with.
         """
-        self._ensure_place_groups()
+        self.load_place_groups()
         normalised_location = normalise_location(location)
         if normalised_location in self._place_groups_by_name:
             groups = self._place_groups_by_name[normalised_location]

@@ -7,12 +7,18 @@ How we use it:
    swisstopo_places.py, and answer for the MeteoSwiss point nearest to the place.
 3. Refuse a location that neither of them knows.
 """
+import logging
+import threading
 from pathlib import Path
 from typing import NamedTuple, Optional
+
+import requests
 
 from ..errors import CannotAnswerError
 from .meteoswiss_points import MeteoSwissPoint, MeteoSwissPointLookup, MeteoSwissPointSource
 from .swisstopo_places import SwisstopoPlace, SwisstopoPlaceLookup, SwisstopoPlaceSource
+
+logger = logging.getLogger(__name__)
 
 
 class ResolvedLocation(NamedTuple):
@@ -34,6 +40,24 @@ class LocationFinder:
         self.swisstopo_place_lookup = SwisstopoPlaceLookup(
             swisstopo_place_source, self.meteoswiss_point_lookup.find_nearest_village_name
         )
+
+    def _load_swisstopo_places(self) -> None:
+        """Load the swisstopo places, or log why not, so the first question that needs them tries again."""
+        try:
+            self.swisstopo_place_lookup.load_place_groups()
+        except requests.RequestException as error:
+            logger.warning(
+                f"Could not load the swisstopo places at start, the first question that needs them tries again: {error}"
+            )
+
+    def start_loading_swisstopo_places(self) -> threading.Thread:
+        """
+        Load the swisstopo places in a background thread, so the first question about a place
+        MeteoSwiss does not list does not wait for their download. Return the thread.
+        """
+        thread = threading.Thread(target=self._load_swisstopo_places, name="load-swisstopo-places", daemon=True)
+        thread.start()
+        return thread
 
     def find_location(self, location: str) -> ResolvedLocation:
         """
