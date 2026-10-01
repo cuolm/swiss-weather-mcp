@@ -114,18 +114,18 @@ class ForecastService:
         self.location_finder = location_finder
         self.forecast_source = forecast_source
 
-    async def _find_location(self, location: str) -> ResolvedLocation:
+    async def _find_location(self, location: str, near: Optional[str]) -> ResolvedLocation:
         """Find the MeteoSwiss point for a location in a worker thread, so a download does not block other requests."""
-        return await asyncio.to_thread(self.location_finder.find_location, location)
+        return await asyncio.to_thread(self.location_finder.find_location, location, near)
 
     async def _read_series(self, parameter: str, point: MeteoSwissPoint) -> ForecastSeries:
         """Read one parameter for one point in a worker thread, so a download does not block other requests."""
         return await asyncio.to_thread(self.forecast_source.read_series, parameter, point)
 
-    async def read_freezing_level(self, location: str, moment: datetime) -> Dict[str, Any]:
+    async def read_freezing_level(self, location: str, moment: datetime, near: Optional[str] = None) -> Dict[str, Any]:
         """Read the height of the 0 °C line at a moment."""
         _check_full_hour(moment)
-        resolved_location = await self._find_location(location)
+        resolved_location = await self._find_location(location, near)
         point = resolved_location.point
         series = await self._read_series(parameters.FREEZING_LEVEL, point)
         freezing_level_m = _get_hourly_value(series, moment, point)
@@ -137,13 +137,13 @@ class ForecastService:
             "model_run": format_swiss_time(series.run_time),
         }
 
-    async def read_wind(self, location: str, moment: datetime) -> Dict[str, Any]:
+    async def read_wind(self, location: str, moment: datetime, near: Optional[str] = None) -> Dict[str, Any]:
         """
         Read the mean wind speed, the strongest gust with its 90th percentile and the wind direction
         for the hour up to a moment.
         """
         _check_full_hour(moment)
-        resolved_location = await self._find_location(location)
+        resolved_location = await self._find_location(location, near)
         point = resolved_location.point
         speed_series, gust_series, upper_gust_series, direction_series = await asyncio.gather(
             self._read_series(parameters.WIND_SPEED, point),
@@ -168,7 +168,9 @@ class ForecastService:
             "model_run": format_swiss_time(speed_series.run_time),
         }
 
-    async def read_sunshine_hours(self, location: str, start_moment: datetime, end_moment: datetime) -> Dict[str, Any]:
+    async def read_sunshine_hours(
+        self, location: str, start_moment: datetime, end_moment: datetime, near: Optional[str] = None
+    ) -> Dict[str, Any]:
         """Add up the sunshine over a period, in hours."""
         _check_full_hour(start_moment)
         _check_full_hour(end_moment)
@@ -179,7 +181,7 @@ class ForecastService:
         last_stamp = end_moment.astimezone(timezone.utc)
         hour_stamps = _create_stamps(first_stamp, last_stamp, HOUR)
 
-        resolved_location = await self._find_location(location)
+        resolved_location = await self._find_location(location, near)
         point = resolved_location.point
         series = await self._read_series(parameters.SUNSHINE, point)
         period_is_covered = all(stamp in series.values for stamp in hour_stamps)
@@ -201,10 +203,12 @@ class ForecastService:
             "model_run": format_swiss_time(series.run_time),
         }
 
-    async def read_total_cloud_cover(self, location: str, moment: datetime) -> Dict[str, Any]:
+    async def read_total_cloud_cover(
+        self, location: str, moment: datetime, near: Optional[str] = None
+    ) -> Dict[str, Any]:
         """Estimate the total cloud cover at a moment from the three overlapping layers."""
         _check_full_hour(moment)
-        resolved_location = await self._find_location(location)
+        resolved_location = await self._find_location(location, near)
         point = resolved_location.point
         low_series, medium_series, high_series = await asyncio.gather(
             self._read_series(parameters.CLOUD_COVER_LOW, point),
@@ -231,7 +235,7 @@ class ForecastService:
         }
 
     async def read_hourly_forecast(
-        self, location: str, start_moment: datetime, end_moment: Optional[datetime] = None
+        self, location: str, start_moment: datetime, end_moment: Optional[datetime] = None, near: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Read the temperature with its 10th and 90th percentile, rain chance and weather for every
@@ -258,7 +262,7 @@ class ForecastService:
             last_stamp = end_moment.astimezone(timezone.utc)
             period = f"{format_swiss_time(start_moment)} to {format_swiss_time(end_moment)}"
 
-        resolved_location = await self._find_location(location)
+        resolved_location = await self._find_location(location, near)
         point = resolved_location.point
         temperature_series, lower_series, upper_series, chance_series, pictogram_series = await asyncio.gather(
             self._read_series(parameters.TEMPERATURE, point),
@@ -297,7 +301,9 @@ class ForecastService:
             "model_run": format_swiss_time(temperature_series.run_time),
         }
 
-    async def read_rain_outlook(self, location: str, start_moment: datetime, end_moment: datetime) -> Dict[str, Any]:
+    async def read_rain_outlook(
+        self, location: str, start_moment: datetime, end_moment: datetime, near: Optional[str] = None
+    ) -> Dict[str, Any]:
         """
         Read when and how much it may rain, in 3-hour blocks from start to end.
 
@@ -313,7 +319,7 @@ class ForecastService:
             max_hours = int(MAX_RAIN_OUTLOOK.total_seconds() // 3600)
             raise CannotAnswerError(f"A rain outlook covers at most {max_hours} hours; ask for a shorter period.")
 
-        resolved_location = await self._find_location(location)
+        resolved_location = await self._find_location(location, near)
         point = resolved_location.point
         chance_series, median_series, upper_series = await asyncio.gather(
             self._read_series(parameters.PRECIPITATION_PROBABILITY, point),
@@ -369,7 +375,9 @@ class ForecastService:
             logger.info(f"No daily {parameter} for {point.display_name}: {error}")
             return None
 
-    async def read_daily_forecast(self, location: str, first_day: date, days: int) -> Dict[str, Any]:
+    async def read_daily_forecast(
+        self, location: str, first_day: date, days: int, near: Optional[str] = None
+    ) -> Dict[str, Any]:
         """
         Read the whole-day forecast for 1 to MAX_DAYS Swiss calendar days in a row from first_day.
 
@@ -381,7 +389,7 @@ class ForecastService:
         if not 1 <= days <= MAX_DAYS:
             raise CannotAnswerError(f"days must be between 1 and {MAX_DAYS}, not {days}.")
 
-        resolved_location = await self._find_location(location)
+        resolved_location = await self._find_location(location, near)
         point = resolved_location.point
         min_series, max_series, rain_series, rain_lower_series, rain_upper_series, pictogram_series = await asyncio.gather(
             self._read_daily_series_if_published(parameters.TEMPERATURE_DAY_MIN, point),

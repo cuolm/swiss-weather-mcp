@@ -5,12 +5,13 @@ import os
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Awaitable, Callable, Dict, Optional
+from typing import Annotated, Any, Awaitable, Callable, Dict, Optional
 
 import requests
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from platformdirs import user_cache_path
+from pydantic import Field
 
 from .log import LOG_LEVELS, LogLevel, setup_logging
 from .errors import CannotAnswerError
@@ -26,6 +27,13 @@ logger = logging.getLogger(__name__)
 # Shared, OS-standard cache location (survives across working directories the server may be launched from).
 # Override with SWISS_WEATHER_MCP_CACHE_DIR, e.g. to isolate cache location in tests or Docker.
 CACHE_DIR = Path(os.environ.get("SWISS_WEATHER_MCP_CACHE_DIR", user_cache_path("swiss-weather-mcp")))
+
+# The optional near argument of every tool that takes a location. The example keeps a small model
+# from putting the village into location, or swapping the two, which it did without it.
+Near = Annotated[Optional[str], Field(description=(
+    "Only when several places share the name: a village or postal code next to the place the user means. "
+    "For \"the Blausee near Bettmeralp\" use location \"Blausee\" and near \"Bettmeralp\". Leave it out otherwise."
+))]
 
 
 def _parse_args() -> argparse.Namespace:
@@ -134,7 +142,7 @@ class SwissWeatherMCPServer:
 
         @self.mcp.tool()
         @_handle_tool_call
-        async def daily_forecast(location: str, start_date: str, days: int = 1) -> dict:
+        async def daily_forecast(location: str, start_date: str, days: int = 1, near: Near = None) -> dict:
             """
             Get the whole-day forecast for a location, for one day or several days in a row: the
             cheapest way to answer "how is the weather" for a day, the weekend or the week.
@@ -161,11 +169,11 @@ class SwissWeatherMCPServer:
                 daily_forecast("Lugano", "2026-09-26", 2)   # a weekend
             """
             first_day = _parse_swiss_time(start_date).astimezone(SWISS_TZ).date()
-            return await self.forecast_service.read_daily_forecast(location, first_day, days)
+            return await self.forecast_service.read_daily_forecast(location, first_day, days, near)
 
         @self.mcp.tool()
         @_handle_tool_call
-        async def hourly_forecast(location: str, start: str, end: Optional[str] = None) -> dict:
+        async def hourly_forecast(location: str, start: str, end: Optional[str] = None, near: Near = None) -> dict:
             """
             Get the weather hour by hour for a location: temperature with its likely range, chance
             of rain and the weather in words.
@@ -194,11 +202,11 @@ class SwissWeatherMCPServer:
             """
             start_moment = _parse_swiss_time(start)
             end_moment = _parse_swiss_time(end) if end is not None else None
-            return await self.forecast_service.read_hourly_forecast(location, start_moment, end_moment)
+            return await self.forecast_service.read_hourly_forecast(location, start_moment, end_moment, near)
 
         @self.mcp.tool()
         @_handle_tool_call
-        async def rain_outlook(location: str, start: str, end: str) -> dict:
+        async def rain_outlook(location: str, start: str, end: str, near: Near = None) -> dict:
             """
             Get when and how much it may rain at a location, in 3-hour blocks over a period.
 
@@ -223,11 +231,11 @@ class SwissWeatherMCPServer:
             """
             start_moment = _parse_swiss_time(start)
             end_moment = _parse_swiss_time(end)
-            return await self.forecast_service.read_rain_outlook(location, start_moment, end_moment)
+            return await self.forecast_service.read_rain_outlook(location, start_moment, end_moment, near)
 
         @self.mcp.tool()
         @_handle_tool_call
-        async def sunshine_hours(location: str, start: str, end: str) -> dict:
+        async def sunshine_hours(location: str, start: str, end: str, near: Near = None) -> dict:
             """
             Get the sunshine hours for a location over a period.
 
@@ -249,11 +257,11 @@ class SwissWeatherMCPServer:
             """
             start_moment = _parse_swiss_time(start)
             end_moment = _parse_swiss_time(end)
-            return await self.forecast_service.read_sunshine_hours(location, start_moment, end_moment)
+            return await self.forecast_service.read_sunshine_hours(location, start_moment, end_moment, near)
 
         @self.mcp.tool()
         @_handle_tool_call
-        async def wind(location: str, when: str) -> dict:
+        async def wind(location: str, when: str, near: Near = None) -> dict:
             """
             Get the wind at a location at a specific time: mean speed, strongest gust and direction.
 
@@ -278,11 +286,11 @@ class SwissWeatherMCPServer:
                 wind("Säntis", "2026-09-24T12:00")
             """
             moment = _parse_swiss_time(when)
-            return await self.forecast_service.read_wind(location, moment)
+            return await self.forecast_service.read_wind(location, moment, near)
 
         @self.mcp.tool()
         @_handle_tool_call
-        async def total_cloud_cover(location: str, when: str) -> dict:
+        async def total_cloud_cover(location: str, when: str, near: Near = None) -> dict:
             """
             Get how cloudy it is at a location at a specific time.
 
@@ -306,11 +314,11 @@ class SwissWeatherMCPServer:
                 total_cloud_cover("Locarno", "2026-09-24T09:00")
             """
             moment = _parse_swiss_time(when)
-            return await self.forecast_service.read_total_cloud_cover(location, moment)
+            return await self.forecast_service.read_total_cloud_cover(location, moment, near)
 
         @self.mcp.tool()
         @_handle_tool_call
-        async def freezing_level(location: str, when: str) -> dict:
+        async def freezing_level(location: str, when: str, near: Near = None) -> dict:
             """
             Get the height of the 0 degree line at a location at a specific time.
 
@@ -330,11 +338,11 @@ class SwissWeatherMCPServer:
                 freezing_level("Davos", "2026-09-25T06:00")
             """
             moment = _parse_swiss_time(when)
-            return await self.forecast_service.read_freezing_level(location, moment)
+            return await self.forecast_service.read_freezing_level(location, moment, near)
 
         @self.mcp.tool()
         @_handle_tool_call
-        async def current_conditions(location: str) -> dict:
+        async def current_conditions(location: str, near: Near = None) -> dict:
             """
             Get the latest measurements of the MeteoSwiss station nearest to a location.
 
@@ -371,7 +379,7 @@ class SwissWeatherMCPServer:
                 current_conditions("Zurich")
                 current_conditions("Braunwald")
             """
-            return await self.measurement_service.read_current_conditions(location)
+            return await self.measurement_service.read_current_conditions(location, near)
 
         @self.mcp.tool()
         @_handle_tool_call

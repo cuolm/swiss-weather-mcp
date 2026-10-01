@@ -33,8 +33,6 @@ How we use it:
 3. Group the places that share a name and lie within 2 km of each other: they are one
    place, such as a hill and the hamlet on it, and the widest settlement stands for the
    group. A name gives one place per group, so the seven Blausee give six places.
-4. For free text, such as "Blausee near Bettmeralp", find the longest place name it starts
-   with, and keep the rest of the text for choosing one of the places.
 
     <cache dir>/locations/
     └── swissnames3d_2026_2056.csv.zip   (the newest edition, replaced when a newer one appears)
@@ -207,17 +205,8 @@ def _choose_place(group: List[SwisstopoPlace]) -> SwisstopoPlace:
     return group[0]
 
 
-class SwisstopoCandidatePlaces(NamedTuple):
-    """
-    The swisstopo places with the name a text starts with, and the rest of the text. Places with
-    the same name within 2 km of each other count as one place.
-    """
-    places: List[SwisstopoPlace]
-    rest: str  # normalised, such as "near bettmeralp"; empty when the text is only the name
-
-
 class SwisstopoPlaceLookup:
-    """Find the swisstopo places a name or a free text names."""
+    """Find the swisstopo places with a name."""
 
     def __init__(self, place_source: SwisstopoPlaceSource):
         self.place_source = place_source
@@ -240,25 +229,11 @@ class SwisstopoPlaceLookup:
                 place_groups_by_name[name] = _group_close_places(named_places)
             self._place_groups_by_name = place_groups_by_name
 
-    def find_candidate_places(self, location: str) -> SwisstopoCandidatePlaces:
-        """
-        Find the places with the name a text is, or for free text such as "Blausee near Bettmeralp"
-        the places with the longest name it starts with. No places for an unknown name.
-        """
+    def find_places(self, name: str) -> List[SwisstopoPlace]:
+        """Find the places with a name, one for each group of places within 2 km; none for an unknown name."""
         self.load_place_groups()
-        name = normalise_location(location)
-        rest = ""
-        if name not in self._place_groups_by_name:
-            words = location.split()
-            name = ""
-            for word_count in range(len(words) - 1, 0, -1):
-                start = normalise_location(" ".join(words[:word_count]))
-                if start in self._place_groups_by_name:
-                    name = start
-                    rest = normalise_location(" ".join(words[word_count:]))
-                    break
-
+        groups = self._place_groups_by_name.get(normalise_location(name), [])
         places = []
-        for group in self._place_groups_by_name.get(name, []):
+        for group in groups:
             places.append(_choose_place(group))
-        return SwisstopoCandidatePlaces(places, rest)
+        return places
