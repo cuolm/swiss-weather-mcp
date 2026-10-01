@@ -1,12 +1,32 @@
 """
-Find what a location means, returned as a ResolvedLocation(point, place): point is the
-MeteoSwiss point the forecast and the measurements come from, and place is the swisstopo
-place the user asked about, or None when the location is a MeteoSwiss point itself.
+Turn the location string a tool gets, such as "Zürich", "8001", "Genf" or "Blausee", into a
+ResolvedLocation(point, place).
+
+point is always a MeteoSwiss point: a place MeteoSwiss makes a forecast for. place is a
+swisstopo place, such as a lake, a peak or a city district, or None.
+
+First we look for the string in the list of MeteoSwiss points: their postal codes, their
+names, and their names in other languages, so "Genf" finds Genève. Case, accents and periods
+do not matter. If several MeteoSwiss points have the same name, we take the one with the
+lowest postal code. If we find a MeteoSwiss point, we are done: point is that MeteoSwiss
+point, and place is None, because we never needed the much larger swisstopo list.
+
+Only if the string is not a MeteoSwiss point do we look in the list of swisstopo places.
+There we look for places with exactly that name:
+- No place has the name: we refuse and ask the user to check the spelling.
+- One place has the name: place is that swisstopo place.
+- Several places have the name: we can only pick one if nearby_location says which. Otherwise
+  we refuse and list every place, so the model can ask the user which one they mean.
+Once we have the swisstopo place, point is the MeteoSwiss point nearest to it, because
+MeteoSwiss has no forecast for the swisstopo place itself.
+
+The forecast always comes from point. The measurements come from the weather station nearest
+to place, or nearest to point when place is None.
 
     location
        │
        ▼
-    a MeteoSwiss point? ── yes ──► ResolvedLocation(that MeteoSwiss point, None)
+    found among the MeteoSwiss points? ── yes ──► ResolvedLocation(that MeteoSwiss point, None)
        │ no
        ▼
     swisstopo places with that name
@@ -15,22 +35,22 @@ place the user asked about, or None when the location is a MeteoSwiss point itse
        └── several
               │
               ▼
-           nearby_location given, and a MeteoSwiss name or postal code?
-              ├── no ──► refuse, with one line per place:
+           nearby_location given, and found among the MeteoSwiss points?
+              ├── no ──► refuse, with one line per swisstopo place:
               │            'Blausee' is the name of 6 places. Call again with location
               │            'Blausee' and near set to one of these:
               │              near="Ramiswil": place, 683 m
               │              near="Bortelhorn": lake, 2462 m
               │              near="Bettmeralp": lake, 2205 m
               │              ...
-              └── yes ─► the swisstopo place closest to that point, if within 10 km:
+              └── yes ─► the swisstopo place closest to that MeteoSwiss point, if within 10 km:
                          ResolvedLocation(its nearest MeteoSwiss point, that swisstopo place)
                          (none within 10 km ──► refuse with the same lines, starting with
                           "No 'Blausee' lies near 'Zürich'.")
 
-The tools call nearby_location near. Two places with the same name close together can have
-the same nearest MeteoSwiss point. That point then chooses the one closer to it, a few
-kilometres from the other, with nearly the same weather.
+The tools call nearby_location near. Two swisstopo places with the same name close together
+can have the same nearest MeteoSwiss point. That MeteoSwiss point then chooses the swisstopo
+place closer to it, a few kilometres from the other, with nearly the same weather.
 """
 import logging
 import threading
@@ -51,7 +71,7 @@ MAX_NEAR_DISTANCE_M = 10000
 
 
 class ResolvedLocation(NamedTuple):
-    """The MeteoSwiss point a location is answered for, and the swisstopo place when the location is not a point."""
+    """The MeteoSwiss point the forecast comes from, and the swisstopo place the user asked about, if any."""
     point: MeteoSwissPoint
     place: Optional[SwisstopoPlace]
 
