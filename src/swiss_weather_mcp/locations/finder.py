@@ -1,22 +1,33 @@
 """
-Find the MeteoSwiss point a location is answered for.
+Find what a location means: a MeteoSwiss point, or a swisstopo place with its nearest MeteoSwiss point.
 
 How we use it:
 1. Look the location up in the MeteoSwiss points, see meteoswiss_points.py.
 2. Only when it is not a MeteoSwiss point, look it up in the swisstopo places, see
    swisstopo_places.py, and answer for the MeteoSwiss point nearest to the place.
-3. Refuse a location that neither of them knows.
+3. A name of several swisstopo places is refused with one option per place, written so
+   the lookup accepts it, and named after the nearest MeteoSwiss village:
+
+    "Blausee", 6 places
+      "Blausee (lake, 2205 m, near Bettmeralp)"
+      "Blausee (district, 887 m, near Blausee-Mitholz)"
+      ...
+
+   Such an option, or free text such as "Blausee near Bettmeralp", chooses one place.
+4. Refuse a location that neither of them knows.
 """
 import logging
+import re
 import threading
 from pathlib import Path
-from typing import NamedTuple, Optional, Union
+from typing import List, NamedTuple, Optional, Union
 
 import requests
 
 from ..errors import CannotAnswerError
 from .meteoswiss_points import MeteoSwissPoint, MeteoSwissPointLookup, MeteoSwissPointSource
-from .swisstopo_places import SwisstopoPlace, SwisstopoPlaceLookup, SwisstopoPlaceSource
+from .names import normalise_location
+from .swisstopo_places import SwisstopoCandidatePlaces, SwisstopoPlace, SwisstopoPlaceLookup, SwisstopoPlaceSource
 
 logger = logging.getLogger(__name__)
 
@@ -44,9 +55,7 @@ class LocationFinder:
         meteoswiss_point_source = MeteoSwissPointSource(cache_dir)
         swisstopo_place_source = SwisstopoPlaceSource(cache_dir)
         self.meteoswiss_point_lookup = MeteoSwissPointLookup(meteoswiss_point_source)
-        self.swisstopo_place_lookup = SwisstopoPlaceLookup(
-            swisstopo_place_source, self.meteoswiss_point_lookup.find_nearest_village_name
-        )
+        self.swisstopo_place_lookup = SwisstopoPlaceLookup(swisstopo_place_source)
 
     def _load_swisstopo_places(self) -> None:
         """Load the swisstopo places, or log why not, so the first question that needs them tries again."""
@@ -66,24 +75,65 @@ class LocationFinder:
         thread.start()
         return thread
 
+    def _build_option(self, place: SwisstopoPlace) -> str:
+        """Build the text that chooses one of several places, such as "Blausee (lake, 2205 m, near Bettmeralp)"."""
+        village_name = self.meteoswiss_point_lookup.find_nearest_village_name(place)
+        return f"{place.name} ({place.object_type_name}, {place.altitude_m:.0f} m, near {village_name})"
+
+    def _build_options_error(self, places: List[SwisstopoPlace]) -> CannotAnswerError:
+        """Build the refusal of a name of several places, with one option per place."""
+        option_lines = []
+        for place in places:
+            option = self._build_option(place)
+            option_lines.append(f'  "{option}"')
+        listed_options = "\n".join(option_lines)
+        return CannotAnswerError(
+            f"'{places[0].name}' is the name of {len(places)} places. Ask again with one of these, written exactly "
+            f"as shown:\n{listed_options}"
+        )
+
+    def _choose_swisstopo_place_from(self, location: str,
+                                     swisstopo_candidate_places: SwisstopoCandidatePlaces) -> SwisstopoPlace:
+        """
+        Choose one of several places with the same name: by its option, or by the village the
+        rest of the text names. Raise CannotAnswerError with the options when neither chooses one.
+        """
+        normalised_location = normalise_location(location)
+        for place in swisstopo_candidate_places.places:
+            if normalised_location == normalise_location(self._build_option(place)):
+                return place
+
+        for place in swisstopo_candidate_places.places:
+            village_name = normalise_location(self.meteoswiss_point_lookup.find_nearest_village_name(place))
+            # Whole words only, so a village such as Au is not found inside another word
+            if re.search(rf"\b{re.escape(village_name)}\b", swisstopo_candidate_places.rest):
+                return place
+
+        raise self._build_options_error(swisstopo_candidate_places.places)
+
     def find_location(self, location: str) -> ResolvedLocation:
         """
-        Find the MeteoSwiss point for a place name or a Swiss postal code.
+        Find what a location means: a MeteoSwiss point, or a swisstopo place with its nearest
+        MeteoSwiss point.
 
         Case, accents and periods are ignored, and names in other languages such as "Genf" work
-        too. A name that is not a MeteoSwiss point is looked up in the swisstopo places and
-        answered for by the nearest MeteoSwiss point. Raise CannotAnswerError for an unknown
-        location, and for a name of several places, listing them as options to ask again with.
+        too. Raise CannotAnswerError for an unknown location, and for a name of several places,
+        listing them as options to ask again with.
         """
         meteoswiss_point = self.meteoswiss_point_lookup.find_point(location)
         if meteoswiss_point is not None:
             return ResolvedLocation(meteoswiss_point, None)
 
-        swisstopo_place = self.swisstopo_place_lookup.find_place(location)
-        if swisstopo_place is not None:
-            nearest_meteoswiss_point = self.meteoswiss_point_lookup.find_nearest_point(swisstopo_place)
-            return ResolvedLocation(nearest_meteoswiss_point, swisstopo_place)
+        swisstopo_candidate_places = self.swisstopo_place_lookup.find_candidate_places(location)
+        if not swisstopo_candidate_places.places:
+            raise CannotAnswerError(
+                f"Location '{location}' was not found. Check the spelling, or try a nearby town, village or "
+                f"postal code."
+            )
 
-        raise CannotAnswerError(
-            f"Location '{location}' was not found. Check the spelling, or try a nearby town, village or postal code."
-        )
+        if len(swisstopo_candidate_places.places) == 1:
+            swisstopo_place = swisstopo_candidate_places.places[0]
+        else:
+            swisstopo_place = self._choose_swisstopo_place_from(location, swisstopo_candidate_places)
+        nearest_meteoswiss_point = self.meteoswiss_point_lookup.find_nearest_point(swisstopo_place)
+        return ResolvedLocation(nearest_meteoswiss_point, swisstopo_place)
