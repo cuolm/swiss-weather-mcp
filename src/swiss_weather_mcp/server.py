@@ -424,6 +424,7 @@ class SwissWeatherMCPServer:
 def _build_server(args: argparse.Namespace) -> SwissWeatherMCPServer:
     """Build the sources and services from the command line options, and the server that uses them."""
     location_finder = LocationFinder(CACHE_DIR)
+    location_finder.start_loading_swisstopo_places()
     forecast_source = ForecastSource(CACHE_DIR, cache_all_locations=args.cache_all_locations)
     forecast_service = ForecastService(location_finder, forecast_source)
     measurement_source = MeasurementSource(CACHE_DIR)
