@@ -5,15 +5,16 @@ import pytest
 
 from swiss_weather_mcp.errors import CannotAnswerError
 from swiss_weather_mcp.locations import MeteoSwissPoint
-from swiss_weather_mcp.locations.finder import OTHER_LANGUAGE_PLACE_NAMES_FILE, _normalise_location
+from swiss_weather_mcp.locations.meteoswiss_points import OTHER_LANGUAGE_PLACE_NAMES_FILE
+from swiss_weather_mcp.locations.names import normalise_location
 
 
-# --- _normalise_location ---
+# --- normalise_location ---
 
 def test_normalise_location_ignores_periods():
     # MeteoSwiss writes "St. Moritz", which is often typed without the period
-    assert _normalise_location("St Moritz") == _normalise_location("St. Moritz")
-    assert _normalise_location("Affoltern i.E.") == _normalise_location("Affoltern i. E.")
+    assert normalise_location("St Moritz") == normalise_location("St. Moritz")
+    assert normalise_location("Affoltern i.E.") == normalise_location("Affoltern i. E.")
 
 
 # --- find_point ---
@@ -49,7 +50,7 @@ def test_find_point_reads_the_coordinates(location_finder_fixture):
 
 def test_find_point_rejects_a_near_match(location_finder_fixture):
     # "Wallis" is the canton Valais, its closest name here is a Zurich suburb 150 km away
-    with pytest.raises(CannotAnswerError, match="neither one of the 4 places"):
+    with pytest.raises(CannotAnswerError, match="was not found"):
         location_finder_fixture.find_point("Wallis")
 
 
@@ -153,7 +154,7 @@ def test_other_language_place_names_file():
     assert len(rows) > 100
     for row in rows:
         assert all(row.values()), row
-    other_language_place_names = [_normalise_location(row["other_language_place_name"]) for row in rows]
+    other_language_place_names = [normalise_location(row["other_language_place_name"]) for row in rows]
     assert len(other_language_place_names) == len(set(other_language_place_names)), "a name points to two places"
-    point_names = {_normalise_location(row["meteoswiss_point_name"]) for row in rows}
+    point_names = {normalise_location(row["meteoswiss_point_name"]) for row in rows}
     assert not point_names & set(other_language_place_names), "a name would hide a real point name"

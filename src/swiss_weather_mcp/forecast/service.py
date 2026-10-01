@@ -6,8 +6,8 @@ from typing import Any, Dict, List, Optional, Tuple
 from . import parameters
 from ..errors import CannotAnswerError
 from ..formatting import describe_height_difference, find_compass_point, format_swiss_time
-from ..locations import MeteoSwissPoint, LocationFinder
-from ..locations.finder import ResolvedLocation, calculate_distance_m
+from ..locations import MeteoSwissPoint, LocationFinder, ResolvedLocation
+from ..locations.names import calculate_distance_m
 from .source import ForecastSeries, ForecastSource
 
 logger = logging.getLogger(__name__)

@@ -1,5 +1,6 @@
 """
-Read the named places of Switzerland from swissNAMES3D, the swisstopo collection of geographical names.
+Read the named places of Switzerland from swissNAMES3D, the swisstopo collection of geographical
+names, and find one by its name.
 
 What swisstopo publishes:
 - One edition of swissNAMES3D a year, as a zip archive of about 33 MB. It holds three CSV
@@ -29,6 +30,18 @@ How we use it:
 2. Read the object types in OBJECT_TYPES_BY_FILE straight from the archive, each type from one
    file only, so a settlement is not read twice. Keep them in memory for as long as the
    process runs.
+3. Group the places that share a name and lie within 2 km of each other: they are one
+   place, such as a hill and the hamlet on it, and the widest settlement stands for the
+   group. A name of one group is found. A name of several groups is refused with one
+   option per group, written so the lookup accepts it, with the nearest MeteoSwiss village:
+
+    "Blausee", 6 groups
+      "Blausee (lake, 2205 m, near Bettmeralp)"
+      "Blausee (district, 887 m, near Blausee-Mitholz)"
+      ...
+
+   Free text that starts with such a name, such as "Blausee near Bettmeralp", picks the
+   option whose village it names.
 
     <cache dir>/locations/
     └── swissnames3d_2026_2056.csv.zip   (the newest edition, replaced when a newer one appears)
@@ -36,14 +49,18 @@ How we use it:
 import csv
 import io
 import logging
+import re
 import zipfile
+from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import List, NamedTuple
+from typing import Callable, Dict, List, NamedTuple, Optional, Tuple
 
 import requests
 
+from ..errors import CannotAnswerError
 from ..opendata import REQUEST_TIMEOUT_SECONDS, download_file
+from .names import Position, calculate_distance_m, normalise_location
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +88,8 @@ OBJECT_TYPE_NAMES = {
 }
 # The object types of settlements, from the widest to the narrowest
 SETTLEMENT_OBJECT_TYPES = ("Ort", "Ortsteil", "Quartier", "Quartierteil")
+# Places with the same name this close together are one place
+SAME_PLACE_RADIUS_M = 2000
 
 
 class SwisstopoPlace(NamedTuple):
@@ -167,3 +186,121 @@ class SwisstopoPlaceSource:
         self._places = places
         logger.info(f"Loaded {len(places)} places of swissNAMES3D")
         return places
+
+
+def _group_close_places(places: List[SwisstopoPlace]) -> List[List[SwisstopoPlace]]:
+    """Group places that share a name: a place joins every group with a member within SAME_PLACE_RADIUS_M."""
+    groups: List[List[SwisstopoPlace]] = []
+    for place in places:
+        touching_groups = []
+        for group in groups:
+            for member in group:
+                if calculate_distance_m(place, member) <= SAME_PLACE_RADIUS_M:
+                    touching_groups.append(group)
+                    break
+        merged_group = [place]
+        for group in touching_groups:
+            merged_group.extend(group)
+            groups.remove(group)
+        groups.append(merged_group)
+    return groups
+
+
+def _choose_place(group: List[SwisstopoPlace]) -> SwisstopoPlace:
+    """Return the widest settlement of a group of places with the same name, or its first place."""
+    for object_type in SETTLEMENT_OBJECT_TYPES:
+        for place in group:
+            if place.object_type == object_type:
+                return place
+    return group[0]
+
+
+class SwisstopoPlaceLookup:
+    """Find a swisstopo place by its name, by an option for a name of several places, or by free text."""
+
+    def __init__(self, place_source: SwisstopoPlaceSource, find_nearest_village_name: Callable[[Position], str]):
+        self.place_source = place_source
+        # Names the village an option is "near", such as Bettmeralp
+        self.find_nearest_village_name = find_nearest_village_name
+        self._place_groups_by_name: Dict[str, List[List[SwisstopoPlace]]] = {}
+
+    def _ensure_place_groups(self) -> None:
+        """Read the places and group them by name, once per process."""
+        if self._place_groups_by_name:
+            return
+
+        places = self.place_source.load_places()
+        places_by_name: Dict[str, List[SwisstopoPlace]] = defaultdict(list)
+        for place in places:
+            places_by_name[normalise_location(place.name)].append(place)
+        place_groups_by_name = {}
+        for name, named_places in places_by_name.items():
+            place_groups_by_name[name] = _group_close_places(named_places)
+        # Published only once complete, so a parallel request never sees part of the groups
+        self._place_groups_by_name = place_groups_by_name
+
+    def _build_option(self, place: SwisstopoPlace) -> str:
+        """Build the text that picks one of several places, such as "Blausee (lake, 2205 m, near Bettmeralp)"."""
+        village_name = self.find_nearest_village_name(place)
+        return f"{place.name} ({place.object_type_name}, {place.altitude_m:.0f} m, near {village_name})"
+
+    def _build_options_error(self, groups: List[List[SwisstopoPlace]]) -> CannotAnswerError:
+        """Build the refusal of a name of several places, with one option per place."""
+        name = groups[0][0].name
+        option_lines = []
+        for group in groups:
+            option = self._build_option(_choose_place(group))
+            option_lines.append(f'  "{option}"')
+        listed_options = "\n".join(option_lines)
+        return CannotAnswerError(
+            f"'{name}' is the name of {len(groups)} places. Ask again with one of these, written exactly as "
+            f"shown:\n{listed_options}"
+        )
+
+    def _split_known_name(self, location: str) -> Tuple[Optional[str], str]:
+        """Split free text into the longest place name it starts with and the rest, both normalised."""
+        words = location.split()
+        for word_count in range(len(words) - 1, 0, -1):
+            name = normalise_location(" ".join(words[:word_count]))
+            if name in self._place_groups_by_name:
+                rest = normalise_location(" ".join(words[word_count:]))
+                return name, rest
+        return None, ""
+
+    def _pick_place(self, groups: List[List[SwisstopoPlace]], location: str, rest: str) -> SwisstopoPlace:
+        """Pick one of several places by an option or by the village the rest of the text names."""
+        normalised_location = normalise_location(location)
+        for group in groups:
+            place = _choose_place(group)
+            if normalised_location == normalise_location(self._build_option(place)):
+                return place
+        for group in groups:
+            place = _choose_place(group)
+            village_name = normalise_location(self.find_nearest_village_name(place))
+            # Whole words only, so a village such as Au is not found inside another word
+            if re.search(rf"\b{re.escape(village_name)}\b", rest):
+                return place
+        raise self._build_options_error(groups)
+
+    def find_place(self, location: str) -> Optional[SwisstopoPlace]:
+        """
+        Find the place for a name, an option such as "Blausee (lake, 2205 m, near Bettmeralp)",
+        or free text such as "Blausee near Bettmeralp". Return None for an unknown name.
+
+        Raise CannotAnswerError for a name of several places with no option or village to pick
+        one, listing the options to ask again with.
+        """
+        self._ensure_place_groups()
+        normalised_location = normalise_location(location)
+        if normalised_location in self._place_groups_by_name:
+            groups = self._place_groups_by_name[normalised_location]
+            rest = ""
+        else:
+            name, rest = self._split_known_name(location)
+            if name is None:
+                return None
+            groups = self._place_groups_by_name[name]
+
+        if len(groups) == 1:
+            return _choose_place(groups[0])
+        return self._pick_place(groups, location, rest)
