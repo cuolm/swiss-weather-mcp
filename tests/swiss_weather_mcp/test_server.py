@@ -15,14 +15,14 @@ SWISS_TZ = ZoneInfo("Europe/Zurich")
 # Every tool the server offers, with its arguments in order
 EXPECTED_TOOLS = {
     "current_date_and_time": [],
-    "daily_forecast": ["location", "start_date", "days"],
-    "hourly_forecast": ["location", "start", "end"],
-    "rain_outlook": ["location", "start", "end"],
-    "sunshine_hours": ["location", "start", "end"],
-    "wind": ["location", "when"],
-    "total_cloud_cover": ["location", "when"],
-    "freezing_level": ["location", "when"],
-    "current_conditions": ["location"],
+    "daily_forecast": ["location", "start_date", "days", "near"],
+    "hourly_forecast": ["location", "start", "end", "near"],
+    "rain_outlook": ["location", "start", "end", "near"],
+    "sunshine_hours": ["location", "start", "end", "near"],
+    "wind": ["location", "when", "near"],
+    "total_cloud_cover": ["location", "when", "near"],
+    "freezing_level": ["location", "when", "near"],
+    "current_conditions": ["location", "near"],
     "current_extremes": ["extreme"],
 }
 
@@ -83,6 +83,23 @@ async def test_register_tools(server_fixture):
     for tool in await server_fixture.mcp.list_tools():
         offered[tool.name] = list(tool.input_schema.get("properties", {}))
     assert offered == EXPECTED_TOOLS
+
+
+@pytest.mark.asyncio
+async def test_register_tools_describes_near(server_fixture):
+    for tool in await server_fixture.mcp.list_tools():
+        near = tool.input_schema.get("properties", {}).get("near")
+        if near is not None:
+            assert 'use location "Blausee" and near "Bettmeralp"' in near["description"]
+            assert "near" not in tool.input_schema["required"]
+
+
+@pytest.mark.asyncio
+async def test_current_conditions_passes_near_on(server_fixture):
+    server_fixture.measurement_service.read_current_conditions.return_value = {"location": "Blausee (445 m)"}
+
+    await server_fixture.mcp.call_tool("current_conditions", {"location": "Blausee", "near": "Wallisellen"})
+    server_fixture.measurement_service.read_current_conditions.assert_awaited_once_with("Blausee", "Wallisellen")
 
 
 @pytest.mark.asyncio

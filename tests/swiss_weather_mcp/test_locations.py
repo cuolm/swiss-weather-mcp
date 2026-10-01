@@ -113,29 +113,36 @@ def test_find_location_takes_a_settlement_for_close_places(location_finder_fixtu
 
 
 def test_find_location_refuses_a_name_of_several_places(location_finder_fixture):
-    # The Blausee place and district lie 280 m apart and are one option
+    # The Blausee place and district lie 280 m apart and are one place
     with pytest.raises(CannotAnswerError) as raised:
         location_finder_fixture.find_location("Blausee")
     assert str(raised.value) == (
-        "'Blausee' is the name of 2 places. Ask again with one of these, written exactly as shown:\n"
-        '  "Blausee (place, 420 m, near Zürich)"\n'
-        '  "Blausee (lake, 445 m, near Wallisellen)"'
+        "'Blausee' is the name of 2 places. Call again with location 'Blausee' and near set to one of these villages:\n"
+        '  near="Zürich": place, 420 m\n'
+        '  near="Wallisellen": lake, 445 m'
     )
 
 
-def test_find_location_takes_an_option(location_finder_fixture):
-    resolved_location = location_finder_fixture.find_location("Blausee (lake, 445 m, near Wallisellen)")
-    assert resolved_location.place.object_type == "See"
+def test_find_location_chooses_the_place_closest_to_near(location_finder_fixture):
+    # near need not be a listed village: a postal code in Zürich chooses the Blausee there too
+    assert location_finder_fixture.find_location("Blausee", near="Wallisellen").place.object_type == "See"
+    assert location_finder_fixture.find_location("Blausee", near="8001").place.object_type == "Ort"
 
 
-def test_find_location_takes_free_text_that_names_a_village(location_finder_fixture):
-    resolved_location = location_finder_fixture.find_location("Blausee near Wallisellen")
-    assert resolved_location.place.object_type == "See"
+def test_find_location_refuses_a_near_far_from_every_place(location_finder_fixture):
+    # Davos lies more than 15 km from both Blausee
+    with pytest.raises(CannotAnswerError, match="No 'Blausee' lies near 'Davos'. 'Blausee' is the name of 2 places"):
+        location_finder_fixture.find_location("Blausee", near="Davos")
 
 
-def test_find_location_lists_the_options_for_free_text_without_a_village(location_finder_fixture):
-    with pytest.raises(CannotAnswerError, match="'Blausee' is the name of 2 places"):
-        location_finder_fixture.find_location("Blausee im Kandertal")
+def test_find_location_refuses_an_unknown_near(location_finder_fixture):
+    with pytest.raises(CannotAnswerError, match="No 'Blausee' lies near 'Kandertal'"):
+        location_finder_fixture.find_location("Blausee", near="Kandertal")
+
+
+def test_find_location_ignores_near_for_a_name_of_one_place(location_finder_fixture):
+    resolved_location = location_finder_fixture.find_location("Lindenhof", near="Davos")
+    assert resolved_location.place.name == "Lindenhof"
 
 
 # --- start_loading_swisstopo_places ---
