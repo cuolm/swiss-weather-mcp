@@ -1,20 +1,36 @@
 """
-Find what a location means: a MeteoSwiss point, or a swisstopo place with its nearest MeteoSwiss point.
+Find what a location means, returned as a ResolvedLocation(point, place): point is the
+MeteoSwiss point the forecast and the measurements come from, and place is the swisstopo
+place the user asked about, or None when the location is a MeteoSwiss point itself.
 
-How we use it:
-1. Look the location up in the MeteoSwiss points, see meteoswiss_points.py.
-2. Only when it is not a MeteoSwiss point, look it up in the swisstopo places, see
-   swisstopo_places.py, and answer for the MeteoSwiss point nearest to the place.
-3. For a name of several swisstopo places, choose the one closest to near, a village or
-   postal code next to it. Without near, or with a near too far from all of them, refuse
-   and list the villages to call again with:
+    location
+       │
+       ▼
+    a MeteoSwiss point? ── yes ──► ResolvedLocation(that MeteoSwiss point, None)
+       │ no
+       ▼
+    swisstopo places with that name
+       ├── none ─────► refuse: "Location 'Xyz' was not found. Check the spelling, ..."
+       ├── one ──────► ResolvedLocation(its nearest MeteoSwiss point, that swisstopo place)
+       └── several
+              │
+              ▼
+           nearby_location given, and a MeteoSwiss name or postal code?
+              ├── no ──► refuse, with one line per place:
+              │            'Blausee' is the name of 6 places. Call again with location
+              │            'Blausee' and near set to one of these:
+              │              near="Ramiswil": place, 683 m
+              │              near="Bortelhorn": lake, 2462 m
+              │              near="Bettmeralp": lake, 2205 m
+              │              ...
+              └── yes ─► the swisstopo place closest to that point, if within 10 km:
+                         ResolvedLocation(its nearest MeteoSwiss point, that swisstopo place)
+                         (none within 10 km ──► refuse with the same lines, starting with
+                          "No 'Blausee' lies near 'Zürich'.")
 
-    location "Blausee", 6 places
-      near="Bettmeralp": lake, 2205 m
-      near="Blausee-Mitholz": district, 887 m
-      ...
-
-4. Refuse a location that neither of them knows.
+The tools call nearby_location near. Two places with the same name close together can have
+the same nearest MeteoSwiss point. That point then chooses the one closer to it, a few
+kilometres from the other, with nearly the same weather.
 """
 import logging
 import threading
@@ -30,8 +46,8 @@ from .swisstopo_places import SwisstopoPlace, SwisstopoPlaceLookup, SwisstopoPla
 
 logger = logging.getLogger(__name__)
 
-# A place farther than this from near is not the one the user means
-MAX_NEAR_DISTANCE_M = 15000
+# A place farther than this from nearby_location is not the one the user means
+MAX_NEAR_DISTANCE_M = 10000
 
 
 class ResolvedLocation(NamedTuple):
@@ -77,56 +93,71 @@ class LocationFinder:
         thread.start()
         return thread
 
-    def _build_options_error(self, swisstopo_place_candidates: List[SwisstopoPlace],
-                             near: Optional[str]) -> CannotAnswerError:
-        """Build the refusal of a name of several places, listing the village to call again with for each."""
+    def _build_options_error(
+        self, swisstopo_place_candidates: List[SwisstopoPlace], nearby_location: Optional[str]
+    ) -> CannotAnswerError:
+        """Build the refusal of a name of several places, listing each with its nearest MeteoSwiss point as near."""
         name = swisstopo_place_candidates[0].name
         option_lines = []
-        for place in swisstopo_place_candidates:
-            village_name = self.meteoswiss_point_lookup.find_nearest_village_name(place)
-            option_lines.append(f'  near="{village_name}": {place.object_type_name}, {place.altitude_m:.0f} m')
+        for swisstopo_place in swisstopo_place_candidates:
+            nearest_meteoswiss_point = self.meteoswiss_point_lookup.find_nearest_point(swisstopo_place)
+            description = f"{swisstopo_place.object_type_name}, {swisstopo_place.altitude_m:.0f} m"
+            option_lines.append(f'  near="{nearest_meteoswiss_point.name}": {description}')
         listed_options = "\n".join(option_lines)
 
         no_place_near = ""
-        if near is not None:
-            no_place_near = f"No '{name}' lies near '{near}'. "
+        if nearby_location is not None:
+            no_place_near = f"No '{name}' lies near '{nearby_location}'. "
         return CannotAnswerError(
             f"{no_place_near}'{name}' is the name of {len(swisstopo_place_candidates)} places. Call again with "
-            f"location '{name}' and near set to one of these villages:\n{listed_options}"
+            f"location '{name}' and near set to one of these:\n{listed_options}"
         )
 
-    def _choose_swisstopo_place_near(self, swisstopo_place_candidates: List[SwisstopoPlace],
-                                     near: Optional[str]) -> SwisstopoPlace:
+    def _choose_swisstopo_place_closest_to_meteoswiss_point(
+        self,
+        swisstopo_place_candidates: List[SwisstopoPlace],
+        nearby_meteoswiss_point: MeteoSwissPoint,
+        nearby_location: str,
+    ) -> SwisstopoPlace:
         """
-        Choose the one of several places with the same name that is closest to near. Raise
-        CannotAnswerError with the villages to call again with when there is no near, or when
-        no place lies within MAX_NEAR_DISTANCE_M of it.
+        Choose the place closest to a MeteoSwiss point. Raise CannotAnswerError with the options
+        when every place lies farther than MAX_NEAR_DISTANCE_M from it.
         """
-        if near is None:
-            raise self._build_options_error(swisstopo_place_candidates, near)
-
-        # near is looked up in the MeteoSwiss points, not the swisstopo places: a MeteoSwiss name or postal
-        # code leads to exactly one point, while many swisstopo names belong to several places themselves
-        near_meteoswiss_point = self.meteoswiss_point_lookup.find_point(near)
-        if near_meteoswiss_point is None:
-            raise self._build_options_error(swisstopo_place_candidates, near)
-
         closest_swisstopo_place = min(
             swisstopo_place_candidates,
-            key=lambda swisstopo_place: calculate_distance_m(swisstopo_place, near_meteoswiss_point),
+            key=lambda swisstopo_place: calculate_distance_m(swisstopo_place, nearby_meteoswiss_point),
         )
-        if calculate_distance_m(closest_swisstopo_place, near_meteoswiss_point) > MAX_NEAR_DISTANCE_M:
-            raise self._build_options_error(swisstopo_place_candidates, near)
+        if calculate_distance_m(closest_swisstopo_place, nearby_meteoswiss_point) > MAX_NEAR_DISTANCE_M:
+            raise self._build_options_error(swisstopo_place_candidates, nearby_location)
         return closest_swisstopo_place
 
-    def find_location(self, location: str, near: Optional[str] = None) -> ResolvedLocation:
+    def _choose_swisstopo_place_closest_to_nearby_location(
+        self, swisstopo_place_candidates: List[SwisstopoPlace], nearby_location: Optional[str]
+    ) -> SwisstopoPlace:
+        """
+        Choose the one of several places with the same name that is closest to nearby_location.
+        Raise CannotAnswerError with the options when there is no nearby_location, or when it is
+        not a MeteoSwiss name or postal code.
+        """
+        if nearby_location is None:
+            raise self._build_options_error(swisstopo_place_candidates, nearby_location)
+
+        # A MeteoSwiss name or postal code leads to one point, while a swisstopo name can belong to several places
+        nearby_meteoswiss_point = self.meteoswiss_point_lookup.find_point(nearby_location)
+        if nearby_meteoswiss_point is None:
+            raise self._build_options_error(swisstopo_place_candidates, nearby_location)
+        return self._choose_swisstopo_place_closest_to_meteoswiss_point(
+            swisstopo_place_candidates, nearby_meteoswiss_point, nearby_location
+        )
+
+    def find_location(self, location: str, nearby_location: Optional[str] = None) -> ResolvedLocation:
         """
         Find what a location means: a MeteoSwiss point, or a swisstopo place with its nearest
-        MeteoSwiss point. near is only used for a name of several swisstopo places.
+        MeteoSwiss point. nearby_location is only used for a name of several swisstopo places.
 
         Case, accents and periods are ignored, and names in other languages such as "Genf" work
         too. Raise CannotAnswerError for an unknown location, and for a name of several places
-        that near does not tell apart, listing the villages to call again with.
+        that nearby_location does not tell apart, listing each place to call again with.
         """
         meteoswiss_point = self.meteoswiss_point_lookup.find_point(location)
         if meteoswiss_point is not None:
@@ -142,6 +173,8 @@ class LocationFinder:
         if len(swisstopo_place_candidates) == 1:
             swisstopo_place = swisstopo_place_candidates[0]
         else:
-            swisstopo_place = self._choose_swisstopo_place_near(swisstopo_place_candidates, near)
+            swisstopo_place = self._choose_swisstopo_place_closest_to_nearby_location(
+                swisstopo_place_candidates, nearby_location
+            )
         nearest_meteoswiss_point = self.meteoswiss_point_lookup.find_nearest_point(swisstopo_place)
         return ResolvedLocation(nearest_meteoswiss_point, swisstopo_place)

@@ -117,7 +117,7 @@ def test_find_location_refuses_a_name_of_several_places(location_finder_fixture)
     with pytest.raises(CannotAnswerError) as raised:
         location_finder_fixture.find_location("Blausee")
     assert str(raised.value) == (
-        "'Blausee' is the name of 2 places. Call again with location 'Blausee' and near set to one of these villages:\n"
+        "'Blausee' is the name of 2 places. Call again with location 'Blausee' and near set to one of these:\n"
         '  near="Zürich": place, 420 m\n'
         '  near="Wallisellen": lake, 445 m'
     )
@@ -125,23 +125,37 @@ def test_find_location_refuses_a_name_of_several_places(location_finder_fixture)
 
 def test_find_location_chooses_the_place_closest_to_near(location_finder_fixture):
     # near need not be a listed village: a postal code in Zürich chooses the Blausee there too
-    assert location_finder_fixture.find_location("Blausee", near="Wallisellen").place.object_type == "See"
-    assert location_finder_fixture.find_location("Blausee", near="8001").place.object_type == "Ort"
+    assert location_finder_fixture.find_location("Blausee", nearby_location="Wallisellen").place.object_type == "See"
+    assert location_finder_fixture.find_location("Blausee", nearby_location="8001").place.object_type == "Ort"
 
 
 def test_find_location_refuses_a_near_far_from_every_place(location_finder_fixture):
     # Davos lies more than 15 km from both Blausee
     with pytest.raises(CannotAnswerError, match="No 'Blausee' lies near 'Davos'. 'Blausee' is the name of 2 places"):
-        location_finder_fixture.find_location("Blausee", near="Davos")
+        location_finder_fixture.find_location("Blausee", nearby_location="Davos")
 
 
 def test_find_location_refuses_an_unknown_near(location_finder_fixture):
     with pytest.raises(CannotAnswerError, match="No 'Blausee' lies near 'Kandertal'"):
-        location_finder_fixture.find_location("Blausee", near="Kandertal")
+        location_finder_fixture.find_location("Blausee", nearby_location="Kandertal")
+
+
+def test_find_location_two_places_with_the_same_nearest_point(location_finder_fixture):
+    # Both Moos list Wallisellen, which chooses the Moos closer to it
+    with pytest.raises(CannotAnswerError) as raised:
+        location_finder_fixture.find_location("Moos")
+    assert '  near="Wallisellen": place, 440 m' in str(raised.value)
+    assert '  near="Wallisellen": place, 450 m' in str(raised.value)
+    assert location_finder_fixture.find_location("Moos", nearby_location="Wallisellen").place.altitude_m == 440.0
+
+
+def test_find_location_refuses_a_near_farther_than_10_km(location_finder_fixture):
+    with pytest.raises(CannotAnswerError, match="No 'Seeli' lies near 'Wallisellen'"):
+        location_finder_fixture.find_location("Seeli", nearby_location="Wallisellen")
 
 
 def test_find_location_ignores_near_for_a_name_of_one_place(location_finder_fixture):
-    resolved_location = location_finder_fixture.find_location("Lindenhof", near="Davos")
+    resolved_location = location_finder_fixture.find_location("Lindenhof", nearby_location="Davos")
     assert resolved_location.place.name == "Lindenhof"
 
 

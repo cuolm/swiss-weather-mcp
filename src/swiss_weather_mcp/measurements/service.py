@@ -186,9 +186,9 @@ class MeasurementService:
         self.location_finder = location_finder
         self.measurement_source = measurement_source
 
-    async def _find_location(self, location: str, near: Optional[str]) -> ResolvedLocation:
+    async def _find_location(self, location: str, nearby_location: Optional[str]) -> ResolvedLocation:
         """Find a location in a worker thread, so a download does not block other requests."""
-        return await asyncio.to_thread(self.location_finder.find_location, location, near)
+        return await asyncio.to_thread(self.location_finder.find_location, location, nearby_location)
 
     async def _find_nearest_station_measurements(self, place: NamedPosition) -> List[StationMeasurements]:
         """Find the nearest station's measurements in a worker thread, so a download does not block other requests."""
@@ -198,7 +198,7 @@ class MeasurementService:
         """Read every station's latest measurements in a worker thread, so a download does not block other requests."""
         return await asyncio.to_thread(self.measurement_source.read_all_stations_latest_measurements)
 
-    async def read_current_conditions(self, location: str, near: Optional[str] = None) -> Dict[str, Any]:
+    async def read_current_conditions(self, location: str, nearby_location: Optional[str] = None) -> Dict[str, Any]:
         """
         Read the latest measurements of the station nearest to a location.
 
@@ -209,7 +209,7 @@ class MeasurementService:
         the measurements they need. Raise CannotAnswerError for an unknown location or when no
         station publishes a temperature.
         """
-        resolved_location = await self._find_location(location, near)
+        resolved_location = await self._find_location(location, nearby_location)
         place = resolved_location.asked_place
         all_measurements = await self._find_nearest_station_measurements(place)
         latest_measurements = all_measurements[-1]
