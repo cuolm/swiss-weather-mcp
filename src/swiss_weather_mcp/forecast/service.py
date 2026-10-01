@@ -115,7 +115,7 @@ class ForecastService:
         self.forecast_source = forecast_source
 
     async def _find_location(self, location: str, nearby_location: Optional[str]) -> ResolvedLocation:
-        """Find the MeteoSwiss point for a location in a worker thread, so a download does not block other requests."""
+        """Find a location in a worker thread, so a download does not block other requests."""
         return await asyncio.to_thread(self.location_finder.find_location, location, nearby_location)
 
     async def _read_series(self, parameter: str, point: MeteoSwissPoint) -> ForecastSeries:
