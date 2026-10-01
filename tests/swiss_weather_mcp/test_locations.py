@@ -20,54 +20,54 @@ def test_normalise_location_ignores_periods():
     assert normalise_location("Affoltern i.E.") == normalise_location("Affoltern i. E.")
 
 
-# --- find_point ---
+# --- find_location ---
 
-def test_find_point_ignores_case_and_accents(location_finder_fixture):
+def test_find_location_ignores_case_and_accents(location_finder_fixture):
     for spelling in ("Zürich", "zurich", "ZURICH"):
-        assert location_finder_fixture.find_point(spelling).point_id == "800100"
+        assert location_finder_fixture.find_location(spelling).point.point_id == "800100"
 
 
-def test_find_point_lowest_postal_code(location_finder_fixture):
+def test_find_location_lowest_postal_code(location_finder_fixture):
     # 8001 is the historic centre, 8002 is a different district of the same city
-    assert location_finder_fixture.find_point("Zürich").postal_code == "8001"
+    assert location_finder_fixture.find_location("Zürich").point.postal_code == "8001"
 
 
-def test_find_point_accepts_a_postal_code(location_finder_fixture):
-    assert location_finder_fixture.find_point("8002").point_id == "800200"
+def test_find_location_accepts_a_postal_code(location_finder_fixture):
+    assert location_finder_fixture.find_location("8002").point.point_id == "800200"
 
 
-def test_find_point_station_without_postal_code(location_finder_fixture):
-    point = location_finder_fixture.find_point("Davos")
+def test_find_location_station_without_postal_code(location_finder_fixture):
+    point = location_finder_fixture.find_location("Davos").point
     assert (point.point_id, point.point_type_id) == ("26", "1")
 
 
-def test_find_point_caches_the_point_table_in_its_folder(location_finder_fixture, tmp_path):
-    location_finder_fixture.find_point("8001")
+def test_find_location_caches_the_point_table_in_its_folder(location_finder_fixture, tmp_path):
+    location_finder_fixture.find_location("8001").point
     assert (tmp_path / "locations" / "ogd-local-forecasting_meta_point.csv").exists()
 
 
-def test_find_point_reads_the_coordinates(location_finder_fixture):
-    point = location_finder_fixture.find_point("8001")
+def test_find_location_reads_the_coordinates(location_finder_fixture):
+    point = location_finder_fixture.find_location("8001").point
     assert (point.east_m, point.north_m) == (2683348.0, 1247414.0)
 
 
-def test_find_point_rejects_a_near_match(location_finder_fixture):
+def test_find_location_rejects_a_near_match(location_finder_fixture):
     # "Wallis" is the canton Valais, its closest name here is a Zurich suburb 150 km away
     with pytest.raises(CannotAnswerError, match="was not found"):
-        location_finder_fixture.find_point("Wallis")
+        location_finder_fixture.find_location("Wallis").point
 
 
-def test_find_point_unknown_location(location_finder_fixture):
+def test_find_location_unknown_location(location_finder_fixture):
     with pytest.raises(CannotAnswerError, match="'Tessin'"):
-        location_finder_fixture.find_point("Tessin")
+        location_finder_fixture.find_location("Tessin").point
 
 
-def test_find_point_other_language_name(location_finder_fixture):
+def test_find_location_other_language_name(location_finder_fixture):
     # "Zurigo" is the Italian name of Zürich, from other_language_place_names.csv
-    assert location_finder_fixture.find_point("Zurigo").point_id == "800100"
+    assert location_finder_fixture.find_location("Zurigo").point.point_id == "800100"
 
 
-def test_find_point_during_loading(mocker, location_finder_fixture):
+def test_find_location_during_loading(mocker, location_finder_fixture):
     # A second request can ask for a place while the first is still reading the table. Ask for
     # Davos just after the first place of the table has been read.
     points_built = []
@@ -76,16 +76,14 @@ def test_find_point_during_loading(mocker, location_finder_fixture):
     def build_point_and_ask_again(**fields):
         points_built.append(fields["point_id"])
         if len(points_built) == 2:
-            found_meanwhile.append(location_finder_fixture.find_point("Davos"))
+            found_meanwhile.append(location_finder_fixture.find_location("Davos").point)
         return MeteoSwissPoint(**fields)
 
     mocker.patch("swiss_weather_mcp.locations.meteoswiss_points.MeteoSwissPoint", side_effect=build_point_and_ask_again)
-    location_finder_fixture.find_point("Zürich")
+    location_finder_fixture.find_location("Zürich").point
 
     assert found_meanwhile[0].point_id == "26"
 
-
-# --- find_location ---
 
 def count_archive_downloads(source_fixture) -> int:
     downloads = 0

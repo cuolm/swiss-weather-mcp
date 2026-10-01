@@ -90,23 +90,23 @@ def test_find_latest_run_once_for_parallel_reads(mocker, tmp_path):
 
 def test_read_series_keeps_the_first_row(source_fixture, location_finder_fixture):
     # A point extract carries no header line, so skipping one would lose the first forecast hour
-    series = source_fixture.read_series("tre200h0", location_finder_fixture.find_point("Zürich"))
+    series = source_fixture.read_series("tre200h0", location_finder_fixture.find_location("Zürich").point)
     assert len(series.values) == 3
     assert series.values[datetime(2026, 9, 23, 6, tzinfo=timezone.utc)] == 6.0
 
 
 def test_read_series_only_the_requested_point(source_fixture, location_finder_fixture):
-    series = source_fixture.read_series("tre200h0", location_finder_fixture.find_point("Zürich"))
+    series = source_fixture.read_series("tre200h0", location_finder_fixture.find_location("Zürich").point)
     assert -1 not in series.values.values()
 
 
 def test_read_series_run_time(source_fixture, location_finder_fixture):
-    series = source_fixture.read_series("tre200h0", location_finder_fixture.find_point("Zürich"))
+    series = source_fixture.read_series("tre200h0", location_finder_fixture.find_location("Zürich").point)
     assert series.run_time == datetime(2026, 9, 22, 13, tzinfo=timezone.utc)
 
 
 def test_read_series_downloads_once(source_fixture, location_finder_fixture):
-    point = location_finder_fixture.find_point("Zürich")
+    point = location_finder_fixture.find_location("Zürich").point
     first_series = source_fixture.read_series("tre200h0", point)
     downloads = source_fixture.get_mock.call_count
 
@@ -115,7 +115,7 @@ def test_read_series_downloads_once(source_fixture, location_finder_fixture):
 
 
 def test_read_series_stores_point_rows(source_fixture, tmp_path, location_finder_fixture):
-    source_fixture.read_series("tre200h0", location_finder_fixture.find_point("Zürich"))
+    source_fixture.read_series("tre200h0", location_finder_fixture.find_location("Zürich").point)
     stored = list((tmp_path / "forecast" / "runs" / RUN_ID).iterdir())
     assert [path.name for path in stored] == ["tre200h0_800100_2.csv"]
     assert b"999999" not in stored[0].read_bytes()
@@ -123,7 +123,7 @@ def test_read_series_stores_point_rows(source_fixture, tmp_path, location_finder
 
 def test_read_series_stores_all_locations(tmp_path, source_fixture, location_finder_fixture):
     source_fixture.cache_all_locations = True
-    source_fixture.read_series("tre200h0", location_finder_fixture.find_point("Zürich"))
+    source_fixture.read_series("tre200h0", location_finder_fixture.find_location("Zürich").point)
 
     stored = tmp_path / "forecast" / "runs" / RUN_ID / "tre200h0.csv"
     assert stored.exists()
@@ -131,7 +131,7 @@ def test_read_series_stores_all_locations(tmp_path, source_fixture, location_fin
 
 
 def test_read_series_from_a_full_file(source_fixture, tmp_path, location_finder_fixture):
-    point = location_finder_fixture.find_point("Zürich")
+    point = location_finder_fixture.find_location("Zürich").point
     from_extract = source_fixture.read_series("tre200h0", point).values
 
     source_fixture.cache_all_locations = True
@@ -145,7 +145,7 @@ def test_read_series_drops_old_runs(source_fixture, tmp_path, location_finder_fi
         superseded.mkdir(parents=True)
         (superseded / "tre200h0_800100_2.csv").write_bytes(b"stale")
 
-    source_fixture.read_series("tre200h0", location_finder_fixture.find_point("Zürich"))
+    source_fixture.read_series("tre200h0", location_finder_fixture.find_location("Zürich").point)
     # 12:00 stays, another server process may still be reading it until it sees the 13:00 run
     assert sorted(path.name for path in (tmp_path / "forecast" / "runs").iterdir()) == [EARLIER_RUN_ID, RUN_ID]
 
@@ -156,17 +156,17 @@ def test_read_series_keeps_a_newer_run(source_fixture, tmp_path, location_finder
     newer.mkdir(parents=True)
     (newer / "tre200h0_800100_2.csv").write_bytes(b"newer")
 
-    source_fixture.read_series("tre200h0", location_finder_fixture.find_point("Zürich"))
+    source_fixture.read_series("tre200h0", location_finder_fixture.find_location("Zürich").point)
     assert sorted(path.name for path in (tmp_path / "forecast" / "runs").iterdir()) == [RUN_ID, "202609221400"]
 
 
 def test_read_series_leaves_no_partial_file(source_fixture, tmp_path, location_finder_fixture):
-    source_fixture.read_series("tre200h0", location_finder_fixture.find_point("Zürich"))
+    source_fixture.read_series("tre200h0", location_finder_fixture.find_location("Zürich").point)
     assert list(tmp_path.rglob("*.tmp")) == []
 
 
 def test_read_series_no_values(source_fixture, location_finder_fixture):
-    davos = location_finder_fixture.find_point("Davos")
+    davos = location_finder_fixture.find_location("Davos").point
     # Regional entries are published for some parameters and not others
     with pytest.raises(CannotAnswerError, match="no 'tre200h0' values for Davos"):
         source_fixture.read_series("tre200h0", davos)

@@ -6,8 +6,9 @@ from typing import Any, Dict, List, Literal, NamedTuple, Optional
 from . import parameters
 from ..errors import CannotAnswerError
 from ..formatting import SWISS_TZ, describe_height_difference, find_compass_point, format_swiss_time
-from ..locations import MeteoSwissPoint, LocationFinder
-from .source import MeasurementSource, Station, StationMeasurements, calculate_distance_m
+from ..locations import LocationFinder, ResolvedLocation
+from ..locations.names import NamedPosition, calculate_distance_m
+from .source import MeasurementSource, Station, StationMeasurements
 
 logger = logging.getLogger(__name__)
 
@@ -62,12 +63,12 @@ class StationValue(NamedTuple):
     value: float
 
 
-def _build_nearest_station_sentence(point: MeteoSwissPoint, measurements: StationMeasurements,
+def _build_nearest_station_sentence(place: NamedPosition, measurements: StationMeasurements,
                                     distance_km: float, difference_m: int) -> str:
     """Build the sentence that says which station measured the values, such as "Glarus (517 m) is ..."."""
     measured_at = measurements.measured_at.astimezone(SWISS_TZ)
     return (
-        f"{measurements.station.display_name} is the nearest MeteoSwiss station to {point.display_name}, "
+        f"{measurements.station.display_name} is the nearest MeteoSwiss station to {place.display_name}, "
         f"{distance_km} km away and {describe_height_difference(difference_m)}. "
         f"It measured the following values at {measured_at:%H:%M}."
     )
@@ -185,13 +186,13 @@ class MeasurementService:
         self.location_finder = location_finder
         self.measurement_source = measurement_source
 
-    async def _find_point(self, location: str) -> MeteoSwissPoint:
-        """Find the MeteoSwiss point for a location in a worker thread, so a download does not block other requests."""
-        return await asyncio.to_thread(self.location_finder.find_point, location)
+    async def _find_location(self, location: str) -> ResolvedLocation:
+        """Find a location in a worker thread, so a download does not block other requests."""
+        return await asyncio.to_thread(self.location_finder.find_location, location)
 
-    async def _find_nearest_station_measurements(self, point: MeteoSwissPoint) -> List[StationMeasurements]:
+    async def _find_nearest_station_measurements(self, place: NamedPosition) -> List[StationMeasurements]:
         """Find the nearest station's measurements in a worker thread, so a download does not block other requests."""
-        return await asyncio.to_thread(self.measurement_source.find_nearest_station_measurements, point)
+        return await asyncio.to_thread(self.measurement_source.find_nearest_station_measurements, place)
 
     async def _read_all_stations_latest_measurements(self) -> List[StationMeasurements]:
         """Read every station's latest measurements in a worker thread, so a download does not block other requests."""
@@ -208,17 +209,18 @@ class MeasurementService:
         the measurements they need. Raise CannotAnswerError for an unknown location or when no
         station publishes a temperature.
         """
-        point = await self._find_point(location)
-        all_measurements = await self._find_nearest_station_measurements(point)
+        resolved_location = await self._find_location(location)
+        place = resolved_location.asked_place
+        all_measurements = await self._find_nearest_station_measurements(place)
         latest_measurements = all_measurements[-1]
         station = latest_measurements.station
-        distance_km = round(calculate_distance_m(point, station) / METRES_PER_KILOMETRE, 1)
-        difference_m = round(station.altitude_m - point.altitude_m)
+        distance_km = round(calculate_distance_m(place, station) / METRES_PER_KILOMETRE, 1)
+        difference_m = round(station.altitude_m - place.altitude_m)
 
         answer: Dict[str, Any] = {
-            "nearest_station": _build_nearest_station_sentence(point, latest_measurements, distance_km, difference_m),
-            "location": point.display_name,
-            "altitude_m": point.altitude_m,
+            "nearest_station": _build_nearest_station_sentence(place, latest_measurements, distance_km, difference_m),
+            "location": place.display_name,
+            "altitude_m": place.altitude_m,
             "station": station.display_name,
             "station_distance_km": distance_km,
             "station_altitude_difference_m": difference_m,
