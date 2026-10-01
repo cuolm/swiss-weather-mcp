@@ -63,14 +63,13 @@ How we use it to compare all stations:
 """
 import csv
 import logging
-import math
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Dict, List, NamedTuple, Optional
 
 from . import parameters
 from ..errors import CannotAnswerError
-from ..locations import MeteoSwissPoint
+from ..locations.names import NamedPosition, calculate_distance_m
 from ..opendata import ensure_recent_file, parse_stamp
 
 logger = logging.getLogger(__name__)
@@ -120,12 +119,6 @@ class StationMeasurements(NamedTuple):
     station: Station
     measured_at: datetime
     values: Dict[str, Optional[float]]
-
-
-def calculate_distance_m(point: MeteoSwissPoint, station: Station) -> float:
-    """Return the distance in metres between a MeteoSwiss point and a station."""
-    # LV95 is a flat grid in metres, so Pythagoras is exact enough within Switzerland
-    return math.hypot(station.east_m - point.east_m, station.north_m - point.north_m)
 
 
 def _parse_value(value_text: str) -> Optional[float]:
@@ -196,15 +189,15 @@ class MeasurementSource:
                 all_measurements.append(measurements)
         return all_measurements
 
-    def find_nearest_station_measurements(self, point: MeteoSwissPoint) -> List[StationMeasurements]:
+    def find_nearest_station_measurements(self, place: NamedPosition) -> List[StationMeasurements]:
         """
-        Find the measurements of the station nearest to a MeteoSwiss point that measures the
-        temperature, the oldest first, so the last entry holds the latest measurements.
+        Find the measurements of the station nearest to a place that measures the temperature,
+        the oldest first, so the last entry holds the latest measurements.
 
         Raise CannotAnswerError when none of the nearest stations published a temperature in the last hour.
         """
         stations = self._load_stations()
-        nearest_stations = sorted(stations.values(), key=lambda station: calculate_distance_m(point, station))
+        nearest_stations = sorted(stations.values(), key=lambda station: calculate_distance_m(place, station))
         now = datetime.now(timezone.utc)
         for station in nearest_stations[:MAX_STATIONS_TRIED]:
             all_measurements = self._read_station_measurements(station)
@@ -220,7 +213,7 @@ class MeasurementSource:
             return all_measurements
 
         raise CannotAnswerError(
-            f"None of the {MAX_STATIONS_TRIED} stations nearest to {point.display_name} published a "
+            f"None of the {MAX_STATIONS_TRIED} stations nearest to {place.display_name} published a "
             f"temperature in the last hour, try again later."
         )
 

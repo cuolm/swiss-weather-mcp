@@ -111,7 +111,7 @@ def test_find_nearest_station_measurements_skips_a_station_that_stopped_publishi
     old_fluntern = [fluntern[-1]._replace(measured_at=MEASUREMENTS_NOW - timedelta(minutes=61))]
     mocker.patch.object(measurement_source_fixture, "_read_station_measurements", side_effect=[old_fluntern, davos])
 
-    zurich = location_finder_fixture.find_point("8001")
+    zurich = location_finder_fixture.find_location("8001").point
     assert measurement_source_fixture.find_nearest_station_measurements(zurich)[-1].station.abbr == "DAV"
 
 
@@ -121,7 +121,8 @@ def test_find_nearest_station_measurements_tries_only_the_nearest_stations(
     # Four stations are in the table, and none of them answers
     read_mock = mocker.patch.object(measurement_source_fixture, "_read_station_measurements", return_value=[])
     with pytest.raises(CannotAnswerError, match="published a temperature in the last hour"):
-        measurement_source_fixture.find_nearest_station_measurements(location_finder_fixture.find_point("8001"))
+        zurich = location_finder_fixture.find_location("8001").point
+        measurement_source_fixture.find_nearest_station_measurements(zurich)
     assert read_mock.call_count == MAX_STATIONS_TRIED
 
 

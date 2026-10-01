@@ -14,6 +14,16 @@ class Position(Protocol):
     def north_m(self) -> float: ...
 
 
+class NamedPosition(Position, Protocol):
+    """A MeteoSwiss point or a swisstopo place: a position with an altitude and a name to show."""
+
+    @property
+    def altitude_m(self) -> float: ...
+
+    @property
+    def display_name(self) -> str: ...
+
+
 def normalise_location(location: str) -> str:
     """Fold case, strip accents and drop periods, so "zurich" finds "Zürich" and "St Moritz" finds "St. Moritz"."""
     # NFKD splits "ü" into "u" and a separate accent mark, which is dropped here

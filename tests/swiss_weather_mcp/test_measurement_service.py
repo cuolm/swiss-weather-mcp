@@ -94,6 +94,18 @@ def test_sum_sunshine_last_hour_without_one_value():
     assert _sum_sunshine_last_hour(all_measurements) is None
 
 
+@pytest.mark.asyncio
+async def test_read_current_conditions_for_a_swisstopo_place(measurement_service_fixture):
+    # Lindenhof is not a MeteoSwiss point, so the nearest station is found from Lindenhof itself
+    answer = await measurement_service_fixture.read_current_conditions("Lindenhof")
+
+    assert answer["nearest_station"].startswith(
+        "Zürich / Fluntern (604 m) is the nearest MeteoSwiss station to Lindenhof (428 m), 2.2 km away and "
+        "176 m higher."
+    )
+    assert (answer["location"], answer["altitude_m"]) == ("Lindenhof (428 m)", 428.0)
+
+
 # --- read_current_extremes ---
 
 @pytest.mark.asyncio

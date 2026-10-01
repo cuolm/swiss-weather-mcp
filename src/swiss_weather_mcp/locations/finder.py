@@ -10,7 +10,7 @@ How we use it:
 import logging
 import threading
 from pathlib import Path
-from typing import NamedTuple, Optional
+from typing import NamedTuple, Optional, Union
 
 import requests
 
@@ -25,6 +25,13 @@ class ResolvedLocation(NamedTuple):
     """The MeteoSwiss point a location is answered for, and the swisstopo place when the location is not a point."""
     point: MeteoSwissPoint
     place: Optional[SwisstopoPlace]
+
+    @property
+    def asked_place(self) -> Union[SwisstopoPlace, MeteoSwissPoint]:
+        """The place the user asked about: the swisstopo place, or else the MeteoSwiss point."""
+        if self.place is not None:
+            return self.place
+        return self.point
 
 
 class LocationFinder:
@@ -80,7 +87,3 @@ class LocationFinder:
         raise CannotAnswerError(
             f"Location '{location}' was not found. Check the spelling, or try a nearby town, village or postal code."
         )
-
-    def find_point(self, location: str) -> MeteoSwissPoint:
-        """Find the MeteoSwiss point a location is answered for; see find_location."""
-        return self.find_location(location).point
