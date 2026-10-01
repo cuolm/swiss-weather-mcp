@@ -62,6 +62,15 @@ OBJECT_TYPES_BY_FILE = {
     },
     "swissNAMES3D_PLY.csv": {"See", "Gletscher", "Tal"},                     # lakes, glaciers and valleys
 }
+# How an answer calls each object type
+OBJECT_TYPE_NAMES = {
+    "Ort": "place", "Ortsteil": "part of a place", "Quartier": "district", "Quartierteil": "part of a district",
+    "Alpiner Gipfel": "peak", "Hauptgipfel": "peak", "Gipfel": "peak", "Haupthuegel": "hill", "Huegel": "hill",
+    "Pass": "pass", "Strassenpass": "pass", "Wasserfall": "waterfall",
+    "See": "lake", "Gletscher": "glacier", "Tal": "valley",
+}
+# The object types of settlements, from the widest to the narrowest
+SETTLEMENT_OBJECT_TYPES = ("Ort", "Ortsteil", "Quartier", "Quartierteil")
 
 
 class SwisstopoPlace(NamedTuple):
@@ -76,6 +85,11 @@ class SwisstopoPlace(NamedTuple):
     def display_name(self) -> str:
         """The name shown to a reader, with the altitude, such as "Oerlikon (444 m)"."""
         return f"{self.name} ({self.altitude_m:.0f} m)"
+
+    @property
+    def object_type_name(self) -> str:
+        """The object type in English, such as "lake" for "See"."""
+        return OBJECT_TYPE_NAMES[self.object_type]
 
 
 class SwisstopoPlaceSource:

@@ -49,7 +49,7 @@ def test_find_point_reads_the_coordinates(location_finder_fixture):
 
 def test_find_point_rejects_a_near_match(location_finder_fixture):
     # "Wallis" is the canton Valais, its closest name here is a Zurich suburb 150 km away
-    with pytest.raises(CannotAnswerError, match="not one of the 4 places"):
+    with pytest.raises(CannotAnswerError, match="neither one of the 4 places"):
         location_finder_fixture.find_point("Wallis")
 
 
@@ -79,6 +79,61 @@ def test_find_point_during_loading(mocker, location_finder_fixture):
     location_finder_fixture.find_point("Zürich")
 
     assert found_meanwhile[0].point_id == "26"
+
+
+# --- find_location ---
+
+def count_archive_downloads(source_fixture) -> int:
+    downloads = 0
+    for call in source_fixture.get_mock.call_args_list:
+        if call.args[0].endswith(".csv.zip"):
+            downloads += 1
+    return downloads
+
+
+def test_find_location_meteoswiss_name_comes_first(source_fixture, location_finder_fixture):
+    # swisstopo has a Davos too, but the MeteoSwiss point wins, and the swisstopo places are not even read
+    resolved_location = location_finder_fixture.find_location("Davos")
+    assert (resolved_location.point.point_id, resolved_location.place) == ("26", None)
+    assert count_archive_downloads(source_fixture) == 0
+
+
+def test_find_location_swisstopo_place(location_finder_fixture):
+    resolved_location = location_finder_fixture.find_location("Lindenhof")
+    assert resolved_location.place.display_name == "Lindenhof (428 m)"
+    assert resolved_location.point.point_id == "800100"
+
+
+def test_find_location_takes_a_settlement_for_close_places(location_finder_fixture):
+    # The Uetliberg hill and the hamlet on it lie 360 m apart, so they are one place
+    resolved_location = location_finder_fixture.find_location("Uetliberg")
+    assert resolved_location.place.object_type == "Ort"
+
+
+def test_find_location_refuses_a_name_of_several_places(location_finder_fixture):
+    # The Blausee place and district lie 280 m apart and are one option
+    with pytest.raises(CannotAnswerError) as raised:
+        location_finder_fixture.find_location("Blausee")
+    assert str(raised.value) == (
+        "'Blausee' is the name of 2 places. Ask again with one of these, written exactly as shown:\n"
+        '  "Blausee (place, 420 m, near Zürich)"\n'
+        '  "Blausee (lake, 445 m, near Wallisellen)"'
+    )
+
+
+def test_find_location_takes_an_option(location_finder_fixture):
+    resolved_location = location_finder_fixture.find_location("Blausee (lake, 445 m, near Wallisellen)")
+    assert resolved_location.place.object_type == "See"
+
+
+def test_find_location_takes_free_text_that_names_a_village(location_finder_fixture):
+    resolved_location = location_finder_fixture.find_location("Blausee near Wallisellen")
+    assert resolved_location.place.object_type == "See"
+
+
+def test_find_location_lists_the_options_for_free_text_without_a_village(location_finder_fixture):
+    with pytest.raises(CannotAnswerError, match="'Blausee' is the name of 2 places"):
+        location_finder_fixture.find_location("Blausee im Kandertal")
 
 
 # --- other_language_place_names.csv ---

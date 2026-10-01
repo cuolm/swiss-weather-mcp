@@ -1,4 +1,4 @@
-"""Write times and wind directions the way the tools answer with them."""
+"""Write times, wind directions and height differences the way the tools answer with them."""
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -20,3 +20,12 @@ def find_compass_point(degrees: float) -> str:
     # Rounding picks the nearest point, and the modulo turns a bearing just short of 360 back into N
     sector = round(degrees / COMPASS_SECTOR_DEGREES) % len(COMPASS_POINTS)
     return COMPASS_POINTS[sector]
+
+
+def describe_height_difference(difference_m: int) -> str:
+    """Say how much higher or lower something is, such as "801 m lower"."""
+    if difference_m > 0:
+        return f"{difference_m} m higher"
+    if difference_m < 0:
+        return f"{-difference_m} m lower"
+    return "at the same height"

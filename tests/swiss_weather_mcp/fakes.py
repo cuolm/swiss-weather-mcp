@@ -147,7 +147,10 @@ def build_station_now_values_csv(abbr: str) -> bytes:
 
 # Some columns of the swissNAMES3D files, with real places. Oerlikon is a city district in the
 # points file and again in the areas file, where it is not read. Rüti is a field name and
-# Zürich HB a railway station, which are not read either. The Rheinfall is a waterfall.
+# Zürich HB a railway station, which are not read either. The Rheinfall is a waterfall. Blausee is
+# the name of three places: a place and a district 280 m apart, which are one place, and a lake
+# near Wallisellen. Uetliberg is a hill and the hamlet on it. Lindenhof lies next to Zürich 8001,
+# and the swisstopo Davos is far from the MeteoSwiss one.
 PLACE_NAMES_COLUMNS = "UUID;NAME;STATUS;OBJEKTART;E;N;Z"
 PLACE_NAMES_ROWS_BY_FILE = {
     "swissNAMES3D_PKT.csv": (
@@ -156,10 +159,17 @@ PLACE_NAMES_ROWS_BY_FILE = {
         "{3};Zürich HB;offiziell;Haltestelle Bahn;2683190;1248066;408",
         "{4};Matterhorn;offiziell;Alpiner Gipfel;2617049;1091673;4478",
         "{7};Rheinfall;offiziell;Wasserfall;2688390;1281451;376",
+        "{8};Blausee;offiziell;Ort;2682500;1246600;420",
+        "{9};Blausee;offiziell;Quartier;2682700;1246800;425",
+        "{10};Uetliberg;offiziell;Huegel;2679589;1244824;870",
+        "{11};Uetliberg;offiziell;Ort;2679373;1245106;842",
+        "{12};Lindenhof;offiziell;Quartierteil;2683200;1247500;428",
+        "{13};Davos;offiziell;Ort;2700000;1200000;500",
     ),
     "swissNAMES3D_PLY.csv": (
         "{5};Oerlikon;offiziell;Quartier;2683539;1251401;448",
         "{6};Zürichsee;offiziell;See;2698596;1230913;406",
+        "{14};Blausee;offiziell;See;2687500;1252500;445",
     ),
     "swissNAMES3D_LIN.csv": (),
 }

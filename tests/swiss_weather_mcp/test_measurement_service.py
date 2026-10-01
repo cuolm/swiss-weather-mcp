@@ -5,7 +5,7 @@ import pytest
 from swiss_weather_mcp.errors import CannotAnswerError
 from swiss_weather_mcp.measurements import parameters
 from swiss_weather_mcp.measurements.service import (
-    StationValue, _build_canton_rows, _calculate_change, _describe_height_difference, _sum_sunshine_last_hour,
+    StationValue, _build_canton_rows, _calculate_change, _sum_sunshine_last_hour,
 )
 from swiss_weather_mcp.measurements.source import Station, StationMeasurements
 
@@ -92,14 +92,6 @@ def test_sum_sunshine_last_hour_without_one_value():
         all_measurements.append(build_measurements(f"2026-09-25T13:{minute}", {parameters.SUNSHINE: 10.0}))
     all_measurements.append(build_measurements("2026-09-25T14:00", {parameters.SUNSHINE: None}))
     assert _sum_sunshine_last_hour(all_measurements) is None
-
-
-# --- _describe_height_difference ---
-
-def test_describe_height_difference():
-    assert [_describe_height_difference(difference_m) for difference_m in (195, -801, 0)] == [
-        "195 m higher", "801 m lower", "at the same height",
-    ]
 
 
 # --- read_current_extremes ---
