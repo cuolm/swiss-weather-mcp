@@ -161,8 +161,6 @@ class MeteoSwissPointLookup:
     def __init__(self, point_source: MeteoSwissPointSource):
         self.point_source = point_source
         self._points: List[MeteoSwissPoint] = []
-        # The points with a postal code, which name a village or town a reader knows
-        self._villages: List[MeteoSwissPoint] = []
         self._chosen_point_by_postal_code: Dict[str, MeteoSwissPoint] = {}
         self._chosen_point_by_name: Dict[str, MeteoSwissPoint] = {}
         self._point_names_by_other_language_place_name = _read_other_language_place_names()
@@ -175,7 +173,6 @@ class MeteoSwissPointLookup:
         points = self.point_source.load_points()
         ranked_points = sorted(points, key=_rank_point)
         self._points = points
-        self._villages = [point for point in points if point.postal_code]
         self._chosen_point_by_postal_code = _choose_point_per_postal_code(ranked_points)
         self._chosen_point_by_name = _choose_point_per_name(ranked_points)
         logger.info(f"Loaded {len(points)} forecast locations")
@@ -202,9 +199,3 @@ class MeteoSwissPointLookup:
         """Find the point nearest to a position."""
         self._ensure_chosen_points()
         return min(self._points, key=lambda point: calculate_distance_m(point, position))
-
-    def find_nearest_village_name(self, position: Position) -> str:
-        """Find the name of the point with a postal code nearest to a position, such as "Bettmeralp"."""
-        self._ensure_chosen_points()
-        village = min(self._villages, key=lambda point: calculate_distance_m(point, position))
-        return village.name

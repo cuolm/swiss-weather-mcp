@@ -150,7 +150,8 @@ def build_station_now_values_csv(abbr: str) -> bytes:
 # Zürich HB a railway station, which are not read either. The Rheinfall is a waterfall. Blausee is
 # the name of three places: a place and a district 280 m apart, which are one place, and a lake
 # near Wallisellen. Uetliberg is a hill and the hamlet on it. Lindenhof lies next to Zürich 8001,
-# and the swisstopo Davos is far from the MeteoSwiss one.
+# and the swisstopo Davos is far from the MeteoSwiss one. Both Moos are nearest to Wallisellen, and
+# one Seeli lies 12 km from Wallisellen.
 PLACE_NAMES_COLUMNS = "UUID;NAME;STATUS;OBJEKTART;E;N;Z"
 PLACE_NAMES_ROWS_BY_FILE = {
     "swissNAMES3D_PKT.csv": (
@@ -165,6 +166,10 @@ PLACE_NAMES_ROWS_BY_FILE = {
         "{11};Uetliberg;offiziell;Ort;2679373;1245106;842",
         "{12};Lindenhof;offiziell;Quartierteil;2683200;1247500;428",
         "{13};Davos;offiziell;Ort;2700000;1200000;500",
+        "{15};Moos;offiziell;Ort;2687000;1252000;440",
+        "{16};Moos;offiziell;Ort;2685500;1250000;450",
+        "{19};Seeli;offiziell;Ort;2699275;1252173;600",
+        "{20};Seeli;offiziell;Ort;2783000;1188000;1600",
     ),
     "swissNAMES3D_PLY.csv": (
         "{5};Oerlikon;offiziell;Quartier;2683539;1251401;448",
