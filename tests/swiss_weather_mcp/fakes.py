@@ -10,9 +10,9 @@ POINT_TABLE_COLUMNS = (
     "point_type_it;point_type_en;point_height_masl;point_coordinates_lv95_east;"
     "point_coordinates_lv95_north;point_coordinates_wgs84_lat;point_coordinates_wgs84_lon"
 )
-# Zurich twice so the lowest postal code has to win, Davos with no postal code so the station is
-# the only option, and Wallisellen because it is what a near match for "Wallis" would wrongly pick.
-# Coordinates are the real LV95 ones of these places, in metres.
+# Zürich 8001 and 8002 to choose between by distance and height, Davos, a station with no postal
+# code and no forecast values, and Wallisellen, more than 5 km from Zürich. Coordinates are the real
+# LV95 ones of these points, in metres.
 POINT_TABLE_ROWS = (
     ("800200", "2", "", "8002", "Zürich", "431.0", "2682417.0", "1246175.0"),
     ("800100", "2", "", "8001", "Zürich", "409.0", "2683348.0", "1247414.0"),

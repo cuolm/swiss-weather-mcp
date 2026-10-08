@@ -1,11 +1,12 @@
 """
 Find the place a user means.
 
-    location   what the user typed: a place name or a Swiss postal code
-    point      one of the places MeteoSwiss publishes a local forecast for
-    place      a named place of swissNAMES3D, the swisstopo collection of geographical names
+    location   what the user typed: the name of a place
+    place      one geographic name of swissNAMES3D, the swisstopo collection of the names on
+               the national map, with its position: a town, district, lake, peak, pass,
+               station or valley. Close rows of the same name are one place.
 """
-from .finder import LocationFinder, ResolvedLocation
-from .meteoswiss_points import MeteoSwissPoint
+from .finder import PlaceFinder
+from .source import SwisstopoPlace
 
-__all__ = ["LocationFinder", "MeteoSwissPoint", "ResolvedLocation"]
+__all__ = ["PlaceFinder", "SwisstopoPlace"]

@@ -86,7 +86,7 @@ import requests
 from . import parameters
 from ..errors import CannotAnswerError
 from ..opendata import REQUEST_TIMEOUT_SECONDS, download_file, ensure_recent_file, parse_stamp
-from ..places.source import SwisstopoPlace
+from ..places import SwisstopoPlace
 
 logger = logging.getLogger(__name__)
 

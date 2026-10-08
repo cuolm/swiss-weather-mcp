@@ -71,7 +71,7 @@ from typing import Dict, List, NamedTuple, Optional
 from . import parameters
 from ..errors import CannotAnswerError
 from ..opendata import ensure_recent_file, parse_stamp
-from ..places.source import SwisstopoPlace
+from ..places import SwisstopoPlace
 
 logger = logging.getLogger(__name__)
 
