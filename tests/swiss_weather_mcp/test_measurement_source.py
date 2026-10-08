@@ -6,22 +6,26 @@ import pytest
 
 from fakes import MEASUREMENTS_NOW
 from swiss_weather_mcp.errors import CannotAnswerError
-from swiss_weather_mcp.places import MeteoSwissPoint
 from swiss_weather_mcp.measurements import parameters
 from swiss_weather_mcp.measurements.source import (
     MAX_STATIONS_TRIED, _find_canton_name, _parse_reference_timestamp,
 )
+from swiss_weather_mcp.places.source import SwisstopoPlace
 
 # How far back a cached file is dated to make it older than the 5 minutes it is kept
 OLD_FILE_AGE_SECONDS = 10 * 60
 
-UETLIBERG = MeteoSwissPoint(
-    point_id="1", point_type_id="3", name="Uetliberg", postal_code="", altitude_m=869.0,
+UETLIBERG = SwisstopoPlace(
+    name="Uetliberg", object_types=("Huegel",), population_band=0, is_exonym=False, altitude_m=869.0,
     east_m=2679455.0, north_m=1245034.0,
 )
-KLOTEN = MeteoSwissPoint(
-    point_id="2", point_type_id="2", name="Kloten", postal_code="8302", altitude_m=447.0,
+KLOTEN = SwisstopoPlace(
+    name="Kloten", object_types=("Ort",), population_band=7, is_exonym=False, altitude_m=447.0,
     east_m=2686100.0, north_m=1256500.0,
+)
+ZURICH = SwisstopoPlace(
+    name="Zürich", object_types=("Ort",), population_band=9, is_exonym=False, altitude_m=418.0,
+    east_m=2683500.0, north_m=1247184.0,
 )
 
 
@@ -103,7 +107,7 @@ def test_find_nearest_station_measurements_skips_a_station_without_rows(measurem
 
 
 def test_find_nearest_station_measurements_skips_a_station_that_stopped_publishing(
-    mocker, location_finder_fixture, measurement_source_fixture,
+    mocker, measurement_source_fixture,
 ):
     # Fluntern is the nearest station to Zürich, but its latest row is 61 minutes old
     fluntern = measurement_source_fixture._read_station_measurements(find_station(measurement_source_fixture, "SMA"))
@@ -111,18 +115,16 @@ def test_find_nearest_station_measurements_skips_a_station_that_stopped_publishi
     old_fluntern = [fluntern[-1]._replace(measured_at=MEASUREMENTS_NOW - timedelta(minutes=61))]
     mocker.patch.object(measurement_source_fixture, "_read_station_measurements", side_effect=[old_fluntern, davos])
 
-    zurich = location_finder_fixture.find_location("8001").point
-    assert measurement_source_fixture.find_nearest_station_measurements(zurich)[-1].station.abbr == "DAV"
+    assert measurement_source_fixture.find_nearest_station_measurements(ZURICH)[-1].station.abbr == "DAV"
 
 
 def test_find_nearest_station_measurements_tries_only_the_nearest_stations(
-    mocker, location_finder_fixture, measurement_source_fixture,
+    mocker, measurement_source_fixture,
 ):
     # Four stations are in the table, and none of them answers
     read_mock = mocker.patch.object(measurement_source_fixture, "_read_station_measurements", return_value=[])
     with pytest.raises(CannotAnswerError, match="published a temperature in the last hour"):
-        zurich = location_finder_fixture.find_location("8001").point
-        measurement_source_fixture.find_nearest_station_measurements(zurich)
+        measurement_source_fixture.find_nearest_station_measurements(ZURICH)
     assert read_mock.call_count == MAX_STATIONS_TRIED
 
 

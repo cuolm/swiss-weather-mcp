@@ -27,14 +27,14 @@ async def test_read_current_conditions(measurement_service_fixture):
 
     assert answer == {
         "nearest_station": (
-            "Zürich / Fluntern (604 m) is the nearest MeteoSwiss station to Zürich 8001 (409 m), "
-            "2.1 km away and 195 m higher. It measured the following values at 16:00."
+            "Zürich / Fluntern (604 m) is the nearest MeteoSwiss station to Zürich (418 m), "
+            "2.1 km away and 186 m higher. It measured the following values at 16:00."
         ),
-        "location": "Zürich 8001 (409 m)",
-        "altitude_m": 409.0,
+        "location": "Zürich (418 m)",
+        "altitude_m": 418.0,
         "station": "Zürich / Fluntern (604 m)",
         "station_distance_km": 2.1,
-        "station_altitude_difference_m": 195,
+        "station_altitude_difference_m": 186,
         "measured_at": "2026-09-25T16:00+02:00",
         "temperature_c": 21.0,
         "humidity_percent": 34.3,
@@ -54,19 +54,19 @@ async def test_read_current_conditions(measurement_service_fixture):
 
 @pytest.mark.asyncio
 async def test_read_current_conditions_values_the_station_lacks(measurement_service_fixture):
-    # The Davos station stands where the Davos MeteoSwiss point is, and has no rain or direction here
-    answer = await measurement_service_fixture.read_current_conditions("Davos")
+    # The Davos station, next to Davos Dorf, has no rain or direction here
+    answer = await measurement_service_fixture.read_current_conditions("Davos Dorf")
 
-    assert (answer["station"], answer["station_distance_km"], answer["station_altitude_difference_m"]) == ("Davos (1594 m)", 0.0, 0)
+    assert (answer["station"], answer["station_distance_km"], answer["station_altitude_difference_m"]) == ("Davos (1594 m)", 0.5, 30)
     assert answer["rain_last_10_minutes_mm"] is None
     assert (answer["wind_direction_degrees"], answer["compass_point"]) == (None, None)
-    assert "0.0 km away and at the same height" in answer["nearest_station"]
+    assert "0.5 km away and 30 m higher" in answer["nearest_station"]
 
 
 @pytest.mark.asyncio
 async def test_read_current_conditions_without_earlier_measurements(measurement_service_fixture):
     # The Davos station has published only one row, so nothing to compare with and no full hour
-    answer = await measurement_service_fixture.read_current_conditions("Davos")
+    answer = await measurement_service_fixture.read_current_conditions("Davos Dorf")
 
     assert answer["temperature_c"] == 16.5
     assert answer["temperature_change_last_3_hours_c"] is None
@@ -95,8 +95,8 @@ def test_sum_sunshine_last_hour_without_one_value():
 
 
 @pytest.mark.asyncio
-async def test_read_current_conditions_for_a_swisstopo_place(measurement_service_fixture):
-    # Lindenhof is not a MeteoSwiss point, so the nearest station is found from Lindenhof itself
+async def test_read_current_conditions_for_a_district(measurement_service_fixture):
+    # The nearest station is found from the district itself, not from the town around it
     answer = await measurement_service_fixture.read_current_conditions("Lindenhof")
 
     assert answer["nearest_station"].startswith(
