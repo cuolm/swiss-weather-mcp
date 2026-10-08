@@ -2,13 +2,18 @@ import os
 import time
 
 from fakes import build_place_names_archive
-from swiss_weather_mcp.places.swisstopo_places import SwisstopoPlace, SwisstopoPlaceSource
+from swiss_weather_mcp.places.source import SwisstopoPlace, SwisstopoPlaceSource
 
 # How far back a cached archive is dated to make the last look for a newer edition older than 30 days
 OLD_CHECK_AGE_SECONDS = 31 * 24 * 60 * 60
 
 NEWEST_ARCHIVE_NAME = "swissnames3d_2026_2056.csv.zip"
 OLDER_ARCHIVE_NAME = "swissnames3d_2025_2056.csv.zip"
+
+BLAUSEE = SwisstopoPlace(
+    name="Blausee", object_types=("Quartier", "See"), population_band=1, is_exonym=False,
+    altitude_m=887.0, east_m=2617276.0, north_m=1153561.0,
+)
 
 
 def count_requests(source_fixture, url_end: str) -> int:
@@ -21,7 +26,7 @@ def count_requests(source_fixture, url_end: str) -> int:
 
 def write_cached_archive(tmp_path, archive_name: str, age_seconds: int):
     """Put an archive in the cache, last checked for a newer edition age_seconds ago."""
-    archive = tmp_path / "locations" / archive_name
+    archive = tmp_path / "places" / archive_name
     archive.parent.mkdir(parents=True, exist_ok=True)
     archive.write_bytes(build_place_names_archive())
     checked_at = time.time() - age_seconds
@@ -32,38 +37,55 @@ def write_cached_archive(tmp_path, archive_name: str, age_seconds: int):
 # --- SwisstopoPlace ---
 
 def test_place_display_name():
-    oerlikon = SwisstopoPlace(
-        name="Oerlikon", object_type="Quartier", altitude_m=444.0, east_m=2683618.0, north_m=1251448.0,
+    assert BLAUSEE.display_name == "Blausee (887 m)"
+
+
+def test_place_description_names_every_type():
+    assert BLAUSEE.description == "district and lake, fewer than 20 people, 887 m"
+
+
+def test_place_description_without_people():
+    peak = BLAUSEE._replace(
+        name="Säntis", object_types=("Alpiner Gipfel", "Uebrige Bahnen", "Aussichtspunkt"), population_band=0,
+        altitude_m=2502.0,
     )
-    assert oerlikon.display_name == "Oerlikon (444 m)"
+    assert peak.description == "peak, cable car station and viewpoint, 2502 m"
 
 
 # --- load_places ---
 
-def test_load_places_reads_only_the_chosen_object_types(swisstopo_place_source_fixture):
-    # The field name and the railway station are left out, and Oerlikon is read from the points file only
-    places = swisstopo_place_source_fixture.load_places()
-    assert [(place.name, place.object_type) for place in places] == [
-        ("Oerlikon", "Quartier"), ("Matterhorn", "Alpiner Gipfel"), ("Rheinfall", "Wasserfall"),
-        ("Blausee", "Ort"), ("Blausee", "Quartier"), ("Uetliberg", "Huegel"), ("Uetliberg", "Ort"),
-        ("Lindenhof", "Quartierteil"), ("Davos", "Ort"), ("Moos", "Ort"), ("Moos", "Ort"), ("Seeli", "Ort"), ("Seeli", "Ort"), ("Zürichsee", "See"), ("Blausee", "See"),
+def test_load_places_reads_only_the_chosen_object_types(place_source_fixture):
+    # The field name Rüti is left out, and Oerlikon is read from the points file only
+    names = [place.name for place in place_source_fixture.load_places()]
+    assert "Rüti" not in names
+    assert names.count("Oerlikon") == 1
+    assert {"Zürich HB", "Matterhorn", "Zürichsee", "Küsnacht Im Holletsmoos 300/50/25m"} <= set(names)
+
+
+def test_load_places_reads_a_row(place_source_fixture):
+    oerlikon = place_source_fixture.load_places()[0]
+    assert oerlikon == SwisstopoPlace(
+        name="Oerlikon", object_types=("Quartier",), population_band=7, is_exonym=False,
+        altitude_m=444.0, east_m=2683618.0, north_m=1251448.0,
+    )
+
+
+def test_load_places_marks_an_exonym(place_source_fixture):
+    zurich_rows = [place for place in place_source_fixture.load_places() if place.name in ("Zürich", "Zurich")]
+    assert [(place.name, place.is_exonym, place.population_band) for place in zurich_rows] == [
+        ("Zürich", False, 9), ("Zurich", True, 9),
     ]
 
 
-def test_load_places_reads_the_position(swisstopo_place_source_fixture):
-    oerlikon = swisstopo_place_source_fixture.load_places()[0]
-    assert (oerlikon.east_m, oerlikon.north_m, oerlikon.altitude_m) == (2683618.0, 1251448.0, 444.0)
-
-
-def test_load_places_downloads_the_newest_edition(source_fixture, swisstopo_place_source_fixture, tmp_path):
-    swisstopo_place_source_fixture.load_places()
+def test_load_places_downloads_the_newest_edition(source_fixture, place_source_fixture, tmp_path):
+    place_source_fixture.load_places()
     assert count_requests(source_fixture, NEWEST_ARCHIVE_NAME) == 1
-    assert (tmp_path / "locations" / NEWEST_ARCHIVE_NAME).exists()
+    assert (tmp_path / "places" / NEWEST_ARCHIVE_NAME).exists()
 
 
-def test_load_places_reads_the_archive_once_per_process(source_fixture, swisstopo_place_source_fixture):
-    swisstopo_place_source_fixture.load_places()
-    swisstopo_place_source_fixture.load_places()
+def test_load_places_reads_the_archive_once_per_process(source_fixture, place_source_fixture):
+    place_source_fixture.load_places()
+    place_source_fixture.load_places()
     assert count_requests(source_fixture, "swissnames3d/items") == 1
 
 
@@ -90,5 +112,5 @@ def test_load_places_replaces_an_older_edition(source_fixture, tmp_path):
     SwisstopoPlaceSource(tmp_path).load_places()
 
     assert count_requests(source_fixture, NEWEST_ARCHIVE_NAME) == 1
-    assert (tmp_path / "locations" / NEWEST_ARCHIVE_NAME).exists()
+    assert (tmp_path / "places" / NEWEST_ARCHIVE_NAME).exists()
     assert not older_archive.exists()

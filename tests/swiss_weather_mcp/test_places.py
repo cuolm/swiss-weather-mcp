@@ -94,7 +94,7 @@ def count_archive_downloads(source_fixture) -> int:
 
 
 def test_find_location_meteoswiss_name_comes_first(source_fixture, location_finder_fixture):
-    # swisstopo has a Davos too, but the MeteoSwiss point wins, and the swisstopo places are not even read
+    # The MeteoSwiss point is found, and the swisstopo places are not even read
     resolved_location = location_finder_fixture.find_location("Davos")
     assert (resolved_location.point.point_id, resolved_location.place) == ("26", None)
     assert count_archive_downloads(source_fixture) == 0
