@@ -10,6 +10,7 @@ from fakes import (
 from swiss_weather_mcp.forecast.service import ForecastService
 from swiss_weather_mcp.forecast.source import ForecastSource
 from swiss_weather_mcp.places import LocationFinder
+from swiss_weather_mcp.places.finder import PlaceFinder
 from swiss_weather_mcp.measurements.service import MeasurementService
 from swiss_weather_mcp.measurements.source import MeasurementSource
 from swiss_weather_mcp.places.lookup import SwisstopoPlaceLookup
@@ -111,3 +112,9 @@ def place_source_fixture(source_fixture, tmp_path):
 def place_lookup_fixture(place_source_fixture):
     """Return a SwisstopoPlaceLookup building its places from the fake swissNAMES3D archive."""
     return SwisstopoPlaceLookup(place_source_fixture)
+
+
+@pytest.fixture
+def place_finder_fixture(source_fixture, tmp_path):
+    """Return a PlaceFinder reading the fake swissNAMES3D archive, served by the same fake HTTP responses."""
+    return PlaceFinder(tmp_path)

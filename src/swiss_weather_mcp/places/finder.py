@@ -52,7 +52,9 @@ The tools call nearby_location near. Two swisstopo places with the same name clo
 can have the same nearest MeteoSwiss point. That MeteoSwiss point then chooses the swisstopo
 place closer to it, a few kilometres from the other, with nearly the same weather.
 """
+import heapq
 import logging
+import math
 import threading
 from pathlib import Path
 from typing import List, NamedTuple, Optional, Union
@@ -60,6 +62,7 @@ from typing import List, NamedTuple, Optional, Union
 import requests
 
 from ..errors import CannotAnswerError
+from . import lookup, source
 from .meteoswiss_points import MeteoSwissPoint, MeteoSwissPointLookup, MeteoSwissPointSource
 from .names import calculate_distance_m
 from .swisstopo_places import SwisstopoPlace, SwisstopoPlaceLookup, SwisstopoPlaceSource
@@ -68,6 +71,8 @@ logger = logging.getLogger(__name__)
 
 # A place farther than this from nearby_location is not the one the user means
 MAX_NEAR_DISTANCE_M = 10000
+# How many of the nearest villages are tried to find one that leads back to a place
+MAX_NEAR_VILLAGES_TRIED = 20
 
 
 class ResolvedLocation(NamedTuple):
@@ -198,3 +203,113 @@ class LocationFinder:
             )
         nearest_meteoswiss_point = self.meteoswiss_point_lookup.find_nearest_point(swisstopo_place)
         return ResolvedLocation(nearest_meteoswiss_point, swisstopo_place)
+
+
+class PlaceFinder:
+    """
+    Find the swisstopo place a user means. A name of several places needs near, a village next
+    to the one the user means; for an unknown name, suggest the names that start with it or
+    are spelled alike.
+    """
+
+    def __init__(self, cache_dir: Path):
+        self.place_lookup = lookup.SwisstopoPlaceLookup(source.SwisstopoPlaceSource(cache_dir))
+
+    def _load_places(self) -> None:
+        """Load the places, or log why not, so the first question tries again."""
+        try:
+            self.place_lookup.load_places()
+        except requests.RequestException as error:
+            logger.warning(f"Could not load the swisstopo places at start, the first question tries again: {error}")
+
+    def start_loading_places(self) -> threading.Thread:
+        """
+        Load the places in a background thread, so the first question does not wait for their
+        download. Return the thread.
+        """
+        thread = threading.Thread(target=self._load_places, name="load-places", daemon=True)
+        thread.start()
+        return thread
+
+    def _choose_place_near(
+        self, places: List[source.SwisstopoPlace], nearby_location: str
+    ) -> Optional[source.SwisstopoPlace]:
+        """Choose the place closest to a place called nearby_location, or None when none lies within MAX_NEAR_DISTANCE_M."""
+        closest_place = None
+        closest_distance_m = math.inf
+        # nearby_location can itself be the name of several places, so every pair counts
+        for near_place in self.place_lookup.find_places(nearby_location):
+            for place in places:
+                distance_m = lookup.calculate_distance_m(place, near_place)
+                if distance_m < closest_distance_m:
+                    closest_place, closest_distance_m = place, distance_m
+        if closest_distance_m > MAX_NEAR_DISTANCE_M:
+            return None
+        return closest_place
+
+    def _find_near_village(self, place: source.SwisstopoPlace, places: List[source.SwisstopoPlace]) -> str:
+        """
+        Name the village to give as near for one of several places: the nearest one that leads
+        back to it, so a model that copies it gets this place.
+        """
+        nearest_villages = heapq.nsmallest(
+            MAX_NEAR_VILLAGES_TRIED,
+            self.place_lookup.near_settlements,
+            key=lambda village: lookup.calculate_distance_m(village, place),
+        )
+        for village in nearest_villages:
+            if self._choose_place_near(places, village.name) == place:
+                return village.name
+        # Two places of the name lie so close that each village leads to the other one; they have nearly the same weather
+        return nearest_villages[0].name
+
+    def _build_options_error(
+        self, location: str, places: List[source.SwisstopoPlace], nearby_location: Optional[str]
+    ) -> CannotAnswerError:
+        """Build the refusal of a name of several places, listing every place with a village to give as near."""
+        option_lines = []
+        for place in places:
+            option_lines.append(f'  near="{self._find_near_village(place, places)}": {place.description}')
+        listed_options = "\n".join(option_lines)
+
+        no_place_near = ""
+        if nearby_location is not None:
+            no_place_near = f"No '{location}' lies near '{nearby_location}'. "
+        return CannotAnswerError(
+            f"{no_place_near}'{location}' is the name of {len(places)} places. Call again with location "
+            f"'{location}' and near set to the village next to the place the user means, or ask the user "
+            f"which one they mean. The biggest first:\n{listed_options}"
+        )
+
+    def _build_unknown_name_error(self, location: str) -> CannotAnswerError:
+        """Build the refusal of a name no place has, suggesting names that start with it or are spelled alike."""
+        similar_places = self.place_lookup.find_similar_names(location)
+        if not similar_places:
+            return CannotAnswerError(
+                f"Location '{location}' was not found. Check the spelling, or try a nearby town or village."
+            )
+        listed_names = ", ".join(f'"{place.name}" ({place.description})' for place in similar_places)
+        return CannotAnswerError(
+            f"Location '{location}' was not found. Similar names: {listed_names}. Call again with one of these "
+            f"names as location, or ask the user."
+        )
+
+    def find_place(self, location: str, nearby_location: Optional[str] = None) -> source.SwisstopoPlace:
+        """
+        Find the place a user means. nearby_location is only used for a name of several places.
+
+        Case, accents and periods are ignored. Raise CannotAnswerError for an unknown name,
+        suggesting similar names, and for a name of several places that nearby_location does not tell
+        apart, listing every place to call again with.
+        """
+        places = self.place_lookup.find_places(location)
+        if not places:
+            raise self._build_unknown_name_error(location)
+        if len(places) == 1:
+            return places[0]
+
+        if nearby_location is not None:
+            place_near = self._choose_place_near(places, nearby_location)
+            if place_near is not None:
+                return place_near
+        raise self._build_options_error(location, places, nearby_location)
