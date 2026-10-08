@@ -8,13 +8,13 @@
 A **Model Context Protocol ([MCP](https://modelcontextprotocol.info/))** server that exposes Swiss weather forecast data as callable tools.
 It reads the official [MeteoSwiss local forecast collection](https://opendatadocs.meteoswiss.ch/e-forecast-data/e4-local-forecast-data), caches it locally, and serves predictions such as rainfall, sunshine, temperature, wind and a worded weather summary. MeteoSwiss publishes these forecasts for **5,614 Swiss locations** (weather stations, postal code centers and points of interest), for **today and the next 8 days**, refreshed **every hour**.
 It also reads the [latest measurements](https://opendatadocs.meteoswiss.ch/a-data-groundbased/a1-automatic-weather-stations) of the SwissMetNet weather stations, refreshed **every 10 minutes**, for the weather right now at a location and across Switzerland.
-Places MeteoSwiss does not list, such as city districts, lakes and smaller peaks, are found in [swissNAMES3D](https://www.swisstopo.admin.ch/en/landscape-model-swissnames3d), the swisstopo collection of geographical names, and answered from the nearest MeteoSwiss point.
+A location is any named place of [swissNAMES3D](https://www.swisstopo.admin.ch/en/landscape-model-swissnames3d), the swisstopo collection of the names on the national map, such as a town, a city district, a lake or a peak. It is answered from a nearby MeteoSwiss forecast point of similar height.
 
 There is also an MCP client that can be run to test the server using the stdio transport.
 
 > **Note:** This project is **not an official MeteoSwiss product**. All forecast and measurement data are from the
 > [MeteoSwiss Open Data](https://opendata.swiss/en/organization/bundesamt-fur-meteorologie-und-klimatologie-meteoschweiz) portal. **Source: MeteoSwiss**
-> The names of places MeteoSwiss does not list are from [swissNAMES3D](https://www.swisstopo.admin.ch/en/landscape-model-swissnames3d). **Source: swisstopo**
+> The place names are from [swissNAMES3D](https://www.swisstopo.admin.ch/en/landscape-model-swissnames3d). **Source: Federal Office of Topography swisstopo**
 
 ## Table of Contents
 - [Project Structure](#project-structure)
@@ -35,16 +35,15 @@ swiss-weather-mcp/
 │   ├── server.py           # MCP server
 │   ├── errors.py           # The error for questions the data cannot answer
 │   ├── log.py              # Logging setup for the server and the client
-│   ├── locations/
-│   │   ├── meteoswiss_points.py  # The places MeteoSwiss publishes a forecast for
-│   │   ├── swisstopo_places.py   # The named places of swissNAMES3D
-│   │   ├── names.py        # Name and distance rules shared by both sources
-│   │   ├── finder.py       # Location lookup by name or postal code
-│   │   └── other_language_place_names.csv  # Place names in other languages
+│   ├── places/
+│   │   ├── source.py       # The named places of swissNAMES3D
+│   │   ├── lookup.py       # The places of every name a user may type
+│   │   ├── finder.py       # The place a user means, or the places to choose from
+│   │   └── english_place_names.csv  # English names swissNAMES3D lacks
 │   ├── opendata.py         # Downloads and timestamps from MeteoSwiss Open Data
 │   ├── formatting.py       # Swiss time and compass points in the answers
 │   ├── forecast/
-│   │   ├── source.py       # MeteoSwiss forecast data source and caching
+│   │   ├── source.py       # MeteoSwiss forecast points, data source and caching
 │   │   ├── parameters.py   # Forecast parameter codes and pictogram meanings
 │   │   └── service.py      # Forecast values, units and aggregation
 │   ├── measurements/
@@ -52,7 +51,6 @@ swiss-weather-mcp/
 │   │   ├── parameters.py   # Measurement parameter codes
 │   │   └── service.py      # The weather measured now
 │   └── client.py           # MCP client (optional)
-├── scripts/                # Builds other_language_place_names.csv
 ├── tests/swiss_weather_mcp/  # Tests
 ├── .github/workflows/      # CI and release pipelines
 ├── docs/                   # Documentation
@@ -122,11 +120,12 @@ pip install -e ".[client]"
 > - Caches live in your OS cache directory (via [platformdirs](https://github.com/tox-dev/platformdirs),
 >   e.g. `~/Library/Caches/swiss-weather-mcp` on macOS, `~/.cache/swiss-weather-mcp` on Linux),
 >   independent of where the server runs. Set `SWISS_WEATHER_MCP_CACHE_DIR` to put them elsewhere, or
->   delete the directory to clear them. Each data source has its own folder: `locations`, `forecast`
->   and `measurements`. Forecast files sit in one folder per model run, named by the run's time in
->   UTC, such as `forecast/runs/202609231100`. `locations` also holds the swissNAMES3D archive of
->   the newest edition (about 33 MB), downloaded when the server starts for the first time and
->   checked for a newer edition every 30 days.
+>   delete the directory to clear them. Each data source has its own folder: `places`, `forecast`
+>   and `measurements`. `places` holds the swissNAMES3D archive of the newest edition (about 33 MB),
+>   downloaded when the server starts for the first time and checked for a newer edition every 30
+>   days. Forecast files sit in one folder per model run, named by the run's time in UTC, such as
+>   `forecast/runs/202609231100`, next to the table of the MeteoSwiss forecast points. A
+>   `locations` folder left by an older version is no longer used and can be deleted.
 
 ## Usage
 
@@ -202,10 +201,11 @@ The bundled MCP client can be used to test the server over the stdio transport. 
 
 ## Available Tools
 
-The forecast tools take a `location` (a name such as `"Zurich"`, or a Swiss postal code such as `"8001"`)
-and a Swiss local time, or a date for `daily_forecast`. Every tool that takes a `location` also takes
-an optional `near`, only needed when several places share the name (see the note below). They return the value together with the location
-they resolved, its altitude, the time or day it applies to, and the model run the forecast came from.
+The forecast tools take a `location` (the name of a place, such as `"Zurich"`) and a Swiss local time,
+or a date for `daily_forecast`. Every tool that takes a `location` also takes an optional `near`, only
+needed when several places share the name (see the note below). They return the value together with the
+MeteoSwiss forecast point they used, its altitude, the time or day it applies to, and the model run the
+forecast came from.
 
 | Tool | Purpose | Example Call |
 |------|---------|--------------|
@@ -214,7 +214,7 @@ they resolved, its altitude, the time or day it applies to, and the model run th
 | `hourly_forecast(location, start, end)` | Hour by hour, up to 24 hours, or one hour without `end`: temperature (°C) with its 10th and 90th percentile, rain chance (%) and the weather in words with an emoji | `hourly_forecast("Zurich", "2026-09-23T15:00")` |
 | `rain_outlook(location, start, end)` | Rain in 3-hour blocks, up to 48 hours: chance (%), median (mm) and how much the wettest hour may bring (mm) | `rain_outlook("Zurich", "2026-09-23T12:00", "2026-09-24T00:00")` |
 | `sunshine_hours(location, start, end)` | Sunshine (h) summed over a period | `sunshine_hours("Zurich", "2026-09-23T06:00", "2026-09-23T18:00")` |
-| `wind(location, when)` | Mean speed and strongest gust (km/h) in the hour up to that time, how strong that gust may get (its 90th percentile), and the direction as degrees and compass point | `wind("Säntis", "2026-09-23T14:00")` |
+| `wind(location, when)` | Mean speed and strongest gust (km/h) in the hour up to that time, how strong that gust may get (its 90th percentile), and the direction as degrees and compass point | `wind("Titlis", "2026-09-23T14:00")` |
 | `total_cloud_cover(location, when)` | Estimated total cloud cover (%) plus the low, medium and high layers | `total_cloud_cover("Zurich", "2026-09-23T14:00")` |
 | `freezing_level(location, when)` | Height of the 0 °C line (m above sea level) | `freezing_level("Zermatt", "2026-09-23T14:00")` |
 | `current_conditions(location)` | Measured now at the nearest weather station: temperature, humidity, dew point, rain and sunshine in the last 10 minutes, wind, gust, direction and sea-level pressure, plus the temperature and pressure change over the last 3 hours and the sunshine in the last hour | `current_conditions("Zurich")` |
@@ -233,41 +233,42 @@ they resolved, its altitude, the time or day it applies to, and the model run th
 > **Note:** Ask `current_date_and_time()` first when the question is relative, such as "tomorrow" or
 > "tonight", because the tools take a real date rather than an offset.
 
-> **Note:** A location is looked up in this order, ignoring case, accents and periods, so `zurich`
-> finds `Zürich` and `St Moritz` finds `St. Moritz`:
-> 1. A MeteoSwiss place or postal code. A city covers several postal code areas and resolves to the
->    lowest one, which is not always its centre (Bern's lowest is 3004, its old town 3011).
-> 2. A name in another national language or in English, such as `Genf` or `Geneva` for `Genève`. They
->    come from Wikipedia lists (CC BY-SA 4.0), collected by `scripts/build_other_language_place_names.py`
->    into `other_language_place_names.csv`.
-> 3. A swisstopo place: a place, part of a place, city district, peak, hill, pass, waterfall, lake,
->    glacier or valley, such as `Oerlikon` or `Zürichsee`. Field names are left out, because the same
->    one is used all over the country. The answer then comes from the nearest MeteoSwiss point and says
->    so, such as "Oerlikon (444 m) is not a MeteoSwiss forecast point. This forecast is for Zürich 8050
->    (433 m), 0.3 km away and 11 m lower." `current_conditions` finds the station from the place itself.
+> **Note:** A location is the name of a place in swissNAMES3D: a town, village, city district, peak,
+> hill, pass, lake, glacier, valley, region, railway station or viewpoint, such as `Zürich`, `Oerlikon`,
+> `Titlis` or `Zürichsee`. Case, accents and periods are ignored, so `zurich` finds `Zürich` and
+> `St Moritz` finds `St. Moritz`. A canton after a name may be left out, so `Wil` finds `Wil SG`, and a
+> name in two languages may be given in either, so `Biel` finds `Biel/Bienne`. swissNAMES3D also has the
+> big towns in the other national languages, such as `Genf` for `Genève`. English names it lacks, such
+> as `Geneva` or `Lake Zurich`, come from the short list `places/english_place_names.csv`. Field names
+> are left out, because the same one is used all over the country. Postal codes are not accepted.
 >
-> A region such as `Tessin` matches none of them and is rejected rather than guessed at.
+> Rows with the same name within 2 km count as one place, such as a lake and the district on its shore.
+> The forecast comes from a nearby MeteoSwiss forecast point of similar height: among the points within
+> 5 km, the one with the smallest distance plus 20 times the height gap, so 100 m higher or lower counts
+> like 2 km farther away. Every answer names it, such as "The forecast for Oerlikon (444 m) is the one
+> MeteoSwiss makes for Zürich 8050 (433 m), 0.3 km away and 11 m lower." `current_conditions` finds the
+> station from the place itself.
 >
-> swisstopo places with the same name within 2 km count as one place. A name of several places, such
-> as `Blausee`, needs `near`: a MeteoSwiss place or postal code next to the one the user means, such as
-> `near="Bettmeralp"`. Of the places with the name, the one closest to it is chosen, if it lies within
-> 10 km. Without `near`, or with one too far away, the tool refuses and lists each place with its
-> nearest MeteoSwiss point:
+> A name of several places, such as `Blausee`, needs `near`: a village next to the one the user means,
+> such as `near="Bettmeralp"`. Of the places with the name, the one closest to it is chosen, if it lies
+> within 10 km. Without `near`, or with one too far away, the tool refuses and lists every place, the
+> biggest first, each with the nearest village that leads back to it:
 > ```
-> 'Blausee' is the name of 6 places. Call again with location 'Blausee' and near set to one of these:
->   near="Ramiswil": place, 683 m
->   near="Bortelhorn": lake, 2462 m
->   near="Bettmeralp": lake, 2205 m
+> 'Blausee' is the name of 6 places. Call again with location 'Blausee' and near set to the village next
+> to the place the user means, or ask the user which one they mean. The biggest first:
+>   near="Blausee-Mitholz": district and lake, fewer than 20 people, 887 m
+>   near="Ramiswil": place, fewer than 20 people, 683 m
+>   near="Ried-Brig": lake, 2462 m
 >   ...
 > ```
-> Two places with the same name close together can share their nearest MeteoSwiss point. That point
-> then chooses the one closer to it, a few kilometres from the other, with nearly the same weather.
+> A name no place has, such as `Davos`, is refused with the names that start with it or are spelled
+> alike, here `Davos Dorf` and `Davos Platz` first, so the model can call again with one of them.
 
 > **Note:** `current_conditions` uses the nearest of the about 160 SwissMetNet stations that measures
 > the temperature, not the location itself. It is usually a few kilometres away, but can be up to about
-> 20 km away and several hundred metres higher or lower: Braunwald is measured in Glarus, 801 m lower.
+> 20 km away and several hundred metres higher or lower: Braunwald is measured in Glarus, 773 m lower.
 > Every answer starts with one sentence that says so, such as "Glarus (517 m) is the nearest MeteoSwiss
-> station to Braunwald 8784 (1318 m), 11.8 km away and 801 m lower. It measured the following values at
+> station to Braunwald (1290 m), 11.7 km away and 773 m lower. It measured the following values at
 > 20:50.", so the values are not mistaken for the location's own. The file of a station is about
 > 6 KB and is kept for 5 minutes. A station that has not published a temperature in the last hour is
 > passed over for the next nearest one, at most three stations. The changes over the last 3 hours
