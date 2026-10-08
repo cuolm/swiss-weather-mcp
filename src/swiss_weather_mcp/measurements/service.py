@@ -6,8 +6,8 @@ from typing import Any, Dict, List, Literal, NamedTuple, Optional
 from . import parameters
 from ..errors import CannotAnswerError
 from ..formatting import SWISS_TZ, describe_height_difference, find_compass_point, format_swiss_time
-from ..locations import LocationFinder, ResolvedLocation
-from ..locations.names import NamedPosition, calculate_distance_m
+from ..places import LocationFinder, ResolvedLocation
+from ..places.names import NamedPosition, calculate_distance_m
 from .source import MeasurementSource, Station, StationMeasurements
 
 logger = logging.getLogger(__name__)

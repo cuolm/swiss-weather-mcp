@@ -6,7 +6,7 @@ import pytest
 
 from fakes import MEASUREMENTS_NOW
 from swiss_weather_mcp.errors import CannotAnswerError
-from swiss_weather_mcp.locations import MeteoSwissPoint
+from swiss_weather_mcp.places import MeteoSwissPoint
 from swiss_weather_mcp.measurements import parameters
 from swiss_weather_mcp.measurements.source import (
     MAX_STATIONS_TRIED, _find_canton_name, _parse_reference_timestamp,
