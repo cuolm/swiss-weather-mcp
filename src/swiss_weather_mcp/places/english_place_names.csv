@@ -1,0 +1,12 @@
+# English names of Swiss places that swissNAMES3D lacks, each with the name swissNAMES3D gives the
+# place. swissNAMES3D has each place's official name, and names in the other national languages only
+# for the big towns and some mountains and lakes, so English names such as Geneva are missing.
+english_name;swissnames3d_name
+Geneva;Genève
+Basle;Basel
+Lake Geneva;Le Léman
+Lake Lucerne;Vierwaldstättersee
+Lake Zurich;Zürichsee
+Lake Constance;Bodensee
+Lake Maggiore;Lago Maggiore
+Rhine Falls;Rheinfall

@@ -1,4 +1,6 @@
-from swiss_weather_mcp.places.lookup import normalise_location
+import logging
+
+from swiss_weather_mcp.places.lookup import _read_english_place_names, normalise_location
 
 
 def find_names(place_lookup, location: str):
@@ -67,6 +69,38 @@ def test_find_places_reads_the_archive_once(source_fixture, place_lookup_fixture
     place_lookup_fixture.find_places("Zürich")
     place_lookup_fixture.find_places("Wil")
     assert count_archive_downloads(source_fixture) == 1
+
+
+# --- English names ---
+
+def test_find_places_by_an_english_name(place_lookup_fixture):
+    assert find_names(place_lookup_fixture, "Geneva") == ["Genève"]
+    assert find_names(place_lookup_fixture, "Lake Zurich") == ["Zürichsee"]
+    assert find_names(place_lookup_fixture, "Rhine Falls") == ["Rheinfall"]
+
+
+def test_english_name_never_hides_a_name(mocker, place_lookup_fixture):
+    mocker.patch("swiss_weather_mcp.places.lookup._read_english_place_names", return_value={"Wil": "Zürich"})
+    assert find_names(place_lookup_fixture, "Wil") == ["Wil SG", "Wil", "Wil"]
+
+
+def test_english_name_of_a_missing_place(mocker, caplog, place_lookup_fixture):
+    # The fake archive has no Vierwaldstättersee
+    mocker.patch(
+        "swiss_weather_mcp.places.lookup._read_english_place_names",
+        return_value={"Lake Lucerne": "Vierwaldstättersee"},
+    )
+    with caplog.at_level(logging.WARNING):
+        assert place_lookup_fixture.find_places("Lake Lucerne") == []
+    assert "the English name Lake Lucerne finds nothing" in caplog.text
+
+
+def test_english_place_names_file():
+    swissnames3d_names_by_english_name = _read_english_place_names()
+    assert "Geneva" in swissnames3d_names_by_english_name
+    for english_name, swissnames3d_name in swissnames3d_names_by_english_name.items():
+        assert english_name and swissnames3d_name
+        assert normalise_location(english_name) != normalise_location(swissnames3d_name), english_name
 
 
 # --- find_similar_names ---

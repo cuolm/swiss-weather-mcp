@@ -1,7 +1,7 @@
 """
 Find the swisstopo places a user means by the name they type.
 
-    "Wil" ──► normalise ──► "wil" ──► places_by_name ──► [Wil SG, Wil (in Dübendorf), Wil ZH, ...]
+    "Wil" ──► normalise ──► "wil" ──► places_by_name ──► [Wil SG, Wil (near Dübendorf), Wil ZH, ...]
 
 The places are built once per process from the rows of swissNAMES3D:
 1. KEYS: each row is filed under every name a user may type. Case, accents and periods do not
@@ -15,11 +15,14 @@ The places are built once per process from the rows of swissNAMES3D:
    altitude of its biggest settlement, else of its main landmark, and all object types.
 3. ORDER: the places of a key are sorted biggest first, so a list of them starts with the
    towns a user most likely means.
+4. ENGLISH: english_place_names.csv adds the English names swissNAMES3D lacks, such as Geneva
+   for Genève, each under a key no row has.
 
 A name no row has, such as "Davos", finds the names that start with it, Davos Dorf and Davos
 Platz, and the names spelled alike, such as Zürich for "Zuerich".
 """
 import bisect
+import csv
 import difflib
 import logging
 import math
@@ -27,6 +30,7 @@ import re
 import threading
 import unicodedata
 from collections import defaultdict
+from importlib import resources
 from typing import Dict, List
 
 from .source import OBJECT_TYPE_NAMES, SETTLEMENT_TYPES, SwisstopoPlace, SwisstopoPlaceSource
@@ -50,6 +54,7 @@ MAX_SIMILAR_NAMES = 5
 MIN_NEAR_SETTLEMENT_BAND = 4
 # The order in which the types of a place are named, settlements first
 OBJECT_TYPE_ORDER = {object_type: rank for rank, object_type in enumerate(OBJECT_TYPE_NAMES)}
+ENGLISH_PLACE_NAMES_FILE = "english_place_names.csv"
 
 
 def normalise_location(location: str) -> str:
@@ -120,6 +125,31 @@ def _merge_rows(group: List[SwisstopoPlace]) -> SwisstopoPlace:
     return main_row._replace(object_types=tuple(object_types))
 
 
+def _read_english_place_names() -> Dict[str, str]:
+    """Map each English name of the shipped file to the name swissNAMES3D gives its place."""
+    names_file = resources.files("swiss_weather_mcp.places").joinpath(ENGLISH_PLACE_NAMES_FILE)
+    text = names_file.read_text(encoding="utf-8")
+    # The file starts with comment lines that say why it exists
+    lines = [line for line in text.splitlines() if not line.startswith("#")]
+    swissnames3d_names_by_english_name = {}
+    for row in csv.DictReader(lines, delimiter=";"):
+        swissnames3d_names_by_english_name[row["english_name"]] = row["swissnames3d_name"]
+    return swissnames3d_names_by_english_name
+
+
+def _add_english_names(places_by_name: Dict[str, List[SwisstopoPlace]]) -> None:
+    """File the places of each English name under it too, unless a row of swissNAMES3D has that name."""
+    for english_name, swissnames3d_name in _read_english_place_names().items():
+        english_key = normalise_location(english_name)
+        swissnames3d_key = normalise_location(swissnames3d_name)
+        if english_key in places_by_name:
+            continue
+        if swissnames3d_key not in places_by_name:
+            logger.warning(f"No place is called {swissnames3d_name}, so the English name {english_name} finds nothing")
+            continue
+        places_by_name[english_key] = places_by_name[swissnames3d_key]
+
+
 def _build_places(rows: List[SwisstopoPlace]) -> List[SwisstopoPlace]:
     """Turn the rows of one key into its places, biggest first: most people, then most rows."""
     sized_places = []
@@ -155,6 +185,7 @@ class SwisstopoPlaceLookup:
             places_by_name = {}
             for key, rows in rows_by_key.items():
                 places_by_name[key] = _build_places(rows)
+            _add_english_names(places_by_name)
 
             near_settlements = []
             for key, places in places_by_name.items():
