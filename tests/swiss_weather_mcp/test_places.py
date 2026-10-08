@@ -7,9 +7,9 @@ import pytest
 import requests
 
 from swiss_weather_mcp.errors import CannotAnswerError
-from swiss_weather_mcp.locations import MeteoSwissPoint
-from swiss_weather_mcp.locations.meteoswiss_points import OTHER_LANGUAGE_PLACE_NAMES_FILE
-from swiss_weather_mcp.locations.names import normalise_location
+from swiss_weather_mcp.places import MeteoSwissPoint
+from swiss_weather_mcp.places.meteoswiss_points import OTHER_LANGUAGE_PLACE_NAMES_FILE
+from swiss_weather_mcp.places.names import normalise_location
 
 
 # --- normalise_location ---
@@ -79,7 +79,7 @@ def test_find_location_during_loading(mocker, location_finder_fixture):
             found_meanwhile.append(location_finder_fixture.find_location("Davos").point)
         return MeteoSwissPoint(**fields)
 
-    mocker.patch("swiss_weather_mcp.locations.meteoswiss_points.MeteoSwissPoint", side_effect=build_point_and_ask_again)
+    mocker.patch("swiss_weather_mcp.places.meteoswiss_points.MeteoSwissPoint", side_effect=build_point_and_ask_again)
     location_finder_fixture.find_location("Zürich").point
 
     assert found_meanwhile[0].point_id == "26"
@@ -199,7 +199,7 @@ def test_start_loading_swisstopo_places_without_a_connection(caplog, source_fixt
 
 def _read_other_language_place_name_rows():
     """Read the rows of the shipped file as they are, so duplicates are still visible."""
-    package_files = resources.files("swiss_weather_mcp.locations")
+    package_files = resources.files("swiss_weather_mcp.places")
     names_file = package_files.joinpath(OTHER_LANGUAGE_PLACE_NAMES_FILE)
     text = names_file.read_text(encoding="utf-8")
     lines = [line for line in text.splitlines() if not line.startswith("#")]

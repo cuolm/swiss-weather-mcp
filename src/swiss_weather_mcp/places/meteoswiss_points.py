@@ -141,7 +141,7 @@ def _choose_point_per_name(ranked_points: List[MeteoSwissPoint]) -> Dict[str, Me
 
 def _read_other_language_place_names() -> Dict[str, str]:
     """Map each other language place name, normalised, to its normalised MeteoSwiss point name."""
-    package_files = resources.files("swiss_weather_mcp.locations")
+    package_files = resources.files("swiss_weather_mcp.places")
     names_file = package_files.joinpath(OTHER_LANGUAGE_PLACE_NAMES_FILE)
     text = names_file.read_text(encoding="utf-8")
     # The file starts with comment lines that name its sources

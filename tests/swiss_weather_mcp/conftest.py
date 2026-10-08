@@ -9,10 +9,10 @@ from fakes import (
 )
 from swiss_weather_mcp.forecast.service import ForecastService
 from swiss_weather_mcp.forecast.source import ForecastSource
-from swiss_weather_mcp.locations import LocationFinder
+from swiss_weather_mcp.places import LocationFinder
 from swiss_weather_mcp.measurements.service import MeasurementService
 from swiss_weather_mcp.measurements.source import MeasurementSource
-from swiss_weather_mcp.locations.swisstopo_places import SwisstopoPlaceSource
+from swiss_weather_mcp.places.swisstopo_places import SwisstopoPlaceSource
 
 
 @pytest.fixture

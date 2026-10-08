@@ -11,7 +11,7 @@ Terms:
                 folder; run_time is the same moment as a datetime.
     parameter   The weather value a file holds, such as tre200h0 (temperature).
     point       A place with a forecast, identified by point_id and point_type_id
-                together; see locations/meteoswiss_points.py.
+                together; see places/meteoswiss_points.py.
 
 What MeteoSwiss publishes:
 - Each hourly run adds one CSV file per parameter to the item of its UTC day.
@@ -66,7 +66,7 @@ import requests
 
 from . import parameters
 from ..errors import CannotAnswerError
-from ..locations import MeteoSwissPoint
+from ..places import MeteoSwissPoint
 from ..opendata import REQUEST_TIMEOUT_SECONDS, download_file, parse_stamp
 
 logger = logging.getLogger(__name__)

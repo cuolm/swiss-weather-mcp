@@ -69,7 +69,7 @@ from typing import Dict, List, NamedTuple, Optional
 
 from . import parameters
 from ..errors import CannotAnswerError
-from ..locations.names import NamedPosition, calculate_distance_m
+from ..places.names import NamedPosition, calculate_distance_m
 from ..opendata import ensure_recent_file, parse_stamp
 
 logger = logging.getLogger(__name__)

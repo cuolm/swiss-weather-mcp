@@ -17,7 +17,7 @@ from .log import LOG_LEVELS, LogLevel, setup_logging
 from .errors import CannotAnswerError
 from .forecast.service import ForecastService
 from .forecast.source import ForecastSource
-from .locations import LocationFinder
+from .places import LocationFinder
 from .measurements.service import ExtremeName, MeasurementService
 from .measurements.source import MeasurementSource
 from .formatting import SWISS_TZ
