@@ -146,35 +146,51 @@ def build_station_now_values_csv(abbr: str) -> bytes:
 
 
 # Some columns of the swissNAMES3D files, with real places. Oerlikon is a city district in the
-# points file and again in the areas file, where it is not read. Rüti is a field name and
-# Zürich HB a railway station, which are not read either. The Rheinfall is a waterfall. Blausee is
-# the name of three places: a place and a district 280 m apart, which are one place, and a lake
-# near Wallisellen. Uetliberg is a hill and the hamlet on it. Lindenhof lies next to Zürich 8001,
-# and the swisstopo Davos is far from the MeteoSwiss one. Both Moos are nearest to Wallisellen, and
-# one Seeli lies 12 km from Wallisellen.
-PLACE_NAMES_COLUMNS = "UUID;NAME;STATUS;OBJEKTART;E;N;Z"
+# points file and again in the areas file, where it is not read. Rüti is a field name, which is
+# not read either, and Zürich HB a railway station. The Rheinfall is a waterfall. Blausee is the
+# name of three places: a place and a district 280 m apart, which are one place, and a lake near
+# Wallisellen. Uetliberg is a hill and the hamlet on it. Lindenhof lies next to Zürich 8001. Both
+# Moos are nearest to Wallisellen, and one Seeli lies 12 km from Wallisellen. Zurich and Genf are
+# the French and German names of Zürich and Genève, in the same spot. Wil SG is the town, and two
+# smaller districts are called Wil. Biel/Bienne has a name in two languages, and the shooting
+# range of Küsnacht a name with slashes. No row is called Davos: Davos Dorf and Davos Platz are.
+# No row is called Flims either, and Flums is a bigger town spelled alike.
+# The rows from Zürich on are exactly as swisstopo publishes them.
+PLACE_NAMES_COLUMNS = "UUID;NAME;STATUS;NAMEN_TYP;OBJEKTART;EINWOHNERKATEGORIE;E;N;Z"
 PLACE_NAMES_ROWS_BY_FILE = {
     "swissNAMES3D_PKT.csv": (
-        "{1};Oerlikon;offiziell;Quartier;2683618;1251448;444",
-        "{2};Rüti;offiziell;Flurname swisstopo;2707453;1226029;526",
-        "{3};Zürich HB;offiziell;Haltestelle Bahn;2683190;1248066;408",
-        "{4};Matterhorn;offiziell;Alpiner Gipfel;2617049;1091673;4478",
-        "{7};Rheinfall;offiziell;Wasserfall;2688390;1281451;376",
-        "{8};Blausee;offiziell;Ort;2682500;1246600;420",
-        "{9};Blausee;offiziell;Quartier;2682700;1246800;425",
-        "{10};Uetliberg;offiziell;Huegel;2679589;1244824;870",
-        "{11};Uetliberg;offiziell;Ort;2679373;1245106;842",
-        "{12};Lindenhof;offiziell;Quartierteil;2683200;1247500;428",
-        "{13};Davos;offiziell;Ort;2700000;1200000;500",
-        "{15};Moos;offiziell;Ort;2687000;1252000;440",
-        "{16};Moos;offiziell;Ort;2685500;1250000;450",
-        "{19};Seeli;offiziell;Ort;2699275;1252173;600",
-        "{20};Seeli;offiziell;Ort;2783000;1188000;1600",
+        "{1};Oerlikon;offiziell;einfacher Name;Quartier;10'000 bis 49'999;2683618;1251448;444",
+        "{2};Rüti;offiziell;einfacher Name;Flurname swisstopo;k_W;2707453;1226029;526",
+        "{3};Zürich HB;offiziell;einfacher Name;Haltestelle Bahn;k_W;2683190;1248066;408",
+        "{4};Matterhorn;offiziell;Endonym;Alpiner Gipfel;k_W;2617049;1091673;4478",
+        "{7};Rheinfall;offiziell;einfacher Name;Wasserfall;k_W;2688390;1281451;376",
+        "{8};Blausee;offiziell;einfacher Name;Ort;< 20;2682500;1246600;420",
+        "{9};Blausee;offiziell;einfacher Name;Quartier;20 bis 49;2682700;1246800;425",
+        "{10};Uetliberg;offiziell;einfacher Name;Huegel;k_W;2679589;1244824;870",
+        "{11};Uetliberg;offiziell;einfacher Name;Ort;20 bis 49;2679373;1245106;842",
+        "{12};Lindenhof;offiziell;einfacher Name;Quartierteil;1'000 bis 1'999;2683200;1247500;428",
+        "{15};Moos;offiziell;einfacher Name;Ort;100 bis 999;2687000;1252000;440",
+        "{16};Moos;offiziell;einfacher Name;Ort;100 bis 999;2685500;1250000;450",
+        "{19};Seeli;offiziell;einfacher Name;Ort;< 20;2699275;1252173;600",
+        "{20};Seeli;offiziell;einfacher Name;Ort;< 20;2783000;1188000;1600",
+        "{21};Zürich;offiziell;Endonym;Ort;> 100'000;2683500;1247184;418",
+        "{22};Zurich;offiziell;Exonym;Ort;> 100'000;2683500;1247184;418",
+        "{23};Wil SG;offiziell;einfacher Name;Ort;10'000 bis 49'999;2721323;1258457;583",
+        "{24};Wil;offiziell;einfacher Name;Quartier;2'000 bis 9'999;2688988;1249443;440",
+        "{25};Wil;offiziell;einfacher Name;Quartier;100 bis 999;2672161;1201260;459",
+        "{26};Biel/Bienne;offiziell;Namenspaar;Ort;50'000 bis 100'000;2585470;1220617;434",
+        "{27};Genève;offiziell;Endonym;Ort;> 100'000;2500226;1118241;376",
+        "{28};Genf;offiziell;Exonym;Ort;> 100'000;2500226;1118241;376",
+        "{29};Davos Dorf;offiziell;einfacher Name;Ort;2'000 bis 9'999;2783248;1187061;1564",
+        "{30};Davos Platz;offiziell;einfacher Name;Ort;2'000 bis 9'999;2781852;1185223;1558",
+        "{31};Küsnacht Im Holletsmoos 300/50/25m;offiziell;Endonym;Offenes Gebaeude;k_W;2688055;1240889;542",
+        "{32};Flims Dorf;offiziell;einfacher Name;Ort;1'000 bis 1'999;2740808;1188878;1079",
+        "{33};Flums;offiziell;einfacher Name;Ort;2'000 bis 9'999;2744605;1217332;454",
     ),
     "swissNAMES3D_PLY.csv": (
-        "{5};Oerlikon;offiziell;Quartier;2683539;1251401;448",
-        "{6};Zürichsee;offiziell;See;2698596;1230913;406",
-        "{14};Blausee;offiziell;See;2687500;1252500;445",
+        "{5};Oerlikon;offiziell;einfacher Name;Quartier;10'000 bis 49'999;2683539;1251401;448",
+        "{6};Zürichsee;offiziell;Endonym;See;k_W;2698596;1230913;406",
+        "{14};Blausee;offiziell;einfacher Name;See;k_W;2687500;1252500;445",
     ),
     "swissNAMES3D_LIN.csv": (),
 }
