@@ -80,9 +80,9 @@ def location_finder_fixture(source_fixture, tmp_path):
 
 
 @pytest.fixture
-def service_fixture(location_finder_fixture, source_fixture):
+def service_fixture(place_finder_fixture, source_fixture):
     """Return a ForecastService reading from the fake data source."""
-    return ForecastService(location_finder_fixture, source_fixture)
+    return ForecastService(place_finder_fixture, source_fixture)
 
 
 @pytest.fixture

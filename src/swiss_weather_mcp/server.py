@@ -18,6 +18,7 @@ from .errors import CannotAnswerError
 from .forecast.service import ForecastService
 from .forecast.source import ForecastSource
 from .places import LocationFinder
+from .places.finder import PlaceFinder
 from .measurements.service import ExtremeName, MeasurementService
 from .measurements.source import MeasurementSource
 from .formatting import SWISS_TZ
@@ -436,8 +437,10 @@ def _build_server(args: argparse.Namespace) -> SwissWeatherMCPServer:
     """Build the sources and services from the command line options, and the server that uses them."""
     location_finder = LocationFinder(CACHE_DIR)
     location_finder.start_loading_swisstopo_places()
+    place_finder = PlaceFinder(CACHE_DIR)
+    place_finder.start_loading_places()
     forecast_source = ForecastSource(CACHE_DIR, cache_all_locations=args.cache_all_locations)
-    forecast_service = ForecastService(location_finder, forecast_source)
+    forecast_service = ForecastService(place_finder, forecast_source)
     measurement_source = MeasurementSource(CACHE_DIR)
     measurement_service = MeasurementService(location_finder, measurement_source)
     return SwissWeatherMCPServer(forecast_service, measurement_service, args.log_level)

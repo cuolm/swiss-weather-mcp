@@ -167,12 +167,12 @@ async def test_read_wind(service_fixture):
 
 
 @pytest.mark.asyncio
-async def test_read_wind_for_a_swisstopo_place(service_fixture):
-    # Lindenhof is not a MeteoSwiss point, so the forecast is for Zürich 8001 next to it
+async def test_read_wind_names_the_forecast_point(service_fixture):
+    # The forecast for Lindenhof is the one MeteoSwiss makes for Zürich 8001 next to it
     answer = await service_fixture.read_wind("Lindenhof", build_swiss_time("2026-09-23T14:00"))
 
     assert answer["nearest_forecast_point"] == (
-        "Lindenhof (428 m) is not a MeteoSwiss forecast point. This forecast is for Zürich 8001 (409 m), "
+        "The forecast for Lindenhof (428 m) is the one MeteoSwiss makes for Zürich 8001 (409 m), "
         "0.2 km away and 19 m lower."
     )
     assert answer["speed_kmh"] == 12.5

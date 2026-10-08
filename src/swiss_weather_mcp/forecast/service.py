@@ -6,9 +6,9 @@ from typing import Any, Dict, List, Optional, Tuple
 from . import parameters
 from ..errors import CannotAnswerError
 from ..formatting import describe_height_difference, find_compass_point, format_swiss_time
-from ..places import MeteoSwissPoint, LocationFinder, ResolvedLocation
-from ..places.names import calculate_distance_m
-from .source import ForecastSeries, ForecastSource
+from ..places.finder import PlaceFinder
+from ..places.source import SwisstopoPlace
+from .source import ForecastSeries, ForecastSource, MeteoSwissPoint, calculate_distance_m
 
 logger = logging.getLogger(__name__)
 
@@ -87,36 +87,40 @@ def _get_hourly_value(series: ForecastSeries, moment: datetime, point: MeteoSwis
     return series.values[moment]
 
 
-def _build_location_fields(resolved_location: ResolvedLocation) -> Dict[str, Any]:
+def _build_location_fields(place: SwisstopoPlace, point: MeteoSwissPoint) -> Dict[str, Any]:
     """
-    Build the answer fields that name the point the forecast is for. For a swisstopo place,
-    start with a sentence that says the forecast is for its nearest point.
+    Build the answer fields that name the point the forecast is for, starting with a sentence
+    that says how far it lies from the place the user asked about.
     """
-    point = resolved_location.point
-    place = resolved_location.place
-    fields: Dict[str, Any] = {}
-    if place is not None:
-        distance_km = round(calculate_distance_m(point, place) / METRES_PER_KILOMETRE, 1)
-        difference_m = round(point.altitude_m - place.altitude_m)
-        fields["nearest_forecast_point"] = (
-            f"{place.display_name} is not a MeteoSwiss forecast point. This forecast is for "
-            f"{point.display_name}, {distance_km} km away and {describe_height_difference(difference_m)}."
-        )
-    fields["location"] = point.display_name
-    fields["altitude_m"] = point.altitude_m
-    return fields
+    distance_km = round(calculate_distance_m(place, point) / METRES_PER_KILOMETRE, 1)
+    difference_m = round(point.altitude_m - place.altitude_m)
+    return {
+        "nearest_forecast_point": (
+            f"The forecast for {place.display_name} is the one MeteoSwiss makes for {point.display_name}, "
+            f"{distance_km} km away and {describe_height_difference(difference_m)}."
+        ),
+        "location": point.display_name,
+        "altitude_m": point.altitude_m,
+    }
 
 
 class ForecastService:
     """Answer weather questions for a location: the value, its unit, the resolved point and the model run."""
 
-    def __init__(self, location_finder: LocationFinder, forecast_source: ForecastSource):
-        self.location_finder = location_finder
+    def __init__(self, place_finder: PlaceFinder, forecast_source: ForecastSource):
+        self.place_finder = place_finder
         self.forecast_source = forecast_source
 
-    async def _find_location(self, location: str, nearby_location: Optional[str]) -> ResolvedLocation:
-        """Find a location in a worker thread, so a download does not block other requests."""
-        return await asyncio.to_thread(self.location_finder.find_location, location, nearby_location)
+    async def _find_place_and_point(
+        self, location: str, nearby_location: Optional[str]
+    ) -> Tuple[SwisstopoPlace, MeteoSwissPoint]:
+        """
+        Find the place a user means and the point to forecast it from, in a worker thread, so a
+        download does not block other requests.
+        """
+        place = await asyncio.to_thread(self.place_finder.find_place, location, nearby_location)
+        point = await asyncio.to_thread(self.forecast_source.find_forecast_point, place)
+        return place, point
 
     async def _read_series(self, parameter: str, point: MeteoSwissPoint) -> ForecastSeries:
         """Read one parameter for one point in a worker thread, so a download does not block other requests."""
@@ -127,14 +131,13 @@ class ForecastService:
     ) -> Dict[str, Any]:
         """Read the height of the 0 °C line at a moment."""
         _check_full_hour(moment)
-        resolved_location = await self._find_location(location, nearby_location)
-        point = resolved_location.point
+        place, point = await self._find_place_and_point(location, nearby_location)
         series = await self._read_series(parameters.FREEZING_LEVEL, point)
         freezing_level_m = _get_hourly_value(series, moment, point)
         return {
             "value": freezing_level_m,
             "unit": "m above sea level",
-            **_build_location_fields(resolved_location),
+            **_build_location_fields(place, point),
             "valid_at": format_swiss_time(moment),
             "model_run": format_swiss_time(series.run_time),
         }
@@ -145,8 +148,7 @@ class ForecastService:
         for the hour up to a moment.
         """
         _check_full_hour(moment)
-        resolved_location = await self._find_location(location, nearby_location)
-        point = resolved_location.point
+        place, point = await self._find_place_and_point(location, nearby_location)
         speed_series, gust_series, upper_gust_series, direction_series = await asyncio.gather(
             self._read_series(parameters.WIND_SPEED, point),
             self._read_series(parameters.WIND_GUSTS, point),
@@ -165,7 +167,7 @@ class ForecastService:
             "gusts_90th_percentile_kmh": upper_gusts_kmh,
             "direction_degrees": direction_degrees,
             "compass_point": compass_point,
-            **_build_location_fields(resolved_location),
+            **_build_location_fields(place, point),
             "valid_at": format_swiss_time(moment),
             "model_run": format_swiss_time(speed_series.run_time),
         }
@@ -183,8 +185,7 @@ class ForecastService:
         last_stamp = end_moment.astimezone(timezone.utc)
         hour_stamps = _create_stamps(first_stamp, last_stamp, HOUR)
 
-        resolved_location = await self._find_location(location, nearby_location)
-        point = resolved_location.point
+        place, point = await self._find_place_and_point(location, nearby_location)
         series = await self._read_series(parameters.SUNSHINE, point)
         period_is_covered = all(stamp in series.values for stamp in hour_stamps)
         if not period_is_covered:
@@ -199,7 +200,7 @@ class ForecastService:
         return {
             "value": round(sunshine_minutes / 60, 1),
             "unit": "h",
-            **_build_location_fields(resolved_location),
+            **_build_location_fields(place, point),
             "from": format_swiss_time(start_moment),
             "to": format_swiss_time(end_moment),
             "model_run": format_swiss_time(series.run_time),
@@ -210,8 +211,7 @@ class ForecastService:
     ) -> Dict[str, Any]:
         """Estimate the total cloud cover at a moment from the three overlapping layers."""
         _check_full_hour(moment)
-        resolved_location = await self._find_location(location, nearby_location)
-        point = resolved_location.point
+        place, point = await self._find_place_and_point(location, nearby_location)
         low_series, medium_series, high_series = await asyncio.gather(
             self._read_series(parameters.CLOUD_COVER_LOW, point),
             self._read_series(parameters.CLOUD_COVER_MEDIUM, point),
@@ -228,7 +228,7 @@ class ForecastService:
         return {
             "value": round((1 - clear_sky) * 100, 1),
             "unit": "%",
-            **_build_location_fields(resolved_location),
+            **_build_location_fields(place, point),
             "valid_at": format_swiss_time(moment),
             "low_percent": round(low_fraction * 100, 1),
             "medium_percent": round(medium_fraction * 100, 1),
@@ -265,8 +265,7 @@ class ForecastService:
             last_stamp = end_moment.astimezone(timezone.utc)
             period = f"{format_swiss_time(start_moment)} to {format_swiss_time(end_moment)}"
 
-        resolved_location = await self._find_location(location, nearby_location)
-        point = resolved_location.point
+        place, point = await self._find_place_and_point(location, nearby_location)
         temperature_series, lower_series, upper_series, chance_series, pictogram_series = await asyncio.gather(
             self._read_series(parameters.TEMPERATURE, point),
             self._read_series(parameters.TEMPERATURE_Q10, point),
@@ -299,7 +298,7 @@ class ForecastService:
             })
 
         return {
-            **_build_location_fields(resolved_location),
+            **_build_location_fields(place, point),
             "hours": hours,
             "model_run": format_swiss_time(temperature_series.run_time),
         }
@@ -322,8 +321,7 @@ class ForecastService:
             max_hours = int(MAX_RAIN_OUTLOOK.total_seconds() // 3600)
             raise CannotAnswerError(f"A rain outlook covers at most {max_hours} hours; ask for a shorter period.")
 
-        resolved_location = await self._find_location(location, nearby_location)
-        point = resolved_location.point
+        place, point = await self._find_place_and_point(location, nearby_location)
         chance_series, median_series, upper_series = await asyncio.gather(
             self._read_series(parameters.PRECIPITATION_PROBABILITY, point),
             self._read_series(parameters.PRECIPITATION_3H, point),
@@ -365,7 +363,7 @@ class ForecastService:
             })
 
         return {
-            **_build_location_fields(resolved_location),
+            **_build_location_fields(place, point),
             "blocks": blocks,
             "model_run": format_swiss_time(median_series.run_time),
         }
@@ -392,8 +390,7 @@ class ForecastService:
         if not 1 <= days <= MAX_DAYS:
             raise CannotAnswerError(f"days must be between 1 and {MAX_DAYS}, not {days}.")
 
-        resolved_location = await self._find_location(location, nearby_location)
-        point = resolved_location.point
+        place, point = await self._find_place_and_point(location, nearby_location)
         min_series, max_series, rain_series, rain_lower_series, rain_upper_series, pictogram_series = await asyncio.gather(
             self._read_daily_series_if_published(parameters.TEMPERATURE_DAY_MIN, point),
             self._read_daily_series_if_published(parameters.TEMPERATURE_DAY_MAX, point),
@@ -450,7 +447,7 @@ class ForecastService:
         if not rows or run_time is None:
             raise CannotAnswerError(f"MeteoSwiss has no daily forecast for {point.display_name} from {first_day.isoformat()}.")
         return {
-            **_build_location_fields(resolved_location),
+            **_build_location_fields(place, point),
             "days": rows,
             "model_run": format_swiss_time(run_time),
         }
