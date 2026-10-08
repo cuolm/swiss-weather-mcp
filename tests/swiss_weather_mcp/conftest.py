@@ -97,9 +97,9 @@ def measurement_source_fixture(mocker, source_fixture, tmp_path):
 
 
 @pytest.fixture
-def measurement_service_fixture(location_finder_fixture, measurement_source_fixture):
+def measurement_service_fixture(place_finder_fixture, measurement_source_fixture):
     """Return a MeasurementService reading from the fake station files."""
-    return MeasurementService(location_finder_fixture, measurement_source_fixture)
+    return MeasurementService(place_finder_fixture, measurement_source_fixture)
 
 
 @pytest.fixture

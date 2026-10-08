@@ -17,7 +17,6 @@ from .log import LOG_LEVELS, LogLevel, setup_logging
 from .errors import CannotAnswerError
 from .forecast.service import ForecastService
 from .forecast.source import ForecastSource
-from .places import LocationFinder
 from .places.finder import PlaceFinder
 from .measurements.service import ExtremeName, MeasurementService
 from .measurements.source import MeasurementSource
@@ -32,7 +31,7 @@ CACHE_DIR = Path(os.environ.get("SWISS_WEATHER_MCP_CACHE_DIR", user_cache_path("
 # The optional near argument of every tool that takes a location. The example keeps a small model
 # from putting the village into location, or swapping the two, which it did without it.
 Near = Annotated[Optional[str], Field(description=(
-    "Only when several places share the name: a village or postal code next to the place the user means. "
+    "Only when several places share the name: a village next to the place the user means. "
     "For \"the Blausee near Bettmeralp\" use location \"Blausee\" and near \"Bettmeralp\". Leave it out otherwise."
 ))]
 
@@ -119,10 +118,11 @@ class SwissWeatherMCPServer:
                 "and the next 8 days, the weather measured now at the nearest MeteoSwiss station, and "
                 "where in Switzerland it is warmest, coldest, windiest, wettest or sunniest now. "
                 "MeteoSwiss forecasts whole hours, so forecast times must be full hours such as 14:00; "
-                "other times are refused. A location can be a town, a postal code, or a smaller place such "
-                "as a city district, a lake or a peak. A place MeteoSwiss does not forecast for is answered "
-                "from the nearest MeteoSwiss point, and the nearest_forecast_point sentence of the answer "
-                "names that point."
+                "other times are refused. A location is the name of a place: a town, a village, a city "
+                "district, a lake, a peak or a pass. The forecast comes from a nearby MeteoSwiss forecast "
+                "point of similar height, which the nearest_forecast_point sentence of the answer names. A "
+                "name of several places is answered with all of them: use what the user already said to "
+                "choose one, or ask the user, and call again with near."
             ),
             log_level=log_level,  # forwarded to uvicorn, which configures its own loggers
         )
@@ -156,7 +156,7 @@ class SwissWeatherMCPServer:
             describe the daytime. Always use this for the rain of a whole day.
 
             Args:
-                location (str): Location name (e.g., "Zurich") or Swiss postal code (e.g., "8001").
+                location (str): Place name: a town, village, city district, lake or peak (e.g., "Zurich").
                 start_date (str): The first Swiss calendar day in ISO 8601, e.g. "2026-09-23". Today or up to 8 days ahead.
                 days (int): How many days in a row, from 1 to 9. Default 1.
 
@@ -190,7 +190,7 @@ class SwissWeatherMCPServer:
             daily_forecast, for rain amounts rain_outlook.
 
             Args:
-                location (str): Location name (e.g., "Zurich") or Swiss postal code (e.g., "8001").
+                location (str): Place name: a town, village, city district, lake or peak (e.g., "Zurich").
                 start (str): Swiss local time as a full hour in ISO 8601 without offset, e.g. "2026-09-23T15:00". Today or up to 8 days ahead.
                 end (str): Optional. Swiss local time as a full hour in ISO 8601 without offset, at most 24 hours after start.
 
@@ -220,7 +220,7 @@ class SwissWeatherMCPServer:
             often 0 when showers are possible, so read the chance and the "up to" amount as well.
 
             Args:
-                location (str): Location name (e.g., "Zurich") or Swiss postal code (e.g., "8001").
+                location (str): Place name: a town, village, city district, lake or peak (e.g., "Zurich").
                 start (str): Swiss local time the period starts, as a full hour in ISO 8601 without offset, e.g. "2026-09-23T12:00". Today or up to 8 days ahead.
                 end (str): Swiss local time the period ends, as a full hour in ISO 8601 without offset, at most 48 hours after start.
 
@@ -247,7 +247,7 @@ class SwissWeatherMCPServer:
             and reported as hours.
 
             Args:
-                location (str): Location name (e.g., "Zurich") or Swiss postal code (e.g., "8001").
+                location (str): Place name: a town, village, city district, lake or peak (e.g., "Zurich").
                 start (str): Swiss local time the period starts, as a full hour in ISO 8601 without offset, e.g. "2026-09-23T06:00". Today or up to 8 days ahead.
                 end (str): Swiss local time the period ends, as a full hour in ISO 8601 without offset, e.g. "2026-09-23T18:00".
 
@@ -277,7 +277,7 @@ class SwissWeatherMCPServer:
             from north (0 is a north wind, 180 a south wind) and as a compass point.
 
             Args:
-                location (str): Location name (e.g., "Zurich") or Swiss postal code (e.g., "8001").
+                location (str): Place name: a town, village, city district, lake or peak (e.g., "Zurich").
                 when (str): Swiss local time as a full hour in ISO 8601 without offset, e.g. "2026-09-23T14:00". Today or up to 8 days ahead.
 
             Returns:
@@ -287,7 +287,7 @@ class SwissWeatherMCPServer:
 
             Examples:
                 wind("Zurich", "2026-09-23T14:00")
-                wind("Säntis", "2026-09-24T12:00")
+                wind("Titlis", "2026-09-24T12:00")
             """
             moment = _parse_swiss_time(when)
             return await self.forecast_service.read_wind(location, moment, near)
@@ -305,7 +305,7 @@ class SwissWeatherMCPServer:
             When a number is not needed, hourly_forecast answers "how cloudy" in plain words.
 
             Args:
-                location (str): Location name (e.g., "Zurich") or Swiss postal code (e.g., "8001").
+                location (str): Place name: a town, village, city district, lake or peak (e.g., "Zurich").
                 when (str): Swiss local time as a full hour in ISO 8601 without offset, e.g. "2026-09-23T14:00". Today or up to 8 days ahead.
 
             Returns:
@@ -330,7 +330,7 @@ class SwissWeatherMCPServer:
             so it answers questions about snow in the mountains, such as how high a ski area has to be.
 
             Args:
-                location (str): Location name (e.g., "Zurich") or Swiss postal code (e.g., "8001").
+                location (str): Place name: a town, village, city district, lake or peak (e.g., "Zurich").
                 when (str): Swiss local time as a full hour in ISO 8601 without offset, e.g. "2026-09-23T14:00". Today or up to 8 days ahead.
 
             Returns:
@@ -339,7 +339,7 @@ class SwissWeatherMCPServer:
 
             Examples:
                 freezing_level("Zermatt", "2026-09-23T14:00")
-                freezing_level("Davos", "2026-09-25T06:00")
+                freezing_level("Arosa", "2026-09-25T06:00")
             """
             moment = _parse_swiss_time(when)
             return await self.forecast_service.read_freezing_level(location, moment, near)
@@ -364,7 +364,7 @@ class SwissWeatherMCPServer:
             daily_forecast.
 
             Args:
-                location (str): Location name (e.g., "Zurich") or Swiss postal code (e.g., "8001").
+                location (str): Place name: a town, village, city district, lake or peak (e.g., "Zurich").
 
             Returns:
                 dict: The resolved location with its altitude, the station with its altitude, its
@@ -435,14 +435,12 @@ class SwissWeatherMCPServer:
 
 def _build_server(args: argparse.Namespace) -> SwissWeatherMCPServer:
     """Build the sources and services from the command line options, and the server that uses them."""
-    location_finder = LocationFinder(CACHE_DIR)
-    location_finder.start_loading_swisstopo_places()
     place_finder = PlaceFinder(CACHE_DIR)
     place_finder.start_loading_places()
     forecast_source = ForecastSource(CACHE_DIR, cache_all_locations=args.cache_all_locations)
     forecast_service = ForecastService(place_finder, forecast_source)
     measurement_source = MeasurementSource(CACHE_DIR)
-    measurement_service = MeasurementService(location_finder, measurement_source)
+    measurement_service = MeasurementService(place_finder, measurement_source)
     return SwissWeatherMCPServer(forecast_service, measurement_service, args.log_level)
 
 

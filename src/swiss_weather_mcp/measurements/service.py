@@ -6,9 +6,9 @@ from typing import Any, Dict, List, Literal, NamedTuple, Optional
 from . import parameters
 from ..errors import CannotAnswerError
 from ..formatting import SWISS_TZ, describe_height_difference, find_compass_point, format_swiss_time
-from ..places import LocationFinder, ResolvedLocation
-from ..places.names import NamedPosition, calculate_distance_m
-from .source import MeasurementSource, Station, StationMeasurements
+from ..places.finder import PlaceFinder
+from ..places.source import SwisstopoPlace
+from .source import MeasurementSource, Station, StationMeasurements, calculate_distance_m
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +63,7 @@ class StationValue(NamedTuple):
     value: float
 
 
-def _build_nearest_station_sentence(place: NamedPosition, measurements: StationMeasurements,
+def _build_nearest_station_sentence(place: SwisstopoPlace, measurements: StationMeasurements,
                                     distance_km: float, difference_m: int) -> str:
     """Build the sentence that says which station measured the values, such as "Glarus (517 m) is ..."."""
     measured_at = measurements.measured_at.astimezone(SWISS_TZ)
@@ -182,15 +182,15 @@ def _build_canton_rows(station_values: List[StationValue], matching_values: List
 class MeasurementService:
     """Answer what the weather is now, at a location and across all stations, from the station measurements."""
 
-    def __init__(self, location_finder: LocationFinder, measurement_source: MeasurementSource):
-        self.location_finder = location_finder
+    def __init__(self, place_finder: PlaceFinder, measurement_source: MeasurementSource):
+        self.place_finder = place_finder
         self.measurement_source = measurement_source
 
-    async def _find_location(self, location: str, nearby_location: Optional[str]) -> ResolvedLocation:
-        """Find a location in a worker thread, so a download does not block other requests."""
-        return await asyncio.to_thread(self.location_finder.find_location, location, nearby_location)
+    async def _find_place(self, location: str, nearby_location: Optional[str]) -> SwisstopoPlace:
+        """Find the place a user means in a worker thread, so a download does not block other requests."""
+        return await asyncio.to_thread(self.place_finder.find_place, location, nearby_location)
 
-    async def _find_nearest_station_measurements(self, place: NamedPosition) -> List[StationMeasurements]:
+    async def _find_nearest_station_measurements(self, place: SwisstopoPlace) -> List[StationMeasurements]:
         """Find the nearest station's measurements in a worker thread, so a download does not block other requests."""
         return await asyncio.to_thread(self.measurement_source.find_nearest_station_measurements, place)
 
@@ -209,8 +209,7 @@ class MeasurementService:
         the measurements they need. Raise CannotAnswerError for an unknown location or when no
         station publishes a temperature.
         """
-        resolved_location = await self._find_location(location, nearby_location)
-        place = resolved_location.asked_place
+        place = await self._find_place(location, nearby_location)
         all_measurements = await self._find_nearest_station_measurements(place)
         latest_measurements = all_measurements[-1]
         station = latest_measurements.station
