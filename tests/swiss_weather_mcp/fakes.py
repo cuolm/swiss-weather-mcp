@@ -37,11 +37,11 @@ def build_point_table_csv() -> bytes:
 
 
 def build_parameter_csv(parameter: str, values: dict, point: str = "800100;2") -> bytes:
-    """Build a parameter file the way MeteoSwiss publishes it, header and all locations included."""
+    """Build a parameter file the way MeteoSwiss publishes it, header and all points included."""
     lines = [f"point_id;point_type_id;Date;{parameter}"]
     for stamp, value in values.items():
         lines.append(f"{point};{stamp};{value}")
-        lines.append(f"999999;2;{stamp};-1")  # another location, which must be filtered out
+        lines.append(f"999999;2;{stamp};-1")  # another point, which must be filtered out
     return ("\n".join(lines) + "\n").encode("latin-1")
 
 

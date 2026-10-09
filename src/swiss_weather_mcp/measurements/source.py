@@ -39,7 +39,7 @@ What MeteoSwiss publishes:
     │ ...                                                            │  about 160 rows
     └────────────────────────────────────────────────────────────────┘
 
-How we use it for the weather at one location:
+How we use it for the weather at one place:
 1. Read the station table on the first question and keep it in memory for as long as
    the process runs; the file is downloaded first when it is missing or older than 7 days.
 2. Sort the stations by their distance to the requested place.

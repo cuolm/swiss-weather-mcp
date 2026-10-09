@@ -17,7 +17,7 @@ The location is looked up among the places of swissNAMES3D, see lookup.py:
     places with that name
        ├── one ──────► that place
        ├── none ─────► refuse: Location 'Davos' was not found. Similar names: "Davos Dorf"
-       │               (place, 2,000 to 9,999 people, 1564 m), "Davos Platz" (...), ...
+       │               (settlement, 2,000 to 9,999 people, 1564 m), "Davos Platz" (...), ...
        └── several
               │
               ▼
@@ -28,7 +28,7 @@ The location is looked up among the places of swissNAMES3D, see lookup.py:
                            'Blausee' and near set to the village next to the place the user
                            means, or ask the user which one they mean. The biggest first:
                              near="Blausee-Mitholz": district and lake, fewer than 20 people, 887 m
-                             near="Ramiswil": place, fewer than 20 people, 683 m
+                             near="Ramiswil": settlement, fewer than 20 people, 683 m
                              ...
                          (starting with "No 'Blausee' lies near 'Kandertal'." when one was given)
 

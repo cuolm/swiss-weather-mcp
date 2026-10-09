@@ -6,9 +6,9 @@
 [![Tests](https://github.com/cuolm/swiss-weather-mcp/actions/workflows/tests.yaml/badge.svg)](https://github.com/cuolm/swiss-weather-mcp/actions/workflows/tests.yaml)
 
 A **Model Context Protocol ([MCP](https://modelcontextprotocol.info/))** server that exposes Swiss weather forecast data as callable tools.
-It reads the official [MeteoSwiss local forecast collection](https://opendatadocs.meteoswiss.ch/e-forecast-data/e4-local-forecast-data), caches it locally, and serves predictions such as rainfall, sunshine, temperature, wind and a worded weather summary. MeteoSwiss publishes these forecasts for **5,614 Swiss locations** (weather stations, postal code centers and points of interest), for **today and the next 8 days**, refreshed **every hour**.
-It also reads the [latest measurements](https://opendatadocs.meteoswiss.ch/a-data-groundbased/a1-automatic-weather-stations) of the SwissMetNet weather stations, refreshed **every 10 minutes**, for the weather right now at a location and across Switzerland.
-A location is any named place of [swissNAMES3D](https://www.swisstopo.admin.ch/en/landscape-model-swissnames3d), the swisstopo collection of the names on the national map, such as a town, a city district, a lake or a peak. It is answered from a nearby MeteoSwiss forecast point of similar height.
+It reads the official [MeteoSwiss local forecast collection](https://opendatadocs.meteoswiss.ch/e-forecast-data/e4-local-forecast-data), caches it locally, and serves predictions such as rainfall, sunshine, temperature, wind and a worded weather summary. MeteoSwiss publishes these forecasts for **5,614 Swiss forecast points** (weather stations, postal code centers and points of interest), for **today and the next 8 days**, refreshed **every hour**.
+It also reads the [latest measurements](https://opendatadocs.meteoswiss.ch/a-data-groundbased/a1-automatic-weather-stations) of the SwissMetNet weather stations, refreshed **every 10 minutes**, for the weather right now at a place and across Switzerland.
+A location is the name of a place in [swissNAMES3D](https://www.swisstopo.admin.ch/en/landscape-model-swissnames3d), the swisstopo collection of the names on the national map, such as a town, a city district, a lake or a peak. The place is answered from a nearby MeteoSwiss forecast point of similar height.
 
 There is also an MCP client that can be run to test the server using the stdio transport.
 
@@ -149,9 +149,9 @@ swiss-weather-mcp-server
 ```
 Optional flags: `--help`
 
-> **Note:** By default the server keeps only the rows for the location you asked about, a few
+> **Note:** By default the server keeps only the rows for the forecast point you asked about, a few
 > kilobytes per parameter. Pass `--cache-all-locations` to keep the whole published file instead
-> (about 31 MB per parameter), which makes questions about further locations need no new download.
+> (about 31 MB per parameter), which makes questions about further places need no new download.
 
 ### Running the Server with Docker
 Images are built and published automatically by GitHub Actions to the project's [GitHub Container Registry](https://ghcr.io/cuolm/swiss-weather-mcp), tagged `:latest` (newest release) and by version.
@@ -204,8 +204,8 @@ The bundled MCP client can be used to test the server over the stdio transport. 
 The forecast tools take a `location` (the name of a place, such as `"Zurich"`) and a Swiss local time,
 or a date for `daily_forecast`. Every tool that takes a `location` also takes an optional `near`, only
 needed when several places share the name (see the note below). They return the value together with the
-MeteoSwiss forecast point they used, its altitude, the time or day it applies to, and the model run the
-forecast came from.
+place and the MeteoSwiss forecast point they used, with their altitudes and the point's distance, the time
+or day it applies to, and the model run the forecast came from.
 
 | Tool | Purpose | Example Call |
 |------|---------|--------------|
@@ -257,7 +257,7 @@ forecast came from.
 > 'Blausee' is the name of 6 places. Call again with location 'Blausee' and near set to the village next
 > to the place the user means, or ask the user which one they mean. The biggest first:
 >   near="Blausee-Mitholz": district and lake, fewer than 20 people, 887 m
->   near="Ramiswil": place, fewer than 20 people, 683 m
+>   near="Ramiswil": settlement, fewer than 20 people, 683 m
 >   near="Ried-Brig": lake, 2462 m
 >   ...
 > ```
@@ -265,11 +265,11 @@ forecast came from.
 > alike, here `Davos Dorf` and `Davos Platz` first, so the model can call again with one of them.
 
 > **Note:** `current_conditions` uses the nearest of the about 160 SwissMetNet stations that measures
-> the temperature, not the location itself. It is usually a few kilometres away, but can be up to about
+> the temperature, not the place itself. It is usually a few kilometres away, but can be up to about
 > 20 km away and several hundred metres higher or lower: Braunwald is measured in Glarus, 773 m lower.
 > Every answer starts with one sentence that says so, such as "Glarus (517 m) is the nearest MeteoSwiss
 > station to Braunwald (1290 m), 11.7 km away and 773 m lower. It measured the following values at
-> 20:50.", so the values are not mistaken for the location's own. The file of a station is about
+> 20:50.", so the values are not mistaken for the place's own. The file of a station is about
 > 6 KB and is kept for 5 minutes. A station that has not published a temperature in the last hour is
 > passed over for the next nearest one, at most three stations. The changes over the last 3 hours
 > and the sunshine in the last hour come from the earlier rows of that file. They are empty when the

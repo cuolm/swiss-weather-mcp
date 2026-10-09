@@ -96,7 +96,7 @@ async def test_register_tools_describes_near(server_fixture):
 
 @pytest.mark.asyncio
 async def test_current_conditions_passes_near_on(server_fixture):
-    server_fixture.measurement_service.read_current_conditions.return_value = {"location": "Blausee (445 m)"}
+    server_fixture.measurement_service.read_current_conditions.return_value = {"place": "Blausee (445 m)"}
 
     await server_fixture.mcp.call_tool("current_conditions", {"location": "Blausee", "near": "Wallisellen"})
     server_fixture.measurement_service.read_current_conditions.assert_awaited_once_with("Blausee", "Wallisellen")
@@ -113,7 +113,7 @@ async def test_current_extremes_refuses_an_unknown_extreme(server_fixture):
 
 @pytest.mark.asyncio
 async def test_handle_tool_call_returns_the_answer(server_fixture):
-    answer = {"value": 3200.0, "unit": "m above sea level", "location": "Zürich 8001 (409 m)"}
+    answer = {"value": 3200.0, "unit": "m above sea level", "place": "Zürich (418 m)", "forecast_point": "Zürich 8001 (409 m)"}
     server_fixture.forecast_service.read_freezing_level.return_value = answer
 
     tool_result = await server_fixture.mcp.call_tool("freezing_level", FREEZING_LEVEL_CALL)
@@ -139,10 +139,10 @@ async def test_handle_tool_call_invalid_timestamp(server_fixture):
 
 
 @pytest.mark.asyncio
-async def test_handle_tool_call_meteoswiss_unreachable(server_fixture):
+async def test_handle_tool_call_portal_unreachable(server_fixture):
     server_fixture.forecast_service.read_freezing_level.side_effect = requests.ConnectionError("connection refused")
 
-    with pytest.raises(ToolError, match="Could not reach MeteoSwiss"):
+    with pytest.raises(ToolError, match="Could not reach the Swiss open data portal"):
         await server_fixture.mcp.call_tool("freezing_level", FREEZING_LEVEL_CALL)
 
 

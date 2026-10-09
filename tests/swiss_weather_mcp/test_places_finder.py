@@ -36,7 +36,7 @@ def test_find_place_refuses_a_name_of_several_places(place_finder_fixture):
     assert str(raised.value) == (
         "'Blausee' is the name of 2 places. Call again with location 'Blausee' and near set to the village next "
         "to the place the user means, or ask the user which one they mean. The biggest first:\n"
-        '  near="Lindenhof": place and district, 20 to 49 people, 425 m\n'
+        '  near="Lindenhof": settlement and district, 20 to 49 people, 425 m\n'
         '  near="Oerlikon": lake, 445 m'
     )
 
@@ -47,7 +47,7 @@ def test_find_place_lists_every_place(place_finder_fixture):
         place_finder_fixture.find_place("Wil")
     option_lines = str(raised.value).splitlines()[1:]
     assert len(option_lines) == 3
-    assert option_lines[0] == '  near="Wil SG": place, 10,000 to 49,999 people, 583 m'
+    assert option_lines[0] == '  near="Wil SG": settlement, 10,000 to 49,999 people, 583 m'
     assert option_lines[1] == '  near="Oerlikon": district, 2,000 to 9,999 people, 440 m'
 
 
@@ -77,8 +77,8 @@ def test_find_place_two_places_with_the_same_nearest_village(place_finder_fixtur
     # Oerlikon is nearer to both Moos than any other village, and chooses the Moos closer to it
     with pytest.raises(CannotAnswerError) as raised:
         place_finder_fixture.find_place("Moos")
-    assert '  near="Oerlikon": place, 100 to 999 people, 440 m' in str(raised.value)
-    assert '  near="Oerlikon": place, 100 to 999 people, 450 m' in str(raised.value)
+    assert '  near="Oerlikon": settlement, 100 to 999 people, 440 m' in str(raised.value)
+    assert '  near="Oerlikon": settlement, 100 to 999 people, 450 m' in str(raised.value)
     assert place_finder_fixture.find_place("Moos", nearby_location="Oerlikon").altitude_m == 450.0
 
 
@@ -86,8 +86,8 @@ def test_find_place_suggests_similar_names(place_finder_fixture):
     with pytest.raises(CannotAnswerError) as raised:
         place_finder_fixture.find_place("Davos")
     assert str(raised.value) == (
-        "Location 'Davos' was not found. Similar names: \"Davos Dorf\" (place, 2,000 to 9,999 people, 1564 m), "
-        "\"Davos Platz\" (place, 2,000 to 9,999 people, 1558 m). Call again with one of these names as location, "
+        "Location 'Davos' was not found. Similar names: \"Davos Dorf\" (settlement, 2,000 to 9,999 people, 1564 m), "
+        "\"Davos Platz\" (settlement, 2,000 to 9,999 people, 1558 m). Call again with one of these names as location, "
         "or ask the user."
     )
 
