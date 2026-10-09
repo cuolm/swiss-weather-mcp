@@ -178,7 +178,7 @@ class SwisstopoPlaceLookup:
                 return
 
             rows_by_key: Dict[str, List[SwisstopoPlace]] = defaultdict(list)
-            for row in self.place_source.load_rows():
+            for row in self.place_source.read_rows():
                 for key in _find_keys(row):
                     rows_by_key[key].append(row)
 
