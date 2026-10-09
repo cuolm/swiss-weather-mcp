@@ -72,7 +72,7 @@ SETTLEMENT_TYPES = ("Ort", "Ortsteil", "Quartier", "Quartierteil")
 # How an answer calls each object type. The order is also the order in which the types of a
 # place are named, so a settlement comes first and a peak before the cable car station on it.
 OBJECT_TYPE_NAMES = {
-    "Ort": "place", "Ortsteil": "part of a place", "Quartier": "district", "Quartierteil": "part of a district",
+    "Ort": "settlement", "Ortsteil": "part of a settlement", "Quartier": "district", "Quartierteil": "part of a district",
     "Alpiner Gipfel": "peak", "Hauptgipfel": "peak", "Gipfel": "peak", "Haupthuegel": "hill", "Huegel": "hill",
     "Massiv": "mountain massif", "Huegelzug": "range of hills", "Grat": "ridge", "Felskopf": "rock",
     "Pass": "pass", "Strassenpass": "pass",

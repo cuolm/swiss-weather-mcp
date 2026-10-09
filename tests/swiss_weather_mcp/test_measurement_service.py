@@ -30,7 +30,7 @@ async def test_read_current_conditions(measurement_service_fixture):
             "Zürich / Fluntern (604 m) is the nearest MeteoSwiss station to Zürich (418 m), "
             "2.1 km away and 186 m higher. It measured the following values at 16:00."
         ),
-        "location": "Zürich (418 m)",
+        "place": "Zürich (418 m)",
         "altitude_m": 418.0,
         "station": "Zürich / Fluntern (604 m)",
         "station_distance_km": 2.1,
@@ -103,7 +103,7 @@ async def test_read_current_conditions_for_a_district(measurement_service_fixtur
         "Zürich / Fluntern (604 m) is the nearest MeteoSwiss station to Lindenhof (428 m), 2.2 km away and "
         "176 m higher."
     )
-    assert (answer["location"], answer["altitude_m"]) == ("Lindenhof (428 m)", 428.0)
+    assert (answer["place"], answer["altitude_m"]) == ("Lindenhof (428 m)", 428.0)
 
 
 # --- read_current_extremes ---

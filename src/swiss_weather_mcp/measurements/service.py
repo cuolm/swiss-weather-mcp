@@ -179,7 +179,7 @@ def _build_canton_rows(station_values: List[StationValue], matching_values: List
 
 
 class MeasurementService:
-    """Answer what the weather is now, at a location and across all stations, from the station measurements."""
+    """Answer what the weather is now, at a place and across all stations, from the station measurements."""
 
     def __init__(self, place_finder: PlaceFinder, measurement_source: MeasurementSource):
         self.place_finder = place_finder
@@ -199,10 +199,10 @@ class MeasurementService:
 
     async def read_current_conditions(self, location: str, nearby_location: Optional[str] = None) -> Dict[str, Any]:
         """
-        Read the latest measurements of the station nearest to a location.
+        Read the latest measurements of the station nearest to a place.
 
-        Return the resolved location, the station with its distance and its height above the
-        location (negative when lower), the time of the measurements, and the measured values, None
+        Return the place, the station with its distance and its height above the place (negative
+        when lower), the time of the measurements, and the measured values, None
         where the station does not measure them. The temperature and pressure changes over the last
         3 hours and the sunshine of the last hour are None when the station has not published all
         the measurements they need. Raise CannotAnswerError for an unknown location or when no
@@ -217,7 +217,7 @@ class MeasurementService:
 
         answer: Dict[str, Any] = {
             "nearest_station": _build_nearest_station_sentence(place, latest_measurements, distance_km, difference_m),
-            "location": place.display_name,
+            "place": place.display_name,
             "altitude_m": place.altitude_m,
             "station": station.display_name,
             "station_distance_km": distance_km,

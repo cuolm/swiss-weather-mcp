@@ -10,8 +10,8 @@ Terms:
                 UTC as text, such as "202609290900", and names its files and cache
                 folder; run_time is the same moment as a datetime.
     parameter   The weather value a file holds, such as tre200h0 (temperature).
-    point       A place with a forecast, identified by point_id and point_type_id
-                together.
+    point       A spot MeteoSwiss forecasts for, identified by point_id and
+                point_type_id together.
 
 What MeteoSwiss publishes:
 - A point table, ogd-local-forecasting_meta_point.csv, with the 5,614 points it
@@ -107,7 +107,7 @@ REGIONAL_POINT_IDS = {("213", "3"), ("230", "3"), ("242", "3")}
 
 
 class MeteoSwissPoint(NamedTuple):
-    """One of the places in the MeteoSwiss point table."""
+    """One of the points of the MeteoSwiss point table."""
     point_id: str
     point_type_id: str
     name: str
@@ -338,7 +338,7 @@ class ForecastSource:
 
         Parameters:
             parameter (str): MeteoSwiss parameter shortname (e.g., "tre200h0", "fu3010h0").
-            point (MeteoSwissPoint): The resolved MeteoSwiss point.
+            point (MeteoSwissPoint): The forecast point.
 
         Returns:
             ForecastSeries: The run the values came from, and the values keyed by UTC timestamp.

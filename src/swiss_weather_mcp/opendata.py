@@ -1,7 +1,8 @@
 """
-Download files from the MeteoSwiss Open Data portal and read its timestamps.
+Download files from data.geo.admin.ch, the Swiss open data portal that publishes the MeteoSwiss
+and the swisstopo data, and read the MeteoSwiss timestamps.
 
-Shared by the forecast and the measurement code. All MeteoSwiss timestamps are UTC.
+Shared by the forecast, the measurement and the places code. All MeteoSwiss timestamps are UTC.
 """
 import logging
 import uuid
@@ -38,8 +39,7 @@ def _write_rows_starting_with(response: requests.Response, row_prefix: bytes, fi
 
 def download_file(file_url: str, target_file: Path, only_rows_starting_with: Optional[bytes] = None) -> None:
     """
-    Stream a file from MeteoSwiss to disk. With only_rows_starting_with, keep only the rows
-    that start with it.
+    Stream a file to disk. With only_rows_starting_with, keep only the rows that start with it.
     """
     target_file.parent.mkdir(parents=True, exist_ok=True)
     # A unique name, moved into place only when complete, so an interrupted download is never

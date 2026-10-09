@@ -96,7 +96,7 @@ async def test_read_daily_forecast(service_fixture):
     assert [day["date"] for day in answer["days"]] == ["2026-09-23", "2026-09-24"]
     assert [day["weekday"] for day in answer["days"]] == ["Wednesday", "Thursday"]
     assert [day["temperature_max_c"] for day in answer["days"]] == [20.6, 18.4]
-    assert answer["location"] == "Zürich 8001 (409 m)"
+    assert answer["forecast_point"] == "Zürich 8001 (409 m)"
     assert answer["model_run"] == "2026-09-22T15:00+02:00"
 
 
@@ -163,7 +163,7 @@ async def test_read_wind(service_fixture):
     assert answer["gusts_90th_percentile_kmh"] == 55.0
     assert (answer["direction_degrees"], answer["compass_point"]) == (217.0, "SW")
     assert answer["valid_at"] == "2026-09-23T14:00+02:00"
-    assert answer["location"] == "Zürich 8001 (409 m)"
+    assert answer["forecast_point"] == "Zürich 8001 (409 m)"
 
 
 @pytest.mark.asyncio
@@ -175,6 +175,9 @@ async def test_read_wind_names_the_forecast_point(service_fixture):
         "The forecast for Lindenhof (428 m) is the one MeteoSwiss makes for Zürich 8001 (409 m), "
         "0.2 km away and 19 m lower."
     )
+    assert (answer["place"], answer["altitude_m"]) == ("Lindenhof (428 m)", 428.0)
+    assert answer["forecast_point"] == "Zürich 8001 (409 m)"
+    assert (answer["forecast_point_distance_km"], answer["forecast_point_altitude_difference_m"]) == (0.2, -19)
     assert answer["speed_kmh"] == 12.5
 
 
@@ -199,7 +202,7 @@ async def test_read_hourly_forecast(service_fixture):
         ("mostly sunny, some clouds", "🌤️"),
         ("partly sunny, thick passing clouds", "⛅"),
     ]
-    assert answer["location"] == "Zürich 8001 (409 m)"
+    assert answer["forecast_point"] == "Zürich 8001 (409 m)"
     assert answer["model_run"] == "2026-09-22T15:00+02:00"
 
 
@@ -297,7 +300,7 @@ async def test_read_rain_outlook(service_fixture):
     assert [block["rainfall_median_mm"] for block in answer["blocks"]] == [0.0, 2.4]
     # The heaviest hour of each block, not a sum: quantiles do not add up
     assert [block["heaviest_hour_up_to_mm"] for block in answer["blocks"]] == [1.1, 3.5]
-    assert answer["location"] == "Zürich 8001 (409 m)"
+    assert answer["forecast_point"] == "Zürich 8001 (409 m)"
 
 
 @pytest.mark.asyncio

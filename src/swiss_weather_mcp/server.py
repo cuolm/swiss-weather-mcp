@@ -81,8 +81,8 @@ def _handle_tool_call(tool: Callable[..., Awaitable[Dict[str, Any]]]) -> Callabl
     """
     Log each call of a tool, and turn the failures the model can act on into a ToolError.
 
-    A CannotAnswerError (a place or time the forecast cannot answer) and a request error (MeteoSwiss
-    out of reach) become a ToolError, whose message mcp shows to the model, and are logged as one
+    A CannotAnswerError (a place or time the forecast cannot answer) and a request error (the open
+    data portal out of reach) become a ToolError, whose message mcp shows to the model, and are logged as one
     warning line. Every other failure stays a crash, which mcp hides from the model and logs with
     its traceback.
     """
@@ -94,8 +94,8 @@ def _handle_tool_call(tool: Callable[..., Awaitable[Dict[str, Any]]]) -> Callabl
             logger.warning(f"{tool.__name__}: {error}")
             raise ToolError(str(error)) from error
         except requests.RequestException as error:
-            logger.warning(f"{tool.__name__}: could not reach MeteoSwiss: {error}")
-            raise ToolError(f"Could not reach MeteoSwiss, try again later: {error}") from error
+            logger.warning(f"{tool.__name__}: could not reach the Swiss open data portal: {error}")
+            raise ToolError(f"Could not reach the Swiss open data portal, try again later: {error}") from error
 
         logger.info(f"{tool.__name__}: {arguments} -> {answer}")
         return answer
@@ -148,7 +148,7 @@ class SwissWeatherMCPServer:
         @_handle_tool_call
         async def daily_forecast(location: str, start_date: str, days: int = 1, near: Near = None) -> dict:
             """
-            Get the whole-day forecast for a location, for one day or several days in a row: the
+            Get the whole-day forecast for a place, for one day or several days in a row: the
             cheapest way to answer "how is the weather" for a day, the weekend or the week.
 
             Each day covers a Swiss calendar day, 00:00 to 24:00 local time. The minimum and maximum
@@ -161,12 +161,13 @@ class SwissWeatherMCPServer:
                 days (int): How many days in a row, from 1 to 9. Default 1.
 
             Returns:
-                dict: The resolved location with its altitude, one row per day, and the model run.
+                dict: The place and the forecast point used, with their altitudes, one row per day,
+                    and the model run.
                     Each row has the date and weekday, the minimum and maximum temperature in
                     Celsius, the day's rainfall in millimetres as its median and its 10th and 90th
                     percentile (in 8 of 10 possible outcomes, the rain lies between the two
                     percentiles), and the weather in words with a matching emoji. A value is None
-                    when MeteoSwiss does not publish it for that location.
+                    when MeteoSwiss does not publish it for that forecast point.
 
             Examples:
                 daily_forecast("Zurich", "2026-09-23")
@@ -179,7 +180,7 @@ class SwissWeatherMCPServer:
         @_handle_tool_call
         async def hourly_forecast(location: str, start: str, end: Optional[str] = None, near: Near = None) -> dict:
             """
-            Get the weather hour by hour for a location: temperature with its likely range, chance
+            Get the weather hour by hour for a place: temperature with its likely range, chance
             of rain and the weather in words.
 
             Use this for one hour, such as "how warm is it at 15:00", or part of a day, such as "how
@@ -195,8 +196,8 @@ class SwissWeatherMCPServer:
                 end (str): Optional. Swiss local time as a full hour in ISO 8601 without offset, at most 24 hours after start.
 
             Returns:
-                dict: The resolved location with its altitude, one row per hour (from, to,
-                    temperature in Celsius as its median and its 10th and 90th percentile, rain
+                dict: The place and the forecast point used, with their altitudes, one row per
+                    hour (from, to, temperature in Celsius as its median and its 10th and 90th percentile, rain
                     chance in percent, weather in words with a matching emoji), and the model run.
                     In 8 of 10 possible outcomes, the temperature lies between the two percentiles.
 
@@ -212,7 +213,7 @@ class SwissWeatherMCPServer:
         @_handle_tool_call
         async def rain_outlook(location: str, start: str, end: str, near: Near = None) -> dict:
             """
-            Get when and how much it may rain at a location, in 3-hour blocks over a period.
+            Get when and how much it may rain at a place, in 3-hour blocks over a period.
 
             Use this for "will it rain this afternoon", "do I need an umbrella" or "when does the
             rain stop". Each block gives the chance of rain, the median rainfall of the 3 hours, and
@@ -225,8 +226,8 @@ class SwissWeatherMCPServer:
                 end (str): Swiss local time the period ends, as a full hour in ISO 8601 without offset, at most 48 hours after start.
 
             Returns:
-                dict: The resolved location with its altitude, one row per 3-hour block (from, to,
-                    rain chance in percent, median rainfall and wettest hour's "up to" amount in
+                dict: The place and the forecast point used, with their altitudes, one row per
+                    3-hour block (from, to, rain chance in percent, median rainfall and wettest hour's "up to" amount in
                     millimetres), and the model run.
 
             Examples:
@@ -241,7 +242,7 @@ class SwissWeatherMCPServer:
         @_handle_tool_call
         async def sunshine_hours(location: str, start: str, end: str, near: Near = None) -> dict:
             """
-            Get the sunshine hours for a location over a period.
+            Get the sunshine hours for a place over a period.
 
             MeteoSwiss publishes sunshine as minutes per hour, which are added up over the period
             and reported as hours.
@@ -252,8 +253,8 @@ class SwissWeatherMCPServer:
                 end (str): Swiss local time the period ends, as a full hour in ISO 8601 without offset, e.g. "2026-09-23T18:00".
 
             Returns:
-                dict: Sunshine in hours, the resolved location with its altitude, the period, and
-                    the model run.
+                dict: Sunshine in hours, the place and the forecast point used, with their
+                    altitudes, the period, and the model run.
 
             Examples:
                 sunshine_hours("Zurich", "2026-09-23T00:00", "2026-09-24T00:00")   # the whole day
@@ -267,7 +268,7 @@ class SwissWeatherMCPServer:
         @_handle_tool_call
         async def wind(location: str, when: str, near: Near = None) -> dict:
             """
-            Get the wind at a location at a specific time: mean speed, strongest gust and direction.
+            Get the wind at a place at a specific time: mean speed, strongest gust and direction.
 
             The speed is the mean over the hour up to that time, and the gust the strongest
             one-second gust in that hour, which is what makes wind hazardous. The gust's 90th
@@ -282,8 +283,9 @@ class SwissWeatherMCPServer:
 
             Returns:
                 dict: Wind speed, gust and the gust's 90th percentile in kilometres per hour, the
-                    direction in degrees and as a compass point such as "SW", the resolved location
-                    with its altitude, the time it is valid for, and the model run.
+                    direction in degrees and as a compass point such as "SW", the place and the
+                    forecast point used, with their altitudes, the time it is valid for, and the
+                    model run.
 
             Examples:
                 wind("Zurich", "2026-09-23T14:00")
@@ -296,7 +298,7 @@ class SwissWeatherMCPServer:
         @_handle_tool_call
         async def total_cloud_cover(location: str, when: str, near: Near = None) -> dict:
             """
-            Get how cloudy it is at a location at a specific time.
+            Get how cloudy it is at a place at a specific time.
 
             MeteoSwiss publishes low, medium and high cloud separately, and they overlap, so the
             total is an estimate that assumes the layers are independent. All three layers are
@@ -310,8 +312,8 @@ class SwissWeatherMCPServer:
 
             Returns:
                 dict: Estimated total cloud cover in percent, the low, medium and high layers in
-                    percent, the resolved location with its altitude, the time it is valid for,
-                    and the model run.
+                    percent, the place and the forecast point used, with their altitudes, the time
+                    it is valid for, and the model run.
 
             Examples:
                 total_cloud_cover("Zurich", "2026-09-23T14:00")
@@ -324,7 +326,7 @@ class SwissWeatherMCPServer:
         @_handle_tool_call
         async def freezing_level(location: str, when: str, near: Near = None) -> dict:
             """
-            Get the height of the 0 degree line at a location at a specific time.
+            Get the height of the 0 degree line at a place at a specific time.
 
             This is the height where the air is at 0 degrees. Snow usually reaches somewhat below it,
             so it answers questions about snow in the mountains, such as how high a ski area has to be.
@@ -334,8 +336,8 @@ class SwissWeatherMCPServer:
                 when (str): Swiss local time as a full hour in ISO 8601 without offset, e.g. "2026-09-23T14:00". Today or up to 8 days ahead.
 
             Returns:
-                dict: The freezing level in metres above sea level, the resolved location with its
-                    altitude, the time it is valid for, and the model run.
+                dict: The freezing level in metres above sea level, the place and the forecast
+                    point used, with their altitudes, the time it is valid for, and the model run.
 
             Examples:
                 freezing_level("Zermatt", "2026-09-23T14:00")
@@ -348,11 +350,11 @@ class SwissWeatherMCPServer:
         @_handle_tool_call
         async def current_conditions(location: str, near: Near = None) -> dict:
             """
-            Get the latest measurements of the MeteoSwiss station nearest to a location.
+            Get the latest measurements of the MeteoSwiss station nearest to a place.
 
-            These are the measurements of the nearest station, not measurements at the location
+            These are the measurements of the nearest station, not measurements at the place
             itself, and not a forecast. The station can be several kilometres away and hundreds of
-            metres higher or lower than the location. Always start the answer with the
+            metres higher or lower than the place. Always start the answer with the
             nearest_station sentence, which names the station, its distance and its height
             difference, and then give its values as the station's measurements. MeteoSwiss
             publishes new values about every 10 minutes.
@@ -367,8 +369,8 @@ class SwissWeatherMCPServer:
                 location (str): Place name: a town, village, city district, lake or peak (e.g., "Zurich").
 
             Returns:
-                dict: The resolved location with its altitude, the station with its altitude, its
-                    distance in kilometres and its height above the location in metres (negative
+                dict: The place with its altitude, the station with its altitude, its distance in
+                    kilometres and its height above the place in metres (negative
                     when lower), the time of the measurements, the temperature and dew point in
                     Celsius, humidity in percent, rain in millimetres and sunshine in minutes over
                     the last 10 minutes, wind speed and gust in kilometres per hour, the wind

@@ -86,10 +86,10 @@ def _get_hourly_value(series: ForecastSeries, moment: datetime, point: MeteoSwis
     return series.values[moment]
 
 
-def _build_location_fields(place: SwisstopoPlace, point: MeteoSwissPoint) -> Dict[str, Any]:
+def _build_forecast_point_fields(place: SwisstopoPlace, point: MeteoSwissPoint) -> Dict[str, Any]:
     """
-    Build the answer fields that name the point the forecast is for, starting with a sentence
-    that says how far it lies from the place the user asked about.
+    Build the answer fields that name the place and the forecast point, starting with a sentence
+    that says how far the point lies from the place and how much higher or lower.
     """
     distance_km = round(calculate_distance_m(place, point) / METRES_PER_KILOMETRE, 1)
     difference_m = round(point.altitude_m - place.altitude_m)
@@ -98,13 +98,16 @@ def _build_location_fields(place: SwisstopoPlace, point: MeteoSwissPoint) -> Dic
             f"The forecast for {place.display_name} is the one MeteoSwiss makes for {point.display_name}, "
             f"{distance_km} km away and {describe_height_difference(difference_m)}."
         ),
-        "location": point.display_name,
-        "altitude_m": point.altitude_m,
+        "place": place.display_name,
+        "altitude_m": place.altitude_m,
+        "forecast_point": point.display_name,
+        "forecast_point_distance_km": distance_km,
+        "forecast_point_altitude_difference_m": difference_m,
     }
 
 
 class ForecastService:
-    """Answer weather questions for a location: the value, its unit, the resolved point and the model run."""
+    """Answer weather questions for a place: the value, its unit, the forecast point and the model run."""
 
     def __init__(self, place_finder: PlaceFinder, forecast_source: ForecastSource):
         self.place_finder = place_finder
@@ -136,7 +139,7 @@ class ForecastService:
         return {
             "value": freezing_level_m,
             "unit": "m above sea level",
-            **_build_location_fields(place, point),
+            **_build_forecast_point_fields(place, point),
             "valid_at": format_swiss_time(moment),
             "model_run": format_swiss_time(series.run_time),
         }
@@ -166,7 +169,7 @@ class ForecastService:
             "gusts_90th_percentile_kmh": upper_gusts_kmh,
             "direction_degrees": direction_degrees,
             "compass_point": compass_point,
-            **_build_location_fields(place, point),
+            **_build_forecast_point_fields(place, point),
             "valid_at": format_swiss_time(moment),
             "model_run": format_swiss_time(speed_series.run_time),
         }
@@ -199,7 +202,7 @@ class ForecastService:
         return {
             "value": round(sunshine_minutes / 60, 1),
             "unit": "h",
-            **_build_location_fields(place, point),
+            **_build_forecast_point_fields(place, point),
             "from": format_swiss_time(start_moment),
             "to": format_swiss_time(end_moment),
             "model_run": format_swiss_time(series.run_time),
@@ -227,7 +230,7 @@ class ForecastService:
         return {
             "value": round((1 - clear_sky) * 100, 1),
             "unit": "%",
-            **_build_location_fields(place, point),
+            **_build_forecast_point_fields(place, point),
             "valid_at": format_swiss_time(moment),
             "low_percent": round(low_fraction * 100, 1),
             "medium_percent": round(medium_fraction * 100, 1),
@@ -243,7 +246,7 @@ class ForecastService:
         Read the temperature with its 10th and 90th percentile, rain chance and weather for every
         hour from start to end, or for the one hour from start when end is None.
 
-        Return the resolved point, one row per hour labelled with its start and end, and the model
+        Return the place and its forecast point, one row per hour labelled with its start and end, and the model
         run. Times are timezone aware full hours, at most MAX_HOURLY_FORECAST apart. Raise
         CannotAnswerError when they are not, or when the forecast does not cover them.
         """
@@ -297,7 +300,7 @@ class ForecastService:
             })
 
         return {
-            **_build_location_fields(place, point),
+            **_build_forecast_point_fields(place, point),
             "hours": hours,
             "model_run": format_swiss_time(temperature_series.run_time),
         }
@@ -308,8 +311,8 @@ class ForecastService:
         """
         Read when and how much it may rain, in 3-hour blocks from start to end.
 
-        Return the resolved point, one row per block with the rain chance, the median rainfall and
-        the heaviest hour's 90th percentile, and the model run. Times are timezone aware full hours,
+        Return the place and its forecast point, one row per block with the rain chance, the median
+        rainfall and the heaviest hour's 90th percentile, and the model run. Times are timezone aware full hours,
         at most MAX_RAIN_OUTLOOK apart. Raise CannotAnswerError when they are not, or when the
         forecast does not cover them.
         """
@@ -362,7 +365,7 @@ class ForecastService:
             })
 
         return {
-            **_build_location_fields(place, point),
+            **_build_forecast_point_fields(place, point),
             "blocks": blocks,
             "model_run": format_swiss_time(median_series.run_time),
         }
@@ -381,10 +384,10 @@ class ForecastService:
         """
         Read the whole-day forecast for 1 to MAX_DAYS Swiss calendar days in a row from first_day.
 
-        Return the resolved point, the model run and one row per day with its date, weekday,
-        minimum and maximum temperature, rainfall median with its 10th and 90th percentile, and the
-        weather in words with its emoji. A field MeteoSwiss does not publish for the location is
-        None. Raise CannotAnswerError when days is out of range or no day has a forecast.
+        Return the place and its forecast point, the model run and one row per day with its date,
+        weekday, minimum and maximum temperature, rainfall median with its 10th and 90th percentile,
+        and the weather in words with its emoji. A field MeteoSwiss does not publish for the forecast
+        point is None. Raise CannotAnswerError when days is out of range or no day has a forecast.
         """
         if not 1 <= days <= MAX_DAYS:
             raise CannotAnswerError(f"days must be between 1 and {MAX_DAYS}, not {days}.")
@@ -446,7 +449,7 @@ class ForecastService:
         if not rows or run_time is None:
             raise CannotAnswerError(f"MeteoSwiss has no daily forecast for {point.display_name} from {first_day.isoformat()}.")
         return {
-            **_build_location_fields(place, point),
+            **_build_forecast_point_fields(place, point),
             "days": rows,
             "model_run": format_swiss_time(run_time),
         }
