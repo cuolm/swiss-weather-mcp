@@ -40,7 +40,7 @@ import logging
 import zipfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import List, NamedTuple, Tuple
+from typing import Dict, List, NamedTuple, Set, Tuple
 
 import requests
 
@@ -135,6 +135,33 @@ class SwisstopoPlace(NamedTuple):
         return ", ".join(parts)
 
 
+def _parse_row(csv_row: Dict[str, str]) -> SwisstopoPlace:
+    """Turn one row of a swissNAMES3D file into a place of one object type."""
+    population_band = POPULATION_BANDS.get(csv_row["EINWOHNERKATEGORIE"], 0)
+    return SwisstopoPlace(
+        name=csv_row["NAME"],
+        object_types=(csv_row["OBJEKTART"],),
+        population_band=population_band,
+        is_exonym=csv_row["NAMEN_TYP"] == EXONYM,
+        altitude_m=float(csv_row["Z"]),
+        east_m=float(csv_row["E"]),
+        north_m=float(csv_row["N"]),
+    )
+
+
+def _read_file_rows(archive: zipfile.ZipFile, file_name: str, object_types: Set[str]) -> List[SwisstopoPlace]:
+    """Read the rows of the given object types from one file of the archive."""
+    rows = []
+    with archive.open(file_name) as binary_file:
+        # The files start with a byte order mark, which utf-8-sig leaves out of the first column name
+        text_file = io.TextIOWrapper(binary_file, encoding="utf-8-sig", newline="")
+        for csv_row in csv.DictReader(text_file, delimiter=";"):
+            if csv_row["OBJEKTART"] in object_types:
+                row = _parse_row(csv_row)
+                rows.append(row)
+    return rows
+
+
 class SwisstopoPlaceSource:
     """Read the rows of the newest swissNAMES3D edition, cached on disk as its archive."""
 
@@ -191,21 +218,7 @@ class SwisstopoPlaceSource:
         rows = []
         with zipfile.ZipFile(archive_file) as archive:
             for file_name, object_types in OBJECT_TYPES_BY_FILE.items():
-                with archive.open(file_name) as binary_file:
-                    # The files start with a byte order mark, which utf-8-sig leaves out of the first column name
-                    text_file = io.TextIOWrapper(binary_file, encoding="utf-8-sig", newline="")
-                    for csv_row in csv.DictReader(text_file, delimiter=";"):
-                        if csv_row["OBJEKTART"] not in object_types:
-                            continue
-                        row = SwisstopoPlace(
-                            name=csv_row["NAME"],
-                            object_types=(csv_row["OBJEKTART"],),
-                            population_band=POPULATION_BANDS.get(csv_row["EINWOHNERKATEGORIE"], 0),
-                            is_exonym=csv_row["NAMEN_TYP"] == EXONYM,
-                            altitude_m=float(csv_row["Z"]),
-                            east_m=float(csv_row["E"]),
-                            north_m=float(csv_row["N"]),
-                        )
-                        rows.append(row)
+                file_rows = _read_file_rows(archive, file_name, object_types)
+                rows.extend(file_rows)
         logger.info(f"Loaded {len(rows)} rows of swissNAMES3D")
         return rows
