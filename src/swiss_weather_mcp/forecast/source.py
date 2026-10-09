@@ -100,6 +100,10 @@ POINT_TABLE_MAX_AGE = timedelta(days=7)
 FORECAST_POINT_RADIUS_M = 5000
 # Weather changes more with height than with distance: 1 m of height gap counts like 20 m farther away
 METRES_PER_HEIGHT_METRE = 20
+# Regional forecasts listed among the points, by point_id and point_type_id: Ouest romand,
+# Flachland Deutschschweiz and Basso Ticino. They carry only part of the parameters and stand on or
+# next to a station, such as Basso Ticino on Lugano, so they are never the point for a place.
+REGIONAL_POINT_IDS = {("213", "3"), ("230", "3"), ("242", "3")}
 
 
 class MeteoSwissPoint(NamedTuple):
@@ -178,9 +182,12 @@ class ForecastSource:
         """
         Find the point to forecast a place from: among the points within FORECAST_POINT_RADIUS_M,
         the one with the smallest distance plus METRES_PER_HEIGHT_METRE times the height gap,
-        else the nearest point.
+        else the nearest point. The regional forecasts in REGIONAL_POINT_IDS are left out.
         """
-        points = self._load_points()
+        points = []
+        for point in self._load_points():
+            if (point.point_id, point.point_type_id) not in REGIONAL_POINT_IDS:
+                points.append(point)
         close_points = [point for point in points if calculate_distance_m(place, point) <= FORECAST_POINT_RADIUS_M]
         if not close_points:
             return min(points, key=lambda point: calculate_distance_m(place, point))
@@ -343,9 +350,6 @@ class ForecastSource:
         parameter_file = self._ensure_parameter_file(parameter, point, run_id, file_urls[parameter])
         values = self._read_point_values(parameter_file, point)
         if not values:
-            raise CannotAnswerError(
-                f"MeteoSwiss publishes no '{parameter}' values for {point.display_name}. Some entries, "
-                f"such as the regional ones, only carry part of the forecast, try a nearby town."
-            )
+            raise CannotAnswerError(f"MeteoSwiss publishes no '{parameter}' values for {point.display_name}.")
 
         return ForecastSeries(run_time=parse_stamp(run_id), values=values)

@@ -11,13 +11,16 @@ POINT_TABLE_COLUMNS = (
     "point_coordinates_lv95_north;point_coordinates_wgs84_lat;point_coordinates_wgs84_lon"
 )
 # Zürich 8001 and 8002 to choose between by distance and height, Davos, a station with no postal
-# code and no forecast values, and Wallisellen, more than 5 km from Zürich. Coordinates are the real
-# LV95 ones of these points, in metres.
+# code and no forecast values, and Wallisellen, more than 5 km from Zürich. Flachland Deutschschweiz
+# is a regional forecast 8 m from the Buchs / Aarau station. Coordinates are the real LV95 ones of
+# these points, in metres.
 POINT_TABLE_ROWS = (
     ("800200", "2", "", "8002", "Zürich", "431.0", "2682417.0", "1246175.0"),
     ("800100", "2", "", "8001", "Zürich", "409.0", "2683348.0", "1247414.0"),
     ("26", "1", "DAV", "", "Davos", "1594.0", "2783519.0", "1187459.0"),
     ("840000", "2", "", "8400", "Wallisellen", "441.0", "2687275.0", "1252173.0"),
+    ("230", "3", "", "", "Flachland Deutschschweiz", "387.0", "2648390.0", "1248365.0"),
+    ("67", "1", "BUS", "", "Buchs / Aarau", "387.0", "2648396.0", "1248370.0"),
 )
 
 RUN_ID = "202609221300"
