@@ -110,7 +110,8 @@ class PlaceFinder:
         for settlement in nearest_settlements:
             if self._choose_place_near(places, settlement.name) == place:
                 return settlement.name
-        # Two places of the name lie so close that each settlement leads to the other one; they have nearly the same weather
+        # Two places of the name lie so close that each settlement leads to the other one;
+        # they have nearly the same weather
         return nearest_settlements[0].name
 
     def _build_options_error(
@@ -119,7 +120,9 @@ class PlaceFinder:
         """Build the refusal of a name of several places, listing every place with a settlement to give as near."""
         option_lines = []
         for place in places:
-            option_lines.append(f'  near="{self._find_near_settlement(place, places)}": {place.description}')
+            near_settlement = self._find_near_settlement(place, places)
+            option_line = f'  near="{near_settlement}": {place.description}'
+            option_lines.append(option_line)
         listed_options = "\n".join(option_lines)
 
         no_place_near = ""
