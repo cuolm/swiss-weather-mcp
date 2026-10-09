@@ -140,7 +140,6 @@ class SwisstopoPlaceSource:
 
     def __init__(self, cache_dir: Path):
         self.cache_dir = cache_dir / "places"
-        self._rows: List[SwisstopoPlace] = []
 
     def _fetch_newest_archive_url(self) -> str:
         """Ask the catalogue for the CSV archive of the newest edition."""
@@ -183,11 +182,11 @@ class SwisstopoPlaceSource:
                 cached_archive.unlink(missing_ok=True)
         return archive
 
-    def load_rows(self) -> List[SwisstopoPlace]:
-        """Read the rows of the object types in OBJECT_TYPES_BY_FILE into memory once per process."""
-        if self._rows:
-            return self._rows
-
+    def read_rows(self) -> List[SwisstopoPlace]:
+        """
+        Read the rows of the object types in OBJECT_TYPES_BY_FILE from the archive. The lookup
+        reads them once and keeps only the places it builds from them.
+        """
         archive_file = self._ensure_archive()
         rows = []
         with zipfile.ZipFile(archive_file) as archive:
@@ -208,7 +207,5 @@ class SwisstopoPlaceSource:
                             north_m=float(csv_row["N"]),
                         )
                         rows.append(row)
-        # Published only once complete, so a parallel request never sees part of the rows
-        self._rows = rows
         logger.info(f"Loaded {len(rows)} rows of swissNAMES3D")
         return rows
