@@ -136,11 +136,11 @@ class SwisstopoPlace(NamedTuple):
 
 
 class SwisstopoPlaceSource:
-    """Read the places of the newest swissNAMES3D edition, cached on disk as its archive."""
+    """Read the rows of the newest swissNAMES3D edition, cached on disk as its archive."""
 
     def __init__(self, cache_dir: Path):
         self.cache_dir = cache_dir / "places"
-        self._places: List[SwisstopoPlace] = []
+        self._rows: List[SwisstopoPlace] = []
 
     def _fetch_newest_archive_url(self) -> str:
         """Ask the catalogue for the CSV archive of the newest edition."""
@@ -183,32 +183,32 @@ class SwisstopoPlaceSource:
                 cached_archive.unlink(missing_ok=True)
         return archive
 
-    def load_places(self) -> List[SwisstopoPlace]:
+    def load_rows(self) -> List[SwisstopoPlace]:
         """Read the rows of the object types in OBJECT_TYPES_BY_FILE into memory once per process."""
-        if self._places:
-            return self._places
+        if self._rows:
+            return self._rows
 
         archive_file = self._ensure_archive()
-        places = []
+        rows = []
         with zipfile.ZipFile(archive_file) as archive:
             for file_name, object_types in OBJECT_TYPES_BY_FILE.items():
                 with archive.open(file_name) as binary_file:
                     # The files start with a byte order mark, which utf-8-sig leaves out of the first column name
                     text_file = io.TextIOWrapper(binary_file, encoding="utf-8-sig", newline="")
-                    for row in csv.DictReader(text_file, delimiter=";"):
-                        if row["OBJEKTART"] not in object_types:
+                    for csv_row in csv.DictReader(text_file, delimiter=";"):
+                        if csv_row["OBJEKTART"] not in object_types:
                             continue
-                        place = SwisstopoPlace(
-                            name=row["NAME"],
-                            object_types=(row["OBJEKTART"],),
-                            population_band=POPULATION_BANDS.get(row["EINWOHNERKATEGORIE"], 0),
-                            is_exonym=row["NAMEN_TYP"] == EXONYM,
-                            altitude_m=float(row["Z"]),
-                            east_m=float(row["E"]),
-                            north_m=float(row["N"]),
+                        row = SwisstopoPlace(
+                            name=csv_row["NAME"],
+                            object_types=(csv_row["OBJEKTART"],),
+                            population_band=POPULATION_BANDS.get(csv_row["EINWOHNERKATEGORIE"], 0),
+                            is_exonym=csv_row["NAMEN_TYP"] == EXONYM,
+                            altitude_m=float(csv_row["Z"]),
+                            east_m=float(csv_row["E"]),
+                            north_m=float(csv_row["N"]),
                         )
-                        places.append(place)
-        # Published only once complete, so a parallel request never sees part of the places
-        self._places = places
-        logger.info(f"Loaded {len(places)} names of swissNAMES3D")
-        return places
+                        rows.append(row)
+        # Published only once complete, so a parallel request never sees part of the rows
+        self._rows = rows
+        logger.info(f"Loaded {len(rows)} rows of swissNAMES3D")
+        return rows

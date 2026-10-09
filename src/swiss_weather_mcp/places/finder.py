@@ -6,8 +6,8 @@ The location is looked up among the places of swissNAMES3D, see lookup.py:
 - One place has the name: that place.
 - Several places have the name: nearby_location chooses the one closest to it, within 10 km.
   Without it, or when no place lies near it, we refuse and list every place, biggest first,
-  so the model can choose with the user. Each comes with a village to give as near: the
-  nearest village of 100 or more people whose name leads back to that place.
+  so the model can choose with the user. Each comes with a settlement to give as near: the
+  nearest settlement of 100 or more people whose name leads back to that place.
 - No place has the name: we refuse and suggest the names that start with it or are spelled
   alike, so the model can call again with one of them.
 
@@ -32,9 +32,9 @@ The location is looked up among the places of swissNAMES3D, see lookup.py:
                              ...
                          (starting with "No 'Blausee' lies near 'Kandertal'." when one was given)
 
-The tools call nearby_location near. Two places of a name can lie so close together that every
-village leads to the same one; the other one then lists the nearest village anyway, as both
-have nearly the same weather.
+The tools call nearby_location near, and the texts for the model call a settlement a village.
+Two places of a name can lie so close together that every settlement leads to the same one; the
+other one then lists the nearest settlement anyway, as both have nearly the same weather.
 """
 import heapq
 import logging
@@ -53,14 +53,14 @@ logger = logging.getLogger(__name__)
 
 # A place farther than this from nearby_location is not the one the user means
 MAX_NEAR_DISTANCE_M = 10000
-# How many of the nearest villages are tried to find one that leads back to a place
-MAX_NEAR_VILLAGES_TRIED = 20
+# How many of the nearest settlements are tried to find one that leads back to a place
+MAX_NEAR_SETTLEMENTS_TRIED = 20
 
 
 class PlaceFinder:
     """
-    Find the swisstopo place a user means. A name of several places needs near, a village next
-    to the one the user means; for an unknown name, suggest the names that start with it or
+    Find the swisstopo place a user means. A name of several places needs near, a settlement
+    next to the one the user means; for an unknown name, suggest the names that start with it or
     are spelled alike.
     """
 
@@ -88,7 +88,7 @@ class PlaceFinder:
         closest_place = None
         closest_distance_m = math.inf
         # nearby_location can itself be the name of several places, so every pair counts
-        for near_place in self.place_lookup.find_places(nearby_location):
+        for near_place in self.place_lookup.find_places_named(nearby_location):
             for place in places:
                 distance_m = calculate_distance_m(place, near_place)
                 if distance_m < closest_distance_m:
@@ -97,29 +97,29 @@ class PlaceFinder:
             return None
         return closest_place
 
-    def _find_near_village(self, place: SwisstopoPlace, places: List[SwisstopoPlace]) -> str:
+    def _find_near_settlement(self, place: SwisstopoPlace, places: List[SwisstopoPlace]) -> str:
         """
-        Name the village to give as near for one of several places: the nearest one that leads
-        back to it, so a model that copies it gets this place.
+        Name the settlement to give as near for one of several places: the nearest one that
+        leads back to it, so a model that copies it gets this place.
         """
-        nearest_villages = heapq.nsmallest(
-            MAX_NEAR_VILLAGES_TRIED,
+        nearest_settlements = heapq.nsmallest(
+            MAX_NEAR_SETTLEMENTS_TRIED,
             self.place_lookup.near_settlements,
-            key=lambda village: calculate_distance_m(village, place),
+            key=lambda settlement: calculate_distance_m(settlement, place),
         )
-        for village in nearest_villages:
-            if self._choose_place_near(places, village.name) == place:
-                return village.name
-        # Two places of the name lie so close that each village leads to the other one; they have nearly the same weather
-        return nearest_villages[0].name
+        for settlement in nearest_settlements:
+            if self._choose_place_near(places, settlement.name) == place:
+                return settlement.name
+        # Two places of the name lie so close that each settlement leads to the other one; they have nearly the same weather
+        return nearest_settlements[0].name
 
     def _build_options_error(
         self, location: str, places: List[SwisstopoPlace], nearby_location: Optional[str]
     ) -> CannotAnswerError:
-        """Build the refusal of a name of several places, listing every place with a village to give as near."""
+        """Build the refusal of a name of several places, listing every place with a settlement to give as near."""
         option_lines = []
         for place in places:
-            option_lines.append(f'  near="{self._find_near_village(place, places)}": {place.description}')
+            option_lines.append(f'  near="{self._find_near_settlement(place, places)}": {place.description}')
         listed_options = "\n".join(option_lines)
 
         no_place_near = ""
@@ -133,7 +133,7 @@ class PlaceFinder:
 
     def _build_unknown_name_error(self, location: str) -> CannotAnswerError:
         """Build the refusal of a name no place has, suggesting names that start with it or are spelled alike."""
-        similar_places = self.place_lookup.find_similar_names(location)
+        similar_places = self.place_lookup.find_places_named_alike(location)
         if not similar_places:
             return CannotAnswerError(
                 f"Location '{location}' was not found. Check the spelling, or try a nearby town or village."
@@ -152,7 +152,7 @@ class PlaceFinder:
         suggesting similar names, and for a name of several places that nearby_location does not
         tell apart, listing every place to call again with.
         """
-        places = self.place_lookup.find_places(location)
+        places = self.place_lookup.find_places_named(location)
         if not places:
             raise self._build_unknown_name_error(location)
         if len(places) == 1:
