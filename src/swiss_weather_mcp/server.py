@@ -47,10 +47,10 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--host", default="localhost", help="Server host (used only for HTTP)")
     parser.add_argument("--port", type=int, default=8050, help="Server port (used only for HTTP)")
     parser.add_argument(
-        "--cache-all-locations",
+        "--cache-all-forecast-points",
         action="store_true",
         help="Keep the whole published file (about 31 MB per parameter) instead of only the rows "
-             "for the requested location, so questions about further locations need no download",
+             "for the requested forecast point, so questions about further places need no download",
     )
     parser.add_argument(
         "--log-level",
@@ -439,7 +439,7 @@ def _build_server(args: argparse.Namespace) -> SwissWeatherMCPServer:
     """Build the sources and services from the command line options, and the server that uses them."""
     place_finder = PlaceFinder(CACHE_DIR)
     place_finder.start_loading_places()
-    forecast_source = ForecastSource(CACHE_DIR, cache_all_locations=args.cache_all_locations)
+    forecast_source = ForecastSource(CACHE_DIR, cache_all_forecast_points=args.cache_all_forecast_points)
     forecast_service = ForecastService(place_finder, forecast_source)
     measurement_source = MeasurementSource(CACHE_DIR)
     measurement_service = MeasurementService(place_finder, measurement_source)

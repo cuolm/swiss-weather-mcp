@@ -57,10 +57,10 @@ OBJECT_TYPE_ORDER = {object_type: rank for rank, object_type in enumerate(OBJECT
 ENGLISH_PLACE_NAMES_FILE = "english_place_names.csv"
 
 
-def normalise_location(location: str) -> str:
+def normalise_name(name: str) -> str:
     """Fold case, strip accents and drop periods, so "zurich" finds "Zürich" and "St Moritz" finds "St. Moritz"."""
     # NFKD splits "ü" into "u" and a separate accent mark, which is dropped here
-    decomposed = unicodedata.normalize("NFKD", location.casefold())
+    decomposed = unicodedata.normalize("NFKD", name.casefold())
     without_accents = ""
     for character in decomposed:
         if not unicodedata.combining(character):
@@ -78,15 +78,15 @@ def calculate_distance_m(first: SwisstopoPlace, second: SwisstopoPlace) -> float
 
 def _find_keys(row: SwisstopoPlace) -> List[str]:
     """Return every name a user may type for a row, such as "wil sg" and "wil" for "Wil SG"."""
-    keys = [normalise_location(row.name)]
+    keys = [normalise_name(row.name)]
     canton_suffix = CANTON_SUFFIX.match(row.name)
     if canton_suffix:
-        keys.append(normalise_location(canton_suffix.group(1)))
+        keys.append(normalise_name(canton_suffix.group(1)))
     # Only settlements: other slashes split names such as the shooting range "Küsnacht 300/50/25m"
     if "/" in row.name and row.object_types[0] in SETTLEMENT_TYPES:
         for part in row.name.split("/"):
             if part.strip():
-                keys.append(normalise_location(part))
+                keys.append(normalise_name(part))
     # A key counts once, even when two rules give it
     return list(dict.fromkeys(keys))
 
@@ -140,8 +140,8 @@ def _read_english_place_names() -> Dict[str, str]:
 def _add_english_names(places_by_name: Dict[str, List[SwisstopoPlace]]) -> None:
     """File the places of each English name under it too, unless a row of swissNAMES3D has that name."""
     for english_name, swissnames3d_name in _read_english_place_names().items():
-        english_key = normalise_location(english_name)
-        swissnames3d_key = normalise_location(swissnames3d_name)
+        english_key = normalise_name(english_name)
+        swissnames3d_key = normalise_name(swissnames3d_name)
         if english_key in places_by_name:
             continue
         if swissnames3d_key not in places_by_name:
@@ -178,7 +178,7 @@ class SwisstopoPlaceLookup:
                 return
 
             rows_by_key: Dict[str, List[SwisstopoPlace]] = defaultdict(list)
-            for row in self.place_source.load_places():
+            for row in self.place_source.load_rows():
                 for key in _find_keys(row):
                     rows_by_key[key].append(row)
 
@@ -191,7 +191,7 @@ class SwisstopoPlaceLookup:
             for key, places in places_by_name.items():
                 place = places[0]
                 # Under its own name, not a shorter key such as "wil" for "Wil SG"
-                is_named_once = len(places) == 1 and normalise_location(place.name) == key
+                is_named_once = len(places) == 1 and normalise_name(place.name) == key
                 # The official name, so Genève is named and not Genf
                 is_official_settlement = place.object_types[0] in SETTLEMENT_TYPES and not place.is_exonym
                 if is_named_once and is_official_settlement and place.population_band >= MIN_NEAR_SETTLEMENT_BAND:
@@ -212,10 +212,10 @@ class SwisstopoPlaceLookup:
         self.load_places()
         return self._near_settlements
 
-    def find_places(self, location: str) -> List[SwisstopoPlace]:
+    def find_places_named(self, location: str) -> List[SwisstopoPlace]:
         """Find the places a user means by a name, biggest first; none for a name no row has."""
         self.load_places()
-        return list(self._places_by_name.get(normalise_location(location), []))
+        return list(self._places_by_name.get(normalise_name(location), []))
 
     def _find_names_starting_with(self, typed_name: str) -> List[str]:
         """Find the names that start with a typed name as a whole word, such as "davos dorf" for "davos"."""
@@ -233,14 +233,14 @@ class SwisstopoPlaceLookup:
         places = [self._places_by_name[name][0] for name in names]
         return sorted(places, key=lambda place: place.population_band, reverse=True)
 
-    def find_similar_names(self, location: str) -> List[SwisstopoPlace]:
+    def find_places_named_alike(self, location: str) -> List[SwisstopoPlace]:
         """
         Find the places to suggest when no row has a name, at most MAX_SIMILAR_NAMES: first the
         names that start with it, then the names spelled alike, each biggest first. So "Flims"
         suggests Flims Dorf before Flums, a bigger town spelled alike.
         """
         self.load_places()
-        typed_name = normalise_location(location)
+        typed_name = normalise_name(location)
         starting_names = self._find_names_starting_with(typed_name)
         alike_names = difflib.get_close_matches(typed_name, self._names, n=MAX_SIMILAR_NAMES, cutoff=SIMILAR_NAME_MIN_RATIO)
 

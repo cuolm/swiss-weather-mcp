@@ -150,7 +150,7 @@ swiss-weather-mcp-server
 Optional flags: `--help`
 
 > **Note:** By default the server keeps only the rows for the forecast point you asked about, a few
-> kilobytes per parameter. Pass `--cache-all-locations` to keep the whole published file instead
+> kilobytes per parameter. Pass `--cache-all-forecast-points` to keep the whole published file instead
 > (about 31 MB per parameter), which makes questions about further places need no new download.
 
 ### Running the Server with Docker

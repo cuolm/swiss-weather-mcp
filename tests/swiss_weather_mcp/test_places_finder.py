@@ -30,7 +30,7 @@ def test_find_place_ignores_near_for_a_name_of_one_place(place_finder_fixture):
 
 
 def test_find_place_refuses_a_name_of_several_places(place_finder_fixture):
-    # Each place is listed with the nearest village that leads back to it
+    # Each place is listed with the nearest settlement that leads back to it
     with pytest.raises(CannotAnswerError) as raised:
         place_finder_fixture.find_place("Blausee")
     assert str(raised.value) == (
@@ -52,7 +52,7 @@ def test_find_place_lists_every_place(place_finder_fixture):
 
 
 def test_find_place_chooses_the_place_closest_to_near(place_finder_fixture):
-    # near need not be a listed village: Zürich chooses the Blausee next to it too
+    # near need not be a listed settlement: Zürich chooses the Blausee next to it too
     assert place_finder_fixture.find_place("Blausee", nearby_location="Oerlikon").object_types == ("See",)
     assert place_finder_fixture.find_place("Blausee", nearby_location="Zürich").object_types == ("Ort", "Quartier")
 
@@ -73,8 +73,8 @@ def test_find_place_refuses_a_near_farther_than_10_km(place_finder_fixture):
         place_finder_fixture.find_place("Seeli", nearby_location="Oerlikon")
 
 
-def test_find_place_two_places_with_the_same_nearest_village(place_finder_fixture):
-    # Oerlikon is nearer to both Moos than any other village, and chooses the Moos closer to it
+def test_find_place_two_places_with_the_same_nearest_settlement(place_finder_fixture):
+    # Oerlikon is nearer to both Moos than any other settlement, and chooses the Moos closer to it
     with pytest.raises(CannotAnswerError) as raised:
         place_finder_fixture.find_place("Moos")
     assert '  near="Oerlikon": settlement, 100 to 999 people, 440 m' in str(raised.value)

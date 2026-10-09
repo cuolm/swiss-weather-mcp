@@ -160,8 +160,8 @@ def test_read_series_stores_point_rows(source_fixture, tmp_path):
     assert b"999999" not in stored[0].read_bytes()
 
 
-def test_read_series_stores_all_locations(tmp_path, source_fixture):
-    source_fixture.cache_all_locations = True
+def test_read_series_stores_all_points(tmp_path, source_fixture):
+    source_fixture.cache_all_forecast_points = True
     source_fixture.read_series("tre200h0", ZURICH_8001)
 
     stored = tmp_path / "forecast" / "runs" / RUN_ID / "tre200h0.csv"
@@ -173,7 +173,7 @@ def test_read_series_from_a_full_file(source_fixture, tmp_path):
     point = ZURICH_8001
     from_extract = source_fixture.read_series("tre200h0", point).values
 
-    source_fixture.cache_all_locations = True
+    source_fixture.cache_all_forecast_points = True
     (tmp_path / "forecast" / "runs" / RUN_ID / "tre200h0_800100_2.csv").unlink()
     assert source_fixture.read_series("tre200h0", point).values == from_extract
 

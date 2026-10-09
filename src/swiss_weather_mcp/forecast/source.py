@@ -55,7 +55,7 @@ How we use it:
    that has all parameters we need. MeteoSwiss uploads a run file by file, so the
    newest run can be incomplete.
 3. Download a parameter's file only when a tool asks for it. By default, keep only the
-   rows of the requested point; with cache_all_locations, keep the whole file.
+   rows of the requested point; with cache_all_forecast_points, keep the whole file.
 4. Cache the files per run, and delete older runs except the one just before.
 
     <cache dir>/forecast/
@@ -67,7 +67,7 @@ How we use it:
             ├── sre000h0_800100_2.csv        (sunshine, Zürich 8001 rows only)
             └── ...                          (one file per parameter and point asked for)
 
-    With cache_all_locations, a run folder holds whole files instead:
+    With cache_all_forecast_points, a run folder holds whole files instead:
         └── 202609280900/
             ├── tre200h0.csv                 (temperature, all points)
             └── ...                          (one file per parameter asked for)
@@ -143,9 +143,9 @@ def _build_row_prefix(point: MeteoSwissPoint) -> bytes:
 class ForecastSource:
     """Read point forecasts from the MeteoSwiss local forecasting collection, cached per model run."""
 
-    def __init__(self, cache_dir: Path, cache_all_locations: bool = False):
+    def __init__(self, cache_dir: Path, cache_all_forecast_points: bool = False):
         self.cache_dir = cache_dir / "forecast"
-        self.cache_all_locations = cache_all_locations
+        self.cache_all_forecast_points = cache_all_forecast_points
         self._run_id: Optional[str] = None
         self._run_file_urls: Dict[str, str] = {}
         self._run_checked_at: Optional[datetime] = None
@@ -300,7 +300,7 @@ class ForecastSource:
             return point_file
 
         logger.info(f"Reading {parameter} for {point.display_name} from run {run_id}")
-        if self.cache_all_locations:
+        if self.cache_all_forecast_points:
             download_file(file_url, full_file)
             downloaded_file = full_file
         else:
