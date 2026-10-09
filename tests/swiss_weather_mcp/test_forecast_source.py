@@ -14,6 +14,7 @@ from swiss_weather_mcp.places.source import SwisstopoPlace
 ZURICH_8001 = MeteoSwissPoint("800100", "2", "Zürich", "8001", 409.0, 2683348.0, 1247414.0)
 ZURICH_8002 = MeteoSwissPoint("800200", "2", "Zürich", "8002", 431.0, 2682417.0, 1246175.0)
 DAVOS = MeteoSwissPoint("26", "1", "Davos", "", 1594.0, 2783519.0, 1187459.0)
+BUCHS_AARAU = MeteoSwissPoint("67", "1", "Buchs / Aarau", "", 387.0, 2648396.0, 1248370.0)
 
 ZURICH = SwisstopoPlace("Zürich", ("Ort",), 9, False, 418.0, 2683500.0, 1247184.0)
 MATTERHORN = SwisstopoPlace("Matterhorn", ("Alpiner Gipfel",), 0, False, 4478.0, 2617049.0, 1091673.0)
@@ -110,7 +111,13 @@ def test_find_forecast_point_weighs_the_height_gap(source_fixture):
 
 def test_find_forecast_point_far_from_every_point(source_fixture):
     # No point of the fake table lies within 5 km of the Matterhorn, so the nearest one is taken
-    assert source_fixture.find_forecast_point(MATTERHORN) == ZURICH_8002
+    assert source_fixture.find_forecast_point(MATTERHORN) == BUCHS_AARAU
+
+
+def test_find_forecast_point_skips_a_regional_forecast(source_fixture):
+    # The place stands on Flachland Deutschschweiz, which has only part of the parameters
+    on_the_regional_forecast = ZURICH._replace(altitude_m=387.0, east_m=2648390.0, north_m=1248365.0)
+    assert source_fixture.find_forecast_point(on_the_regional_forecast) == BUCHS_AARAU
 
 
 def test_find_forecast_point_caches_the_point_table_in_its_folder(source_fixture, tmp_path):
