@@ -31,7 +31,7 @@ import threading
 import unicodedata
 from collections import defaultdict
 from importlib import resources
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 from .source import OBJECT_TYPE_NAMES, SETTLEMENT_TYPES, SwisstopoPlace, SwisstopoPlaceSource
 
@@ -88,7 +88,8 @@ def _find_keys(row: SwisstopoPlace) -> List[str]:
             if part.strip():
                 keys.append(normalise_name(part))
     # A key counts once, even when two rules give it
-    return list(dict.fromkeys(keys))
+    unique_keys = list(dict.fromkeys(keys))
+    return unique_keys
 
 
 def _group_close_rows(rows: List[SwisstopoPlace]) -> List[List[SwisstopoPlace]]:
@@ -121,8 +122,34 @@ def _merge_rows(group: List[SwisstopoPlace]) -> SwisstopoPlace:
     else:
         main_row = min(group, key=lambda row: (OBJECT_TYPE_ORDER[row.object_types[0]], row.is_exonym))
 
-    object_types = sorted({row.object_types[0] for row in group}, key=lambda object_type: OBJECT_TYPE_ORDER[object_type])
+    types_in_group = set()
+    for row in group:
+        types_in_group.add(row.object_types[0])
+    # OBJECT_TYPE_NAMES lists the types in the order a place names them, settlements first
+    object_types = []
+    for object_type in OBJECT_TYPE_NAMES:
+        if object_type in types_in_group:
+            object_types.append(object_type)
     return main_row._replace(object_types=tuple(object_types))
+
+
+def _measure_group_size(group: List[SwisstopoPlace]) -> Tuple[int, int]:
+    """Return how big a group of rows is, to sort by: the band of its biggest settlement, then its number of rows."""
+    population_band = 0
+    for row in group:
+        population_band = max(population_band, row.population_band)
+    return population_band, len(group)
+
+
+def _build_places(rows: List[SwisstopoPlace]) -> List[SwisstopoPlace]:
+    """Turn the rows of one key into its places, biggest first: most people, then most rows."""
+    groups = _group_close_rows(rows)
+    groups.sort(key=_measure_group_size, reverse=True)
+    places = []
+    for group in groups:
+        place = _merge_rows(group)
+        places.append(place)
+    return places
 
 
 def _read_english_place_names() -> Dict[str, str]:
@@ -139,7 +166,8 @@ def _read_english_place_names() -> Dict[str, str]:
 
 def _add_english_names(places_by_name: Dict[str, List[SwisstopoPlace]]) -> None:
     """File the places of each English name under it too, unless a row of swissNAMES3D has that name."""
-    for english_name, swissnames3d_name in _read_english_place_names().items():
+    swissnames3d_names_by_english_name = _read_english_place_names()
+    for english_name, swissnames3d_name in swissnames3d_names_by_english_name.items():
         english_key = normalise_name(english_name)
         swissnames3d_key = normalise_name(swissnames3d_name)
         if english_key in places_by_name:
@@ -150,13 +178,19 @@ def _add_english_names(places_by_name: Dict[str, List[SwisstopoPlace]]) -> None:
         places_by_name[english_key] = places_by_name[swissnames3d_key]
 
 
-def _build_places(rows: List[SwisstopoPlace]) -> List[SwisstopoPlace]:
-    """Turn the rows of one key into its places, biggest first: most people, then most rows."""
-    sized_places = []
-    for group in _group_close_rows(rows):
-        sized_places.append((_merge_rows(group), len(group)))
-    sized_places.sort(key=lambda sized_place: (sized_place[0].population_band, sized_place[1]), reverse=True)
-    return [place for place, _ in sized_places]
+def _find_near_settlements(places_by_name: Dict[str, List[SwisstopoPlace]]) -> List[SwisstopoPlace]:
+    """Find the settlements of 100 or more people whose official name belongs to no other place."""
+    near_settlements = []
+    for key, places in places_by_name.items():
+        place = places[0]
+        # Under its own name, not a shorter key such as "wil" for "Wil SG"
+        is_named_once = len(places) == 1 and normalise_name(place.name) == key
+        # The official name, so Genève is named and not Genf
+        is_official_settlement = place.object_types[0] in SETTLEMENT_TYPES and not place.is_exonym
+        is_big_enough = place.population_band >= MIN_NEAR_SETTLEMENT_BAND
+        if is_named_once and is_official_settlement and is_big_enough:
+            near_settlements.append(place)
+    return near_settlements
 
 
 class SwisstopoPlaceLookup:
@@ -187,18 +221,8 @@ class SwisstopoPlaceLookup:
                 places_by_name[key] = _build_places(rows)
             _add_english_names(places_by_name)
 
-            near_settlements = []
-            for key, places in places_by_name.items():
-                place = places[0]
-                # Under its own name, not a shorter key such as "wil" for "Wil SG"
-                is_named_once = len(places) == 1 and normalise_name(place.name) == key
-                # The official name, so Genève is named and not Genf
-                is_official_settlement = place.object_types[0] in SETTLEMENT_TYPES and not place.is_exonym
-                if is_named_once and is_official_settlement and place.population_band >= MIN_NEAR_SETTLEMENT_BAND:
-                    near_settlements.append(place)
-
             self._names = sorted(places_by_name)
-            self._near_settlements = near_settlements
+            self._near_settlements = _find_near_settlements(places_by_name)
             # Published last, so a parallel request never sees part of the places
             self._places_by_name = places_by_name
             logger.info(f"Built the places of {len(places_by_name)} names")
@@ -215,7 +239,10 @@ class SwisstopoPlaceLookup:
     def find_places_named(self, location: str) -> List[SwisstopoPlace]:
         """Find the places a user means by a name, biggest first; none for a name no row has."""
         self.load_places()
-        return list(self._places_by_name.get(normalise_name(location), []))
+        key = normalise_name(location)
+        places = self._places_by_name.get(key, [])
+        # A copy, so a caller cannot change the stored list
+        return list(places)
 
     def _find_names_starting_with(self, typed_name: str) -> List[str]:
         """Find the names that start with a typed name as a whole word, such as "davos dorf" for "davos"."""
@@ -230,7 +257,10 @@ class SwisstopoPlaceLookup:
 
     def _find_biggest_places(self, names: List[str]) -> List[SwisstopoPlace]:
         """Return the biggest place of each name, biggest first."""
-        places = [self._places_by_name[name][0] for name in names]
+        places = []
+        for name in names:
+            biggest_place = self._places_by_name[name][0]
+            places.append(biggest_place)
         return sorted(places, key=lambda place: place.population_band, reverse=True)
 
     def find_places_named_alike(self, location: str) -> List[SwisstopoPlace]:
@@ -242,10 +272,14 @@ class SwisstopoPlaceLookup:
         self.load_places()
         typed_name = normalise_name(location)
         starting_names = self._find_names_starting_with(typed_name)
-        alike_names = difflib.get_close_matches(typed_name, self._names, n=MAX_SIMILAR_NAMES, cutoff=SIMILAR_NAME_MIN_RATIO)
+        alike_names = difflib.get_close_matches(
+            typed_name, self._names, n=MAX_SIMILAR_NAMES, cutoff=SIMILAR_NAME_MIN_RATIO,
+        )
+        starting_places = self._find_biggest_places(starting_names)
+        alike_places = self._find_biggest_places(alike_names)
 
         suggestions: List[SwisstopoPlace] = []
-        for place in self._find_biggest_places(starting_names) + self._find_biggest_places(alike_names):
+        for place in starting_places + alike_places:
             # A place may be under two names, such as Biel/Bienne under "biel" and "bienne"
             if place not in suggestions:
                 suggestions.append(place)
