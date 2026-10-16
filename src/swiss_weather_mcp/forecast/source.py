@@ -135,6 +135,24 @@ def calculate_distance_m(place: SwisstopoPlace, point: MeteoSwissPoint) -> float
     return math.hypot(place.east_m - point.east_m, place.north_m - point.north_m)
 
 
+def _calculate_weighted_distance_m(place: SwisstopoPlace, point: MeteoSwissPoint) -> float:
+    """Return the distance to a forecast point plus METRES_PER_HEIGHT_METRE times the height gap."""
+    height_gap_m = abs(point.altitude_m - place.altitude_m)
+    return calculate_distance_m(place, point) + METRES_PER_HEIGHT_METRE * height_gap_m
+
+
+def _find_newest_complete_run_id(csv_file_urls_by_run: Dict[str, Dict[str, str]]) -> Optional[str]:
+    """Find the newest run with a file for every parameter, or None when no run is complete."""
+    complete_run_ids = []
+    for run_id, file_urls in csv_file_urls_by_run.items():
+        if parameters.ALL_PARAMETERS.issubset(file_urls):
+            complete_run_ids.append(run_id)
+    if not complete_run_ids:
+        return None
+    # Run IDs are fixed width, so the newest run is the largest string
+    return max(complete_run_ids)
+
+
 def _build_row_prefix(point: MeteoSwissPoint) -> bytes:
     """Return the start every row of a point has in a parameter file, such as b"800100;2;"."""
     return f"{point.point_id};{point.point_type_id};".encode()
@@ -154,7 +172,10 @@ class ForecastSource:
         self._points: List[MeteoSwissPoint] = []
 
     def _load_points(self) -> List[MeteoSwissPoint]:
-        """Read the point table into memory once per process, downloading it when it is missing or old."""
+        """
+        Read the point table into memory once per process, downloading it when it is missing or
+        old. The regional forecasts in REGIONAL_POINT_IDS are left out.
+        """
         if self._points:
             return self._points
 
@@ -172,7 +193,8 @@ class ForecastSource:
                     east_m=float(row["point_coordinates_lv95_east"]),
                     north_m=float(row["point_coordinates_lv95_north"]),
                 )
-                points.append(point)
+                if (point.point_id, point.point_type_id) not in REGIONAL_POINT_IDS:
+                    points.append(point)
         # Published only once complete, so a parallel request never sees part of the points
         self._points = points
         logger.info(f"Loaded {len(points)} forecast points")
@@ -182,21 +204,16 @@ class ForecastSource:
         """
         Find the point to forecast a place from: among the points within FORECAST_POINT_RADIUS_M,
         the one with the smallest distance plus METRES_PER_HEIGHT_METRE times the height gap,
-        else the nearest point. The regional forecasts in REGIONAL_POINT_IDS are left out.
+        else the nearest point.
         """
-        points = []
-        for point in self._load_points():
-            if (point.point_id, point.point_type_id) not in REGIONAL_POINT_IDS:
-                points.append(point)
-        close_points = [point for point in points if calculate_distance_m(place, point) <= FORECAST_POINT_RADIUS_M]
+        points = self._load_points()
+        close_points = []
+        for point in points:
+            if calculate_distance_m(place, point) <= FORECAST_POINT_RADIUS_M:
+                close_points.append(point)
         if not close_points:
             return min(points, key=lambda point: calculate_distance_m(place, point))
-
-        def weigh_point(point: MeteoSwissPoint) -> float:
-            height_gap_m = abs(point.altitude_m - place.altitude_m)
-            return calculate_distance_m(place, point) + METRES_PER_HEIGHT_METRE * height_gap_m
-
-        return min(close_points, key=weigh_point)
+        return min(close_points, key=lambda point: _calculate_weighted_distance_m(place, point))
 
     def _fetch_csv_file_urls_by_run(self, day: date) -> Dict[str, Dict[str, str]]:
         """
@@ -256,14 +273,10 @@ class ForecastSource:
             today = now.date()
             for day in (today, today - timedelta(days=1)):
                 csv_file_urls_by_run = self._fetch_csv_file_urls_by_run(day)
-                complete_run_ids = []
-                for run_id, file_urls in csv_file_urls_by_run.items():
-                    if parameters.ALL_PARAMETERS.issubset(file_urls):
-                        complete_run_ids.append(run_id)
-                if complete_run_ids:
-                    # Run IDs are fixed width, so the newest run is the largest string
-                    self._run_id = max(complete_run_ids)
-                    self._run_file_urls = csv_file_urls_by_run[self._run_id]
+                run_id = _find_newest_complete_run_id(csv_file_urls_by_run)
+                if run_id is not None:
+                    self._run_id = run_id
+                    self._run_file_urls = csv_file_urls_by_run[run_id]
                     self._run_checked_at = now
                     return self._run_id, self._run_file_urls
 
