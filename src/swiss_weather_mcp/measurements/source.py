@@ -135,6 +135,14 @@ def _parse_value(value_text: str) -> Optional[float]:
     return float(value_text)
 
 
+def _parse_values(row: Dict[str, str]) -> Dict[str, Optional[float]]:
+    """Read the value of every parameter in ALL_PARAMETERS from one row, None where the station has none."""
+    values: Dict[str, Optional[float]] = {}
+    for parameter in parameters.ALL_PARAMETERS:
+        values[parameter] = _parse_value(row[parameter])
+    return values
+
+
 def _find_canton_name(abbreviation: str) -> str:
     """Find the full name of a canton, such as "Zurich" for "ZH"; an unknown abbreviation stays as it is."""
     return CANTON_NAMES.get(abbreviation, abbreviation)
@@ -189,9 +197,7 @@ class MeasurementSource:
         with open(station_now_values, newline="", encoding="latin-1") as file:
             for row in csv.DictReader(file, delimiter=";"):
                 measured_at = _parse_reference_timestamp(row["reference_timestamp"])
-                values: Dict[str, Optional[float]] = {}
-                for parameter in parameters.ALL_PARAMETERS:
-                    values[parameter] = _parse_value(row[parameter])
+                values = _parse_values(row)
                 measurements = StationMeasurements(station, measured_at, values)
                 all_measurements.append(measurements)
         return all_measurements
@@ -239,9 +245,7 @@ class MeasurementSource:
                 if station is None:
                     continue  # a station without a row in the station table has no name and no canton
                 measured_at = parse_stamp(row["Date"])
-                values: Dict[str, Optional[float]] = {}
-                for parameter in parameters.ALL_PARAMETERS:
-                    values[parameter] = _parse_value(row[parameter])
+                values = _parse_values(row)
                 measurements = StationMeasurements(station, measured_at, values)
                 all_measurements.append(measurements)
         return all_measurements
