@@ -262,7 +262,7 @@ class ForecastService:
             _check_full_hour(end_moment)
             _check_period_order(start_moment, end_moment)
             if end_moment - start_moment > MAX_HOURLY_FORECAST:
-                max_hours = int(MAX_HOURLY_FORECAST.total_seconds() // 3600)
+                max_hours = MAX_HOURLY_FORECAST // HOUR
                 raise CannotAnswerError(f"An hourly forecast covers at most {max_hours} hours; for whole days use daily_forecast.")
             last_stamp = end_moment.astimezone(timezone.utc)
             period = f"{format_swiss_time(start_moment)} to {format_swiss_time(end_moment)}"
@@ -320,7 +320,7 @@ class ForecastService:
         _check_full_hour(end_moment)
         _check_period_order(start_moment, end_moment)
         if end_moment - start_moment > MAX_RAIN_OUTLOOK:
-            max_hours = int(MAX_RAIN_OUTLOOK.total_seconds() // 3600)
+            max_hours = MAX_RAIN_OUTLOOK // HOUR
             raise CannotAnswerError(f"A rain outlook covers at most {max_hours} hours; ask for a shorter period.")
 
         place, point = await self._find_place_and_point(location, nearby_location)
