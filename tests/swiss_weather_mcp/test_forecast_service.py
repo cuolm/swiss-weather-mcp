@@ -306,6 +306,19 @@ async def test_read_rain_outlook_past_the_end(service_fixture):
 
 
 @pytest.mark.asyncio
+async def test_read_rain_outlook_up_to_the_end_of_the_forecast(service_fixture):
+    # The forecast ends at 20:00 Swiss, so the third block, 20:00 to 23:00, is left out
+    answer = await service_fixture.read_rain_outlook(
+        "Zurich", build_swiss_time("2026-09-23T14:00"), build_swiss_time("2026-09-23T21:00")
+    )
+
+    assert [(block["from"], block["to"]) for block in answer["blocks"]] == [
+        ("2026-09-23T14:00+02:00", "2026-09-23T17:00+02:00"),
+        ("2026-09-23T17:00+02:00", "2026-09-23T20:00+02:00"),
+    ]
+
+
+@pytest.mark.asyncio
 async def test_read_rain_outlook_refuses_a_start_inside_an_hour(service_fixture):
     with pytest.raises(CannotAnswerError, match="is not a full hour"):
         await service_fixture.read_rain_outlook(

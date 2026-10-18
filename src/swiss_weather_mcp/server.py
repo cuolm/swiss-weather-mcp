@@ -217,6 +217,7 @@ class SwissWeatherMCPServer:
             rain stop". Each block gives the chance of rain, the median rainfall of the 3 hours, and
             how much the wettest hour of the block may bring (its 90th percentile). The median is
             often 0 when showers are possible, so read the chance and the "up to" amount as well.
+            A period up to the end of the forecast ends with its last full 3-hour block.
 
             Args:
                 location (str): Place name: a town, village, city district, lake or peak (e.g., "Zurich").

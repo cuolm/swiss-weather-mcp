@@ -298,7 +298,8 @@ class ForecastService:
         Read when and how much it may rain, in 3-hour blocks from start to end.
 
         Times are timezone aware full hours. Raise CannotAnswerError when they are not, or when
-        the forecast does not cover them.
+        the forecast does not cover them. A last block that runs past the end of the forecast is
+        left out.
         """
         _check_full_hour(start_moment)
         _check_full_hour(end_moment)
@@ -317,6 +318,17 @@ class ForecastService:
         # The 3-hour values sit on the end of each block; the last block may end after the period,
         # as MeteoSwiss gives rain totals only per 3 hours
         block_ends = _create_stamps(first_stamp + RAIN_BLOCK, last_stamp, RAIN_BLOCK)
+        # A period up to the end of the forecast is answered up to its last full block, as a last
+        # block that runs past the period can also run past the forecast
+        last_block_end = block_ends[-1]
+        last_block_hours = _create_stamps(last_block_end - RAIN_BLOCK + HOUR, last_block_end, HOUR)
+        last_block_is_published = (
+            last_block_end in chance_series.values
+            and last_block_end in median_series.values
+            and all(stamp in upper_series.values for stamp in last_block_hours)
+        )
+        if len(block_ends) > 1 and last_block_end > last_stamp and not last_block_is_published:
+            block_ends.pop()
         # The heaviest hour needs the hourly values of every hour in the blocks
         hour_stamps = _create_stamps(first_stamp + HOUR, block_ends[-1], HOUR)
 
