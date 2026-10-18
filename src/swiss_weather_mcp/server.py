@@ -146,7 +146,7 @@ class SwissWeatherMCPServer:
 
         @self.mcp.tool()
         @_handle_tool_call
-        async def daily_forecast(location: str, start_date: str, days: int = 1, near: Near = None) -> dict:
+        async def forecast_daily(location: str, start_date: str, days: int = 1, near: Near = None) -> dict:
             """
             Get the whole-day forecast for a place, for one day or several days in a row: the
             cheapest way to answer "how is the weather" for a day, the weekend or the week.
@@ -170,15 +170,15 @@ class SwissWeatherMCPServer:
                     when MeteoSwiss does not publish it for that forecast point.
 
             Examples:
-                daily_forecast("Zurich", "2026-09-23")
-                daily_forecast("Lugano", "2026-09-26", 2)   # a weekend
+                forecast_daily("Zurich", "2026-09-23")
+                forecast_daily("Lugano", "2026-09-26", 2)   # a weekend
             """
             first_day = _parse_swiss_time(start_date).astimezone(SWISS_TZ).date()
             return await self.forecast_service.read_daily_forecast(location, first_day, days, near)
 
         @self.mcp.tool()
         @_handle_tool_call
-        async def hourly_forecast(location: str, start: str, end: Optional[str] = None, near: Near = None) -> dict:
+        async def forecast_hourly(location: str, start: str, end: Optional[str] = None, near: Near = None) -> dict:
             """
             Get the weather hour by hour for a place: temperature with its likely range, chance
             of rain and the weather in words.
@@ -188,8 +188,8 @@ class SwissWeatherMCPServer:
             hour starting at start. Each row covers the hour from its "from" to its "to": the
             temperature is the mean of that hour, while the rain chance and the weather cover the 3
             hours up to "to", as MeteoSwiss publishes them only per 3 hours. For whole days or
-            periods longer than a day use daily_forecast, which answers in far fewer rows, and for
-            rain amounts rain_outlook.
+            periods longer than a day use forecast_daily, which answers in far fewer rows, and for
+            rain amounts forecast_rain.
 
             Args:
                 location (str): Place name: a town, village, city district, lake or peak (e.g., "Zurich").
@@ -203,8 +203,8 @@ class SwissWeatherMCPServer:
                     In 8 of 10 possible outcomes, the temperature lies between the two percentiles.
 
             Examples:
-                hourly_forecast("Zurich", "2026-09-23T15:00")                        # one hour
-                hourly_forecast("Zurich", "2026-09-23T12:00", "2026-09-23T18:00")    # the afternoon
+                forecast_hourly("Zurich", "2026-09-23T15:00")                        # one hour
+                forecast_hourly("Zurich", "2026-09-23T12:00", "2026-09-23T18:00")    # the afternoon
             """
             start_moment = _parse_swiss_time(start)
             end_moment = _parse_swiss_time(end) if end is not None else None
@@ -212,7 +212,7 @@ class SwissWeatherMCPServer:
 
         @self.mcp.tool()
         @_handle_tool_call
-        async def rain_outlook(location: str, start: str, end: str, near: Near = None) -> dict:
+        async def forecast_rain(location: str, start: str, end: str, near: Near = None) -> dict:
             """
             Get when and how much it may rain at a place, in 3-hour blocks over a period.
 
@@ -232,8 +232,8 @@ class SwissWeatherMCPServer:
                     millimetres), and the model run.
 
             Examples:
-                rain_outlook("Zurich", "2026-09-23T12:00", "2026-09-24T00:00")
-                rain_outlook("Lugano", "2026-09-24T06:00", "2026-09-24T18:00")
+                forecast_rain("Zurich", "2026-09-23T12:00", "2026-09-24T00:00")
+                forecast_rain("Lugano", "2026-09-24T06:00", "2026-09-24T18:00")
             """
             start_moment = _parse_swiss_time(start)
             end_moment = _parse_swiss_time(end)
@@ -241,7 +241,7 @@ class SwissWeatherMCPServer:
 
         @self.mcp.tool()
         @_handle_tool_call
-        async def sunshine_hours(location: str, start: str, end: str, near: Near = None) -> dict:
+        async def forecast_sunshine(location: str, start: str, end: str, near: Near = None) -> dict:
             """
             Get the sunshine hours for a place over a period.
 
@@ -258,8 +258,8 @@ class SwissWeatherMCPServer:
                     altitudes, the period, and the model run.
 
             Examples:
-                sunshine_hours("Zurich", "2026-09-23T00:00", "2026-09-24T00:00")   # the whole day
-                sunshine_hours("Zurich", "2026-09-23T12:00", "2026-09-23T18:00")   # the afternoon
+                forecast_sunshine("Zurich", "2026-09-23T00:00", "2026-09-24T00:00")   # the whole day
+                forecast_sunshine("Zurich", "2026-09-23T12:00", "2026-09-23T18:00")   # the afternoon
             """
             start_moment = _parse_swiss_time(start)
             end_moment = _parse_swiss_time(end)
@@ -267,7 +267,7 @@ class SwissWeatherMCPServer:
 
         @self.mcp.tool()
         @_handle_tool_call
-        async def wind(location: str, when: str, near: Near = None) -> dict:
+        async def forecast_wind(location: str, when: str, near: Near = None) -> dict:
             """
             Get the wind at a place at a specific time: mean speed, strongest gust and direction.
 
@@ -289,15 +289,15 @@ class SwissWeatherMCPServer:
                     model run.
 
             Examples:
-                wind("Zurich", "2026-09-23T14:00")
-                wind("Titlis", "2026-09-24T12:00")
+                forecast_wind("Zurich", "2026-09-23T14:00")
+                forecast_wind("Titlis", "2026-09-24T12:00")
             """
             moment = _parse_swiss_time(when)
             return await self.forecast_service.read_wind(location, moment, near)
 
         @self.mcp.tool()
         @_handle_tool_call
-        async def total_cloud_cover(location: str, when: str, near: Near = None) -> dict:
+        async def forecast_cloud_cover(location: str, when: str, near: Near = None) -> dict:
             """
             Get how cloudy it is at a place at a specific time.
 
@@ -305,7 +305,7 @@ class SwissWeatherMCPServer:
             total is an estimate that assumes the layers are independent. All three layers are
             returned as well, which tells low fog apart from thin high cloud.
 
-            When a number is not needed, hourly_forecast answers "how cloudy" in plain words.
+            When a number is not needed, forecast_hourly answers "how cloudy" in plain words.
 
             Args:
                 location (str): Place name: a town, village, city district, lake or peak (e.g., "Zurich").
@@ -317,15 +317,15 @@ class SwissWeatherMCPServer:
                     it is valid for, and the model run.
 
             Examples:
-                total_cloud_cover("Zurich", "2026-09-23T14:00")
-                total_cloud_cover("Locarno", "2026-09-24T09:00")
+                forecast_cloud_cover("Zurich", "2026-09-23T14:00")
+                forecast_cloud_cover("Locarno", "2026-09-24T09:00")
             """
             moment = _parse_swiss_time(when)
             return await self.forecast_service.read_total_cloud_cover(location, moment, near)
 
         @self.mcp.tool()
         @_handle_tool_call
-        async def freezing_level(location: str, when: str, near: Near = None) -> dict:
+        async def forecast_freezing_level(location: str, when: str, near: Near = None) -> dict:
             """
             Get the height of the 0 degree line at a place at a specific time.
 
@@ -341,8 +341,8 @@ class SwissWeatherMCPServer:
                     point used, with their altitudes, the time it is valid for, and the model run.
 
             Examples:
-                freezing_level("Zermatt", "2026-09-23T14:00")
-                freezing_level("Arosa", "2026-09-25T06:00")
+                forecast_freezing_level("Zermatt", "2026-09-23T14:00")
+                forecast_freezing_level("Arosa", "2026-09-25T06:00")
             """
             moment = _parse_swiss_time(when)
             return await self.forecast_service.read_freezing_level(location, moment, near)
@@ -363,8 +363,8 @@ class SwissWeatherMCPServer:
             Temperature, humidity, dew point and pressure are measured at measured_at. Rain,
             sunshine, wind speed, the strongest gust and the wind direction cover the 10 minutes up
             to it. The temperature and pressure changes compare measured_at with 3 hours before it,
-            negative when the value fell. For later today or the coming days use hourly_forecast or
-            daily_forecast.
+            negative when the value fell. For later today or the coming days use forecast_hourly or
+            forecast_daily.
 
             Args:
                 location (str): Place name: a town, village, city district, lake or peak (e.g., "Zurich").

@@ -15,13 +15,13 @@ SWISS_TZ = ZoneInfo("Europe/Zurich")
 # Every tool the server offers, with its arguments in order
 EXPECTED_TOOLS = {
     "current_date_and_time": [],
-    "daily_forecast": ["location", "start_date", "days", "near"],
-    "hourly_forecast": ["location", "start", "end", "near"],
-    "rain_outlook": ["location", "start", "end", "near"],
-    "sunshine_hours": ["location", "start", "end", "near"],
-    "wind": ["location", "when", "near"],
-    "total_cloud_cover": ["location", "when", "near"],
-    "freezing_level": ["location", "when", "near"],
+    "forecast_daily": ["location", "start_date", "days", "near"],
+    "forecast_hourly": ["location", "start", "end", "near"],
+    "forecast_rain": ["location", "start", "end", "near"],
+    "forecast_sunshine": ["location", "start", "end", "near"],
+    "forecast_wind": ["location", "when", "near"],
+    "forecast_cloud_cover": ["location", "when", "near"],
+    "forecast_freezing_level": ["location", "when", "near"],
     "current_conditions": ["location", "near"],
     "current_extremes": ["extreme"],
 }
@@ -116,7 +116,7 @@ async def test_handle_tool_call_returns_the_answer(server_fixture):
     answer = {"value": 3200.0, "unit": "m above sea level", "place": "Zürich (418 m)", "forecast_point": "Zürich 8001 (409 m)"}
     server_fixture.forecast_service.read_freezing_level.return_value = answer
 
-    tool_result = await server_fixture.mcp.call_tool("freezing_level", FREEZING_LEVEL_CALL)
+    tool_result = await server_fixture.mcp.call_tool("forecast_freezing_level", FREEZING_LEVEL_CALL)
     assert json.loads(tool_result.content[0].text) == answer
 
 
@@ -125,7 +125,7 @@ async def test_handle_tool_call_value_error(server_fixture, caplog):
     server_fixture.forecast_service.read_freezing_level.side_effect = CannotAnswerError("Location 'Tessin' is not one of the places")
 
     with caplog.at_level(logging.INFO), pytest.raises(ToolError, match="Location 'Tessin' is not one of") as raised:
-        await server_fixture.mcp.call_tool("freezing_level", {"location": "Tessin", "when": "2026-09-24T14:00"})
+        await server_fixture.mcp.call_tool("forecast_freezing_level", {"location": "Tessin", "when": "2026-09-24T14:00"})
 
     assert not isinstance(raised.value, UnexpectedToolError)
     for record in caplog.records:
@@ -135,7 +135,7 @@ async def test_handle_tool_call_value_error(server_fixture, caplog):
 @pytest.mark.asyncio
 async def test_handle_tool_call_invalid_timestamp(server_fixture):
     with pytest.raises(ToolError, match="is not a valid timestamp"):
-        await server_fixture.mcp.call_tool("freezing_level", {"location": "Zurich", "when": "tomorrow"})
+        await server_fixture.mcp.call_tool("forecast_freezing_level", {"location": "Zurich", "when": "tomorrow"})
 
 
 @pytest.mark.asyncio
@@ -143,7 +143,7 @@ async def test_handle_tool_call_portal_unreachable(server_fixture):
     server_fixture.forecast_service.read_freezing_level.side_effect = requests.ConnectionError("connection refused")
 
     with pytest.raises(ToolError, match="Could not reach the Swiss open data portal"):
-        await server_fixture.mcp.call_tool("freezing_level", FREEZING_LEVEL_CALL)
+        await server_fixture.mcp.call_tool("forecast_freezing_level", FREEZING_LEVEL_CALL)
 
 
 @pytest.mark.asyncio
@@ -152,7 +152,7 @@ async def test_handle_tool_call_unexpected_error(server_fixture):
     server_fixture.forecast_service.read_freezing_level.side_effect = KeyError("internal detail")
 
     with pytest.raises(UnexpectedToolError) as raised:
-        await server_fixture.mcp.call_tool("freezing_level", FREEZING_LEVEL_CALL)
+        await server_fixture.mcp.call_tool("forecast_freezing_level", FREEZING_LEVEL_CALL)
     assert "internal detail" not in str(raised.value)
 
 
@@ -162,7 +162,7 @@ async def test_handle_tool_call_unexpected_value_error(server_fixture):
     server_fixture.forecast_service.read_freezing_level.side_effect = ValueError("could not convert string to float")
 
     with pytest.raises(UnexpectedToolError) as raised:
-        await server_fixture.mcp.call_tool("freezing_level", FREEZING_LEVEL_CALL)
+        await server_fixture.mcp.call_tool("forecast_freezing_level", FREEZING_LEVEL_CALL)
     assert "could not convert" not in str(raised.value)
 
 
