@@ -62,7 +62,7 @@ class StationValue(NamedTuple):
     value: float
 
 
-def _build_nearest_station_sentence(place: SwisstopoPlace, measurements: StationMeasurements,
+def _build_data_from_sentence(place: SwisstopoPlace, measurements: StationMeasurements,
                                     distance_km: float, difference_m: int) -> str:
     """Build the sentence that says which station measured the values, such as "Glarus (517 m) is ..."."""
     measured_at = measurements.measured_at.astimezone(SWISS_TZ)
@@ -233,7 +233,7 @@ class MeasurementService:
         difference_m = round(station.altitude_m - place.altitude_m)
 
         answer: Dict[str, Any] = {
-            "nearest_station": _build_nearest_station_sentence(place, latest_measurements, distance_km, difference_m),
+            "data_from": _build_data_from_sentence(place, latest_measurements, distance_km, difference_m),
             "place": place.display_name,
             "altitude_m": place.altitude_m,
             "station": station.display_name,

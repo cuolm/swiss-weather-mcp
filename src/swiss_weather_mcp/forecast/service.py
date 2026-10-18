@@ -86,13 +86,13 @@ def _get_hourly_value(series: ForecastSeries, moment: datetime, point: MeteoSwis
 
 def _build_forecast_point_fields(place: SwisstopoPlace, point: MeteoSwissPoint) -> Dict[str, Any]:
     """
-    Build the answer fields that name the place and the forecast point, starting with a sentence
-    that says how far the point lies from the place and how much higher or lower.
+    Build the answer fields that name the place and the forecast point, starting with the
+    data_from sentence: how far the point lies from the place and how much higher or lower.
     """
     distance_km = round(calculate_distance_m(place, point) / METRES_PER_KILOMETRE, 1)
     difference_m = round(point.altitude_m - place.altitude_m)
     return {
-        "nearest_forecast_point": (
+        "data_from": (
             f"The forecast for {place.display_name} is the one MeteoSwiss makes for {point.display_name}, "
             f"{distance_km} km away and {describe_height_difference(difference_m)}."
         ),

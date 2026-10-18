@@ -26,7 +26,7 @@ async def test_read_current_conditions(measurement_service_fixture):
     answer = await measurement_service_fixture.read_current_conditions("Zurich")
 
     assert answer == {
-        "nearest_station": (
+        "data_from": (
             "Zürich / Fluntern (604 m) is the nearest MeteoSwiss station to Zürich (418 m), "
             "2.1 km away and 186 m higher. It measured the following values at 16:00."
         ),
@@ -62,7 +62,7 @@ async def test_read_current_conditions_values_the_station_lacks(measurement_serv
     assert (answer["station"], answer["station_distance_km"], answer["station_altitude_difference_m"]) == ("Davos (1594 m)", 0.5, 30)
     assert answer["rain_last_10_minutes_mm"] is None
     assert (answer["wind_direction_degrees"], answer["compass_point"]) == (None, None)
-    assert "0.5 km away and 30 m higher" in answer["nearest_station"]
+    assert "0.5 km away and 30 m higher" in answer["data_from"]
 
 
 @pytest.mark.asyncio
@@ -123,7 +123,7 @@ async def test_read_current_conditions_for_a_district(measurement_service_fixtur
     # The nearest station is found from the district itself, not from the town around it
     answer = await measurement_service_fixture.read_current_conditions("Lindenhof")
 
-    assert answer["nearest_station"].startswith(
+    assert answer["data_from"].startswith(
         "Zürich / Fluntern (604 m) is the nearest MeteoSwiss station to Lindenhof (428 m), 2.2 km away and "
         "176 m higher."
     )

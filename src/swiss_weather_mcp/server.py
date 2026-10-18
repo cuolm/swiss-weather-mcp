@@ -119,10 +119,10 @@ class SwissWeatherMCPServer:
                 "where in Switzerland it is warmest, coldest, windiest, wettest or sunniest now. "
                 "MeteoSwiss forecasts whole hours, so forecast times must be full hours such as 14:00; "
                 "other times are refused. A location is the name of a place: a town, a village, a city "
-                "district, a lake, a peak or a pass. The forecast comes from a nearby MeteoSwiss forecast "
-                "point of similar height, which the nearest_forecast_point sentence of the answer names. A "
-                "name of several places is answered with all of them: use what the user already said to "
-                "choose one, or ask the user, and call again with near."
+                "district, a lake, a peak or a pass. Forecasts come from a nearby MeteoSwiss forecast point "
+                "and measurements from a nearby MeteoSwiss station; the data_from sentence of each answer "
+                "names it. A name of several places is answered with all of them: use what the user "
+                "already said to choose one, or ask the user, and call again with near."
             ),
             log_level=log_level,  # forwarded to uvicorn, which configures its own loggers
         )
@@ -356,7 +356,7 @@ class SwissWeatherMCPServer:
             These are the measurements of the nearest station, not measurements at the place
             itself, and not a forecast. The station can be several kilometres away and hundreds of
             metres higher or lower than the place. Always start the answer with the
-            nearest_station sentence, which names the station, its distance and its height
+            data_from sentence, which names the station, its distance and its height
             difference, and then give its values as the station's measurements. MeteoSwiss
             publishes new values about every 10 minutes.
 
