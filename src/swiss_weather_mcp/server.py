@@ -363,7 +363,8 @@ class SwissWeatherMCPServer:
             Temperature, humidity, dew point and pressure are measured at measured_at. Rain,
             sunshine, wind speed, the strongest gust and the wind direction cover the 10 minutes up
             to it. The temperature and pressure changes compare measured_at with 3 hours before it,
-            negative when the value fell. For later today or the coming days use forecast_hourly or
+            negative when the value fell. The sunshine and rain of the last hour are totals of the
+            last six 10-minute values, and the strongest gust of the last hour is the highest of them. For later today or the coming days use forecast_hourly or
             forecast_daily.
 
             Args:
@@ -377,8 +378,9 @@ class SwissWeatherMCPServer:
                     the last 10 minutes, wind speed and gust in kilometres per hour, the wind
                     direction in degrees and as a compass point, the sea-level pressure (QNH) in
                     hectopascals, the change of the temperature and of the pressure over the last
-                    3 hours, and the sunshine in minutes over the last hour. A value is None when the
-                    station does not measure it. The changes and the sunshine of the last hour are
+                    3 hours, and over the last hour the sunshine in minutes, the rain in millimetres and
+                    the strongest gust in kilometres per hour. A value is None when the station does not
+                    measure it. The changes and the values of the last hour are
                     None when the station has not published all the measurements they need, such as
                     shortly after midnight UTC.
 

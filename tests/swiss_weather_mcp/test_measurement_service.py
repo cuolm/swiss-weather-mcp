@@ -5,7 +5,7 @@ import pytest
 from swiss_weather_mcp.errors import CannotAnswerError
 from swiss_weather_mcp.measurements import parameters
 from swiss_weather_mcp.measurements.service import (
-    StationValue, _build_canton_rows, _calculate_change, _sum_sunshine_last_hour,
+    StationValue, _build_canton_rows, _calculate_change, _find_highest_last_hour, _sum_last_hour,
 )
 from swiss_weather_mcp.measurements.source import Station, StationMeasurements
 
@@ -49,6 +49,8 @@ async def test_read_current_conditions(measurement_service_fixture):
         "temperature_change_last_3_hours_c": 2.6,
         "pressure_change_last_3_hours_hpa": -1.2,
         "sunshine_last_hour_min": 44.0,
+        "rain_last_hour_mm": 0.0,
+        "strongest_gust_last_hour_kmh": 10.1,
     }
 
 
@@ -72,6 +74,8 @@ async def test_read_current_conditions_without_earlier_measurements(measurement_
     assert answer["temperature_change_last_3_hours_c"] is None
     assert answer["pressure_change_last_3_hours_hpa"] is None
     assert answer["sunshine_last_hour_min"] is None
+    assert answer["rain_last_hour_mm"] is None
+    assert answer["strongest_gust_last_hour_kmh"] is None
 
 
 # --- _calculate_change ---
@@ -84,14 +88,34 @@ def test_calculate_change_without_a_value_3_hours_ago():
     assert _calculate_change(all_measurements, parameters.TEMPERATURE) is None
 
 
-# --- _sum_sunshine_last_hour ---
+# --- _sum_last_hour and _find_highest_last_hour ---
 
-def test_sum_sunshine_last_hour_without_one_value():
+def build_last_hour(parameter: str, values: list) -> list:
+    """Build the six rows of the hour up to 14:00 with the given values of one parameter."""
     all_measurements = []
-    for minute in (10, 20, 30, 40, 50):
-        all_measurements.append(build_measurements(f"2026-09-25T13:{minute}", {parameters.SUNSHINE: 10.0}))
-    all_measurements.append(build_measurements("2026-09-25T14:00", {parameters.SUNSHINE: None}))
-    assert _sum_sunshine_last_hour(all_measurements) is None
+    for minute, value in zip(("13:10", "13:20", "13:30", "13:40", "13:50", "14:00"), values):
+        all_measurements.append(build_measurements(f"2026-09-25T{minute}", {parameter: value}))
+    return all_measurements
+
+
+def test_sum_last_hour_without_one_value():
+    all_measurements = build_last_hour(parameters.SUNSHINE, [10.0, 10.0, 10.0, 10.0, 10.0, None])
+    assert _sum_last_hour(all_measurements, parameters.SUNSHINE) is None
+
+
+def test_sum_last_hour_of_rain():
+    all_measurements = build_last_hour(parameters.PRECIPITATION, [0.0, 0.1, 0.2, 0.0, 0.0, 0.0])
+    assert _sum_last_hour(all_measurements, parameters.PRECIPITATION) == 0.3
+
+
+def test_sum_last_hour_with_fewer_than_six_rows():
+    all_measurements = build_last_hour(parameters.PRECIPITATION, [0.1, 0.1, 0.1])
+    assert _sum_last_hour(all_measurements, parameters.PRECIPITATION) is None
+
+
+def test_find_highest_last_hour_of_gusts():
+    all_measurements = build_last_hour(parameters.WIND_GUSTS, [9.4, 31.7, 7.9, 8.3, 8.6, 10.1])
+    assert _find_highest_last_hour(all_measurements, parameters.WIND_GUSTS) == 31.7
 
 
 @pytest.mark.asyncio

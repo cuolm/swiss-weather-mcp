@@ -15,7 +15,7 @@ METRES_PER_KILOMETRE = 1000
 
 # The usual period for a pressure tendency
 CHANGE_PERIOD = timedelta(hours=3)
-SUNSHINE_PERIOD = timedelta(hours=1)
+LAST_HOUR = timedelta(hours=1)
 # A station publishes a row every 10 minutes
 MEASUREMENTS_PER_HOUR = 6
 
@@ -95,22 +95,39 @@ def _calculate_change(all_measurements: List[StationMeasurements], parameter: st
     return round(latest_value - earlier_value, 1)
 
 
-def _sum_sunshine_last_hour(all_measurements: List[StationMeasurements]) -> Optional[float]:
-    """Return the minutes of sunshine in the last hour, or None when one of its 10-minute values is missing."""
+def _find_last_hour_values(all_measurements: List[StationMeasurements], parameter: str) -> Optional[List[float]]:
+    """Return the six 10-minute values of the last hour, or None when one of them is missing."""
     latest_measurements = all_measurements[-1]
-    period_start = latest_measurements.measured_at - SUNSHINE_PERIOD
+    period_start = latest_measurements.measured_at - LAST_HOUR
 
-    sunshine_values: List[float] = []
+    values: List[float] = []
     for measurements in all_measurements:
         if measurements.measured_at > period_start:
-            sunshine_min = measurements.values[parameters.SUNSHINE]
-            if sunshine_min is None:
+            value = measurements.values[parameter]
+            if value is None:
                 return None
-            sunshine_values.append(sunshine_min)
+            values.append(value)
 
-    if len(sunshine_values) < MEASUREMENTS_PER_HOUR:
+    if len(values) < MEASUREMENTS_PER_HOUR:
         return None
-    return sum(sunshine_values)
+    return values
+
+
+def _sum_last_hour(all_measurements: List[StationMeasurements], parameter: str) -> Optional[float]:
+    """Return the total of a 10-minute value over the last hour, such as the rain, or None when one is missing."""
+    values = _find_last_hour_values(all_measurements, parameter)
+    if values is None:
+        return None
+    # Rounded, as adding tenths of a millimetre leaves float noise such as 0.30000000000000004
+    return round(sum(values), 1)
+
+
+def _find_highest_last_hour(all_measurements: List[StationMeasurements], parameter: str) -> Optional[float]:
+    """Return the highest 10-minute value of the last hour, such as the strongest gust, or None when one is missing."""
+    values = _find_last_hour_values(all_measurements, parameter)
+    if values is None:
+        return None
+    return max(values)
 
 
 def _find_station_values(all_measurements: List[StationMeasurements], parameter: str) -> List[StationValue]:
@@ -235,7 +252,9 @@ class MeasurementService:
 
         answer["temperature_change_last_3_hours_c"] = _calculate_change(all_measurements, parameters.TEMPERATURE)
         answer["pressure_change_last_3_hours_hpa"] = _calculate_change(all_measurements, parameters.PRESSURE_SEA_LEVEL)
-        answer["sunshine_last_hour_min"] = _sum_sunshine_last_hour(all_measurements)
+        answer["sunshine_last_hour_min"] = _sum_last_hour(all_measurements, parameters.SUNSHINE)
+        answer["rain_last_hour_mm"] = _sum_last_hour(all_measurements, parameters.PRECIPITATION)
+        answer["strongest_gust_last_hour_kmh"] = _find_highest_last_hour(all_measurements, parameters.WIND_GUSTS)
         return answer
 
     async def read_current_extremes(self, extreme: str) -> Dict[str, Any]:
