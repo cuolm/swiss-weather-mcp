@@ -115,7 +115,7 @@ class SwissWeatherMCPServer:
             name="swiss_weather_mcp_server",
             instructions=(
                 "This MCP server provides hourly and daily weather forecasts for Switzerland for today "
-                "and the next 8 days, the weather measured now at the nearest MeteoSwiss station, and "
+                "and the next 8 days, the weather measured now at a nearby MeteoSwiss station, and "
                 "where in Switzerland it is warmest, coldest, windiest, wettest or sunniest now. "
                 "MeteoSwiss forecasts whole hours, so forecast times must be full hours such as 14:00; "
                 "other times are refused. A location is the name of a place: a town, a village, a city "
@@ -351,37 +351,30 @@ class SwissWeatherMCPServer:
         @_handle_tool_call
         async def current_conditions(location: str, near: Near = None) -> dict:
             """
-            Get the latest measurements of the MeteoSwiss station nearest to a place.
+            Get the latest measurements of a MeteoSwiss station near the location.
 
-            These are the measurements of the nearest station, not measurements at the place
-            itself, and not a forecast. The station can be several kilometres away and hundreds of
-            metres higher or lower than the place. Always start the answer with the
-            data_from sentence, which names the station, its distance and its height
-            difference, and then give its values as the station's measurements. MeteoSwiss
+            These are the measurements of that station, not of the location itself. The station is
+            the one with the smallest distance plus 20 times the height gap, so it can be several
+            kilometres away and hundreds of metres higher or lower than the location. Always start
+            the answer with the data_from sentence, which names the station, its distance and its
+            height difference, and then give the values as the station's measurements. MeteoSwiss
             publishes new values about every 10 minutes.
 
             Temperature, humidity, dew point and pressure are measured at measured_at. Rain,
             sunshine, wind speed, the strongest gust and the wind direction cover the 10 minutes up
             to it. The temperature and pressure changes compare measured_at with 3 hours before it,
-            negative when the value fell. The sunshine and rain of the last hour are totals of the
-            last six 10-minute values, and the strongest gust of the last hour is the highest of them. For later today or the coming days use forecast_hourly or
-            forecast_daily.
+            negative when the value fell. The rain and sunshine of the last hour are the totals of
+            its six 10-minute values, and the strongest gust of the last hour is the highest of them.
+            For later today or the coming days use forecast_hourly or forecast_daily.
 
             Args:
                 location (str): Place name: a town, village, city district, lake or peak (e.g., "Zurich").
 
             Returns:
-                dict: The place with its altitude, the station with its altitude, its distance in
-                    kilometres and its height above the place in metres (negative
-                    when lower), the time of the measurements, the temperature and dew point in
-                    Celsius, humidity in percent, rain in millimetres and sunshine in minutes over
-                    the last 10 minutes, wind speed and gust in kilometres per hour, the wind
-                    direction in degrees and as a compass point, the sea-level pressure (QNH) in
-                    hectopascals, the change of the temperature and of the pressure over the last
-                    3 hours, and over the last hour the sunshine in minutes, the rain in millimetres and
-                    the strongest gust in kilometres per hour. A value is None when the station does not
-                    measure it. The changes and the values of the last hour are
-                    None when the station has not published all the measurements they need, such as
+                dict: The place, the station with its distance and height difference, the time of the
+                    measurements and the measured values; the field names give the units. A value is
+                    None when the station does not measure it, and a change or a last-hour value is
+                    None when the station has not published all the measurements it needs, such as
                     shortly after midnight UTC.
 
             Examples:

@@ -8,7 +8,7 @@ from fakes import MEASUREMENTS_NOW
 from swiss_weather_mcp.errors import CannotAnswerError
 from swiss_weather_mcp.measurements import parameters
 from swiss_weather_mcp.measurements.source import (
-    MAX_STATIONS_TRIED, _find_canton_name, _parse_reference_timestamp,
+    MAX_STATIONS_TRIED, Station, _calculate_weighted_distance_m, _find_canton_name, _parse_reference_timestamp,
 )
 from swiss_weather_mcp.places.source import SwisstopoPlace
 
@@ -22,6 +22,16 @@ UETLIBERG = SwisstopoPlace(
 KLOTEN = SwisstopoPlace(
     name="Kloten", object_types=("Ort",), population_band=7, is_exonym=False, altitude_m=447.0,
     east_m=2686100.0, north_m=1256500.0,
+)
+BRAUNWALD = SwisstopoPlace(
+    name="Braunwald", object_types=("Ort", "Haltestelle Bahn"), population_band=4, is_exonym=False,
+    altitude_m=1290.0, east_m=2718807.0, north_m=1199989.0,
+)
+GLARUS = Station(
+    abbr="GLA", name="Glarus", canton="Glarus", altitude_m=517.0, east_m=2723757.0, north_m=1210567.0,
+)
+ELM = Station(
+    abbr="ELM", name="Elm", canton="Glarus", altitude_m=958.0, east_m=2732266.0, north_m=1198424.0,
 )
 ZURICH = SwisstopoPlace(
     name="Zürich", object_types=("Ort",), population_band=9, is_exonym=False, altitude_m=418.0,
@@ -94,37 +104,44 @@ def test_read_station_measurements_downloads_again_when_old(source_fixture, meas
     assert count_downloads(source_fixture, "ogd-smn_sma_t_now.csv") == 2
 
 
-# --- find_nearest_station_measurements ---
+# --- _calculate_weighted_distance_m ---
 
-def test_find_nearest_station_measurements_skips_a_station_without_temperature(measurement_source_fixture):
+def test_calculate_weighted_distance_m_prefers_a_station_of_similar_height():
+    # Glarus is nearer to Braunwald, but 773 m lower; Elm is 1.8 km farther, but only 332 m lower
+    assert _calculate_weighted_distance_m(BRAUNWALD, ELM) < _calculate_weighted_distance_m(BRAUNWALD, GLARUS)
+
+
+# --- find_station_measurements ---
+
+def test_find_station_measurements_skips_a_station_without_temperature(measurement_source_fixture):
     # Standing on the Uetliberg, whose station has no thermometer, the next one is Fluntern
-    assert measurement_source_fixture.find_nearest_station_measurements(UETLIBERG)[-1].station.abbr == "SMA"
+    assert measurement_source_fixture.find_station_measurements(UETLIBERG)[-1].station.abbr == "SMA"
 
 
-def test_find_nearest_station_measurements_skips_a_station_without_rows(measurement_source_fixture):
-    # The Kloten station is the nearest one, but its now file has no rows yet
-    assert measurement_source_fixture.find_nearest_station_measurements(KLOTEN)[-1].station.abbr == "SMA"
+def test_find_station_measurements_skips_a_station_without_rows(measurement_source_fixture):
+    # The Kloten station comes first, but its now file has no rows yet
+    assert measurement_source_fixture.find_station_measurements(KLOTEN)[-1].station.abbr == "SMA"
 
 
-def test_find_nearest_station_measurements_skips_a_station_that_stopped_publishing(
+def test_find_station_measurements_skips_a_station_that_stopped_publishing(
     mocker, measurement_source_fixture,
 ):
-    # Fluntern is the nearest station to Zürich, but its latest row is 61 minutes old
+    # Fluntern is the first station for Zürich, but its latest row is 61 minutes old
     fluntern = measurement_source_fixture._read_station_measurements(find_station(measurement_source_fixture, "SMA"))
     davos = measurement_source_fixture._read_station_measurements(find_station(measurement_source_fixture, "DAV"))
     old_fluntern = [fluntern[-1]._replace(measured_at=MEASUREMENTS_NOW - timedelta(minutes=61))]
     mocker.patch.object(measurement_source_fixture, "_read_station_measurements", side_effect=[old_fluntern, davos])
 
-    assert measurement_source_fixture.find_nearest_station_measurements(ZURICH)[-1].station.abbr == "DAV"
+    assert measurement_source_fixture.find_station_measurements(ZURICH)[-1].station.abbr == "DAV"
 
 
-def test_find_nearest_station_measurements_tries_only_the_nearest_stations(
+def test_find_station_measurements_tries_only_the_first_stations(
     mocker, measurement_source_fixture,
 ):
     # Four stations are in the table, and none of them answers
     read_mock = mocker.patch.object(measurement_source_fixture, "_read_station_measurements", return_value=[])
     with pytest.raises(CannotAnswerError, match="published a temperature in the last hour"):
-        measurement_source_fixture.find_nearest_station_measurements(ZURICH)
+        measurement_source_fixture.find_station_measurements(ZURICH)
     assert read_mock.call_count == MAX_STATIONS_TRIED
 
 

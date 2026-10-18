@@ -27,7 +27,7 @@ async def test_read_current_conditions(measurement_service_fixture):
 
     assert answer == {
         "data_from": (
-            "Zürich / Fluntern (604 m) is the nearest MeteoSwiss station to Zürich (418 m), "
+            "The measurements for Zürich (418 m) are those of the MeteoSwiss station Zürich / Fluntern (604 m), "
             "2.1 km away and 186 m higher. It measured the following values at 16:00."
         ),
         "place": "Zürich (418 m)",
@@ -120,12 +120,12 @@ def test_find_highest_last_hour_of_gusts():
 
 @pytest.mark.asyncio
 async def test_read_current_conditions_for_a_district(measurement_service_fixture):
-    # The nearest station is found from the district itself, not from the town around it
+    # The station is found from the district itself, not from the town around it
     answer = await measurement_service_fixture.read_current_conditions("Lindenhof")
 
     assert answer["data_from"].startswith(
-        "Zürich / Fluntern (604 m) is the nearest MeteoSwiss station to Lindenhof (428 m), 2.2 km away and "
-        "176 m higher."
+        "The measurements for Lindenhof (428 m) are those of the MeteoSwiss station Zürich / Fluntern (604 m), "
+        "2.2 km away and 176 m higher."
     )
     assert (answer["place"], answer["altitude_m"]) == ("Lindenhof (428 m)", 428.0)
 

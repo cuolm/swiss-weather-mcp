@@ -142,7 +142,7 @@ to, and the model run.
 | `forecast_wind(location, when)` | Mean speed and strongest gust (km/h) in the hour up to that time, how strong that gust may get (its 90th percentile), and the direction as degrees and compass point | `forecast_wind("Titlis", "2026-09-23T14:00")` |
 | `forecast_cloud_cover(location, when)` | Estimated total cloud cover (%) plus the low, medium and high layers | `forecast_cloud_cover("Zurich", "2026-09-23T14:00")` |
 | `forecast_freezing_level(location, when)` | Height of the 0 °C line (m above sea level) | `forecast_freezing_level("Zermatt", "2026-09-23T14:00")` |
-| `current_conditions(location)` | Measured now at the nearest weather station: temperature, humidity, dew point, rain and sunshine in the last 10 minutes, wind, gust, direction and sea-level pressure, plus the temperature and pressure change over the last 3 hours and the rain, sunshine and strongest gust of the last hour | `current_conditions("Zurich")` |
+| `current_conditions(location)` | Measured now at a MeteoSwiss station near the place: temperature, humidity, dew point, rain and sunshine in the last 10 minutes, wind, gust, direction and sea-level pressure, plus the temperature and pressure change over the last 3 hours and the rain, sunshine and strongest gust of the last hour | `current_conditions("Zurich")` |
 | `current_extremes(extreme)` | Where in Switzerland it is `warmest`, `coldest`, `windiest`, `wettest` or `sunniest` now, from the measurements of all weather stations: the first 5 stations by temperature or gust, or how many stations are sunny or rainy in Switzerland and in each canton | `current_extremes("sunniest")` |
 
 ## Good to Know
@@ -182,10 +182,11 @@ to, and the model run.
   and every town of 1,000 people or more still gets a point within 3 km.
 
 ### Measurements
-- `current_conditions` uses the nearest of the about 160 SwissMetNet stations that measures the
-  temperature, which can be far from the place and much higher or lower.
-- Every answer starts with a sentence that says so, such as "Glarus (517 m) is the nearest MeteoSwiss
-  station to Braunwald (1290 m), 11.7 km away and 773 m lower."
+- `current_conditions` uses one of the about 160 SwissMetNet stations that measure the temperature,
+  chosen like the forecast point: the smallest distance plus 20 times the height gap. Stations are
+  far fewer than forecast points, so the station can still be far from the place and higher or lower.
+- Every answer starts with a sentence that says so, such as "The measurements for Braunwald (1290 m)
+  are those of the MeteoSwiss station Elm (958 m), 13.5 km away and 332 m lower."
 - `current_extremes` lists the first 5 stations by temperature or gust, and for the sunniest and the
   wettest counts the sunny or rainy stations in Switzerland and in each canton.
 

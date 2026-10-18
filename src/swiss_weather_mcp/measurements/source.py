@@ -42,8 +42,9 @@ What MeteoSwiss publishes:
 How we use it for the weather at one place:
 1. Read the station table on the first question and keep it in memory for as long as
    the process runs; the file is downloaded first when it is missing or older than 7 days.
-2. Sort the stations by their distance to the requested place.
-3. Read the now file of the nearest station; the file is downloaded again when it is
+2. Rank the stations by their distance to the requested place plus METRES_PER_HEIGHT_METRE
+   times their height gap, as the weather changes faster with height than with distance.
+3. Read the now file of the first station; the file is downloaded again when it is
    older than 5 minutes. Its last row holds the latest measurements, and its earlier rows
    show how the values changed.
 4. Take the next station when the latest measurements have no temperature or are older
@@ -86,6 +87,8 @@ ALL_STATIONS_LATEST_VALUES_MAX_AGE = timedelta(minutes=5)
 # Older latest measurements mean the station stopped publishing
 LATEST_MEASUREMENTS_MAX_AGE = timedelta(hours=1)
 MAX_STATIONS_TRIED = 3
+# Weather changes more with height than with distance: 1 m of height gap counts like 20 m farther away
+METRES_PER_HEIGHT_METRE = 20
 
 MISSING_VALUE_MARKERS = {"", "-"}
 
@@ -121,6 +124,12 @@ def calculate_distance_m(place: SwisstopoPlace, station: Station) -> float:
     return math.hypot(place.east_m - station.east_m, place.north_m - station.north_m)
 
 
+def _calculate_weighted_distance_m(place: SwisstopoPlace, station: Station) -> float:
+    """Return the distance to a station plus METRES_PER_HEIGHT_METRE times the height gap."""
+    height_gap_m = abs(station.altitude_m - place.altitude_m)
+    return calculate_distance_m(place, station) + METRES_PER_HEIGHT_METRE * height_gap_m
+
+
 class StationMeasurements(NamedTuple):
     """The measurements of one station at one time, keyed by parameter; None where it has no value."""
     station: Station
@@ -154,7 +163,7 @@ def _parse_reference_timestamp(timestamp_text: str) -> datetime:
 
 
 class MeasurementSource:
-    """Read the latest SwissMetNet measurements and find the station nearest to a place."""
+    """Read the latest SwissMetNet measurements and find the station for a place."""
 
     def __init__(self, cache_dir: Path):
         self.cache_dir = cache_dir / "measurements"
@@ -202,17 +211,20 @@ class MeasurementSource:
                 all_measurements.append(measurements)
         return all_measurements
 
-    def find_nearest_station_measurements(self, place: SwisstopoPlace) -> List[StationMeasurements]:
+    def find_station_measurements(self, place: SwisstopoPlace) -> List[StationMeasurements]:
         """
-        Find the measurements of the station nearest to a place that measures the temperature,
-        the oldest first, so the last entry holds the latest measurements.
+        Find the measurements of the station for a place: of the stations that published a
+        temperature in the last hour, the one with the smallest distance plus
+        METRES_PER_HEIGHT_METRE times the height gap. Return them oldest first, so the last entry
+        holds the latest measurements.
 
-        Raise CannotAnswerError when none of the nearest stations published a temperature in the last hour.
+        Raise CannotAnswerError when none of the first MAX_STATIONS_TRIED stations published a
+        temperature in the last hour.
         """
         stations = self._load_stations()
-        nearest_stations = sorted(stations.values(), key=lambda station: calculate_distance_m(place, station))
+        ranked_stations = sorted(stations.values(), key=lambda station: _calculate_weighted_distance_m(place, station))
         now = datetime.now(timezone.utc)
-        for station in nearest_stations[:MAX_STATIONS_TRIED]:
+        for station in ranked_stations[:MAX_STATIONS_TRIED]:
             all_measurements = self._read_station_measurements(station)
             # Some stations measure only a few values, such as wind on a tower, and would answer
             # with almost every value None; a temperature marks a station that measures the usual set
@@ -226,7 +238,7 @@ class MeasurementSource:
             return all_measurements
 
         raise CannotAnswerError(
-            f"None of the {MAX_STATIONS_TRIED} stations nearest to {place.display_name} published a "
+            f"None of the {MAX_STATIONS_TRIED} stations tried for {place.display_name} published a "
             f"temperature in the last hour, try again later."
         )
 

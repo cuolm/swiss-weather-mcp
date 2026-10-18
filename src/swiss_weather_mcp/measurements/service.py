@@ -63,12 +63,12 @@ class StationValue(NamedTuple):
 
 
 def _build_data_from_sentence(place: SwisstopoPlace, measurements: StationMeasurements,
-                                    distance_km: float, difference_m: int) -> str:
-    """Build the sentence that says which station measured the values, such as "Glarus (517 m) is ..."."""
+                              distance_km: float, difference_m: int) -> str:
+    """Build the data_from sentence: the station that measured the values, its distance and height difference."""
     measured_at = measurements.measured_at.astimezone(SWISS_TZ)
     return (
-        f"{measurements.station.display_name} is the nearest MeteoSwiss station to {place.display_name}, "
-        f"{distance_km} km away and {describe_height_difference(difference_m)}. "
+        f"The measurements for {place.display_name} are those of the MeteoSwiss station "
+        f"{measurements.station.display_name}, {distance_km} km away and {describe_height_difference(difference_m)}. "
         f"It measured the following values at {measured_at:%H:%M}."
     )
 
@@ -206,9 +206,9 @@ class MeasurementService:
         """Find the place a user means in a worker thread, so a download does not block other requests."""
         return await asyncio.to_thread(self.place_finder.find_place, location, nearby_location)
 
-    async def _find_nearest_station_measurements(self, place: SwisstopoPlace) -> List[StationMeasurements]:
-        """Find the nearest station's measurements in a worker thread, so a download does not block other requests."""
-        return await asyncio.to_thread(self.measurement_source.find_nearest_station_measurements, place)
+    async def _find_station_measurements(self, place: SwisstopoPlace) -> List[StationMeasurements]:
+        """Find a place's station measurements in a worker thread, so a download does not block other requests."""
+        return await asyncio.to_thread(self.measurement_source.find_station_measurements, place)
 
     async def _read_all_stations_latest_measurements(self) -> List[StationMeasurements]:
         """Read every station's latest measurements in a worker thread, so a download does not block other requests."""
@@ -216,17 +216,12 @@ class MeasurementService:
 
     async def read_current_conditions(self, location: str, nearby_location: Optional[str] = None) -> Dict[str, Any]:
         """
-        Read the latest measurements of the station nearest to a place.
+        Read the latest measurements of the station chosen for the location.
 
-        Return the place, the station with its distance and its height above the place (negative
-        when lower), the time of the measurements, and the measured values, None
-        where the station does not measure them. The temperature and pressure changes over the last
-        3 hours and the sunshine of the last hour are None when the station has not published all
-        the measurements they need. Raise CannotAnswerError for an unknown location or when no
-        station publishes a temperature.
+        Raise CannotAnswerError for an unknown location or when no station publishes a temperature.
         """
         place = await self._find_place(location, nearby_location)
-        all_measurements = await self._find_nearest_station_measurements(place)
+        all_measurements = await self._find_station_measurements(place)
         latest_measurements = all_measurements[-1]
         station = latest_measurements.station
         distance_km = round(calculate_distance_m(place, station) / METRES_PER_KILOMETRE, 1)
