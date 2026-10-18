@@ -173,8 +173,9 @@ class ForecastSource:
 
     def _load_points(self) -> List[MeteoSwissPoint]:
         """
-        Read the point table into memory once per process, downloading it when it is missing or
-        old. The regional forecasts in REGIONAL_POINT_IDS are left out.
+        Load the point table once per process, downloading it when it is missing or old.
+
+        The regional forecasts in REGIONAL_POINT_IDS are left out.
         """
         if self._points:
             return self._points
@@ -202,9 +203,10 @@ class ForecastSource:
 
     def find_forecast_point(self, place: SwisstopoPlace) -> MeteoSwissPoint:
         """
-        Find the point to forecast a place from: among the points within FORECAST_POINT_RADIUS_M,
-        the one with the smallest distance plus METRES_PER_HEIGHT_METRE times the height gap,
-        else the nearest point.
+        Find the point to forecast a place from.
+
+        Among the points within FORECAST_POINT_RADIUS_M it is the one with the smallest distance
+        plus METRES_PER_HEIGHT_METRE times the height gap, else the nearest point.
         """
         points = self._load_points()
         close_points = []
@@ -258,11 +260,10 @@ class ForecastSource:
 
     def _find_latest_run(self) -> Tuple[str, Dict[str, str]]:
         """
-        Find the newest published run and the parameter files it holds, reusing the answer for
-        RUN_LOOKUP_MAX_AGE.
+        Find the newest published run and the parameter files it holds.
 
-        Returns:
-            Tuple[str, Dict[str, str]]: The run ID (YYYYMMDDHHMM, UTC) and its parameter file URLs.
+        Return the run ID, YYYYMMDDHHMM in UTC, and the URL of each parameter's file. The answer is
+        reused for RUN_LOOKUP_MAX_AGE.
         """
         with self._run_lookup_lock:
             now = datetime.now(timezone.utc)
@@ -347,14 +348,8 @@ class ForecastSource:
         """
         Read one parameter over the whole forecast window at one point.
 
-        Raise CannotAnswerError when the newest run has no values for the parameter at this point.
-
-        Parameters:
-            parameter (str): MeteoSwiss parameter shortname (e.g., "tre200h0", "fu3010h0").
-            point (MeteoSwissPoint): The forecast point.
-
-        Returns:
-            ForecastSeries: The run the values came from, and the values keyed by UTC timestamp.
+        parameter is a MeteoSwiss parameter shortname, such as tre200h0. Raise CannotAnswerError
+        when the newest run has no values for the parameter at this point.
         """
         run_id, file_urls = self._find_latest_run()
         if parameter not in file_urls:

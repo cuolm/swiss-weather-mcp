@@ -112,9 +112,10 @@ def _group_close_rows(rows: List[SwisstopoPlace]) -> List[List[SwisstopoPlace]]:
 
 def _merge_rows(group: List[SwisstopoPlace]) -> SwisstopoPlace:
     """
-    Merge a group of rows into one place, named and placed after its biggest settlement, else
-    after its main landmark. An official name wins over an exonym in the same spot, so Zürich
-    is not shown as Zurich.
+    Merge a group of rows into one place.
+
+    The place is named and placed after its biggest settlement, else after its main landmark. An
+    official name wins over an exonym in the same spot, so Zürich is not shown as Zurich.
     """
     settlements = [row for row in group if row.object_types[0] in SETTLEMENT_TYPES]
     if settlements:
@@ -229,10 +230,7 @@ class SwisstopoPlaceLookup:
 
     @property
     def near_settlements(self) -> List[SwisstopoPlace]:
-        """
-        The settlements of 100 or more people whose official name belongs to no other place,
-        to name as near.
-        """
+        """The settlements of 100 or more people with a unique official name, to name as near."""
         self.load_places()
         return self._near_settlements
 
@@ -265,9 +263,10 @@ class SwisstopoPlaceLookup:
 
     def find_places_named_alike(self, location: str) -> List[SwisstopoPlace]:
         """
-        Find the places to suggest when no row has a name, at most MAX_SIMILAR_NAMES: first the
-        names that start with it, then the names spelled alike, each biggest first. So "Flims"
-        suggests Flims Dorf before Flums, a bigger town spelled alike.
+        Find the places to suggest when no row has a name, at most MAX_SIMILAR_NAMES.
+
+        First the names that start with it, then the names spelled alike, each biggest first. So
+        "Flims" suggests Flims Dorf before Flums, a bigger town spelled alike.
         """
         self.load_places()
         typed_name = normalise_name(location)

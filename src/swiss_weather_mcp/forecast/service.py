@@ -73,8 +73,10 @@ def _get_daily_value(series: Optional[ForecastSeries], day: date) -> Optional[fl
 
 def _get_hourly_value(series: ForecastSeries, moment: datetime, point: MeteoSwissPoint) -> float:
     """
-    Return the value of an hourly series at a full hour: an average or sum of the hour up to it,
-    or a snapshot. Raise CannotAnswerError when the forecast does not cover that hour.
+    Return the value of an hourly series at a full hour.
+
+    It is the average or sum of the hour up to it, or a snapshot. Raise CannotAnswerError when the
+    forecast does not cover that hour.
     """
     if moment not in series.values:
         raise CannotAnswerError(
@@ -85,10 +87,7 @@ def _get_hourly_value(series: ForecastSeries, moment: datetime, point: MeteoSwis
 
 
 def _build_forecast_point_fields(place: SwisstopoPlace, point: MeteoSwissPoint) -> Dict[str, Any]:
-    """
-    Build the answer fields that name the place and the forecast point, starting with the
-    data_from sentence: how far the point lies from the place and how much higher or lower.
-    """
+    """Build the answer fields that name the place and the forecast point, starting with data_from."""
     distance_km = round(calculate_distance_m(place, point) / METRES_PER_KILOMETRE, 1)
     difference_m = round(point.altitude_m - place.altitude_m)
     return {
@@ -114,10 +113,7 @@ class ForecastService:
     async def _find_place_and_point(
         self, location: str, nearby_location: Optional[str]
     ) -> Tuple[SwisstopoPlace, MeteoSwissPoint]:
-        """
-        Find the place a user means and the point to forecast it from, in a worker thread, so a
-        download does not block other requests.
-        """
+        """Find the place and its forecast point in a worker thread, so a download does not block other requests."""
         place = await asyncio.to_thread(self.place_finder.find_place, location, nearby_location)
         point = await asyncio.to_thread(self.forecast_source.find_forecast_point, place)
         return place, point
@@ -143,10 +139,7 @@ class ForecastService:
         }
 
     async def read_wind(self, location: str, moment: datetime, nearby_location: Optional[str] = None) -> Dict[str, Any]:
-        """
-        Read the mean wind speed, the strongest gust with its 90th percentile and the wind direction
-        for the hour up to a moment.
-        """
+        """Read the wind for the hour up to a moment: mean speed, gusts and direction."""
         _check_full_hour(moment)
         place, point = await self._find_place_and_point(location, nearby_location)
         speed_series, gust_series, upper_gust_series, direction_series = await asyncio.gather(
@@ -241,12 +234,10 @@ class ForecastService:
         nearby_location: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
-        Read the temperature with its 10th and 90th percentile, rain chance and weather for every
-        hour from start to end, or for the one hour from start when end is None.
+        Read the hourly forecast from start to end, or for the one hour from start when end is None.
 
-        Return the place and its forecast point, one row per hour labelled with its start and end, and the model
-        run. Times are timezone aware full hours. Raise CannotAnswerError when they are not, or
-        when the forecast does not cover them.
+        Times are timezone aware full hours. Raise CannotAnswerError when they are not, or when the
+        forecast does not cover them.
         """
         _check_full_hour(start_moment)
         # A row covers the hour before its stamp, so the first hour is the row stamped one hour after start.
@@ -306,9 +297,8 @@ class ForecastService:
         """
         Read when and how much it may rain, in 3-hour blocks from start to end.
 
-        Return the place and its forecast point, one row per block with the rain chance, the median
-        rainfall and the heaviest hour's 90th percentile, and the model run. Times are timezone aware full hours.
-        Raise CannotAnswerError when they are not, or when the forecast does not cover them.
+        Times are timezone aware full hours. Raise CannotAnswerError when they are not, or when
+        the forecast does not cover them.
         """
         _check_full_hour(start_moment)
         _check_full_hour(end_moment)
@@ -375,10 +365,8 @@ class ForecastService:
         """
         Read the whole-day forecast for 1 to MAX_DAYS Swiss calendar days in a row from first_day.
 
-        Return the place and its forecast point, the model run and one row per day with its date,
-        weekday, minimum and maximum temperature, rainfall median with its 10th and 90th percentile,
-        and the weather in words with its emoji. A field MeteoSwiss does not publish for the forecast
-        point is None. Raise CannotAnswerError when days is out of range or no day has a forecast.
+        A value MeteoSwiss does not publish for the forecast point is None. Raise CannotAnswerError
+        when days is out of range or no day has a forecast.
         """
         if not 1 <= days <= MAX_DAYS:
             raise CannotAnswerError(f"days must be between 1 and {MAX_DAYS}, not {days}.")

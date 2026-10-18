@@ -176,8 +176,10 @@ def _count_stations_by_canton(station_values: List[StationValue]) -> Dict[str, i
 def _build_canton_rows(station_values: List[StationValue], matching_values: List[StationValue],
                        label: str) -> List[Dict[str, Any]]:
     """
-    Build one answer row for each canton with a measuring station: how many of its measuring
-    stations match, such as the sunny ones. The canton with the highest share comes first.
+    Build one answer row for each canton with a measuring station.
+
+    Each row says how many of its measuring stations match, such as the sunny ones. The canton with
+    the highest share comes first.
     """
     measuring_counts = _count_stations_by_canton(station_values)
     matching_counts = _count_stations_by_canton(matching_values)
@@ -254,15 +256,10 @@ class MeasurementService:
 
     async def read_current_extremes(self, extreme: str) -> Dict[str, Any]:
         """
-        Read where in Switzerland a measured value is at its extreme now, from every station's
-        latest measurements.
+        Read where in Switzerland a measured value is at its extreme now.
 
-        extreme is one of EXTREMES. Return the time of the measurements and, for the warmest, the
-        coldest and the windiest, the first 5 stations. For the sunniest and the wettest return
-        how many of the measuring stations are sunny or rainy, in all and for each canton with a
-        measuring station, and for the wettest also the first 5 rainy stations. A station without
-        a value is left out everywhere. Raise CannotAnswerError for an unknown extreme or when MeteoSwiss
-        publishes no measurements.
+        extreme is one of EXTREMES. Raise CannotAnswerError for an unknown extreme or when
+        MeteoSwiss publishes no measurements.
         """
         if extreme not in EXTREMES:
             raise CannotAnswerError(f"'{extreme}' is not a known extreme, use one of: {', '.join(EXTREMES)}.")

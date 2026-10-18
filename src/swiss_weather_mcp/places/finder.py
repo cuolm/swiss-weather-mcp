@@ -59,9 +59,10 @@ MAX_NEAR_SETTLEMENTS_TRIED = 20
 
 class PlaceFinder:
     """
-    Find the swisstopo place a user means. A name of several places needs near, a settlement
-    next to the one the user means; for an unknown name, suggest the names that start with it or
-    are spelled alike.
+    Find the swisstopo place a user means.
+
+    A name of several places needs near, a settlement next to the one the user means. For an unknown
+    name, suggest the names that start with it or are spelled alike.
     """
 
     def __init__(self, cache_dir: Path):
@@ -75,16 +76,13 @@ class PlaceFinder:
             logger.warning(f"Could not load the swisstopo places at start, the first question tries again: {error}")
 
     def start_loading_places(self) -> threading.Thread:
-        """
-        Load the places in a background thread, so the first question does not wait for their
-        download. Return the thread.
-        """
+        """Load the places in a background thread and return it, so the first question need not wait."""
         thread = threading.Thread(target=self._load_places, name="load-places", daemon=True)
         thread.start()
         return thread
 
     def _choose_place_near(self, places: List[SwisstopoPlace], nearby_location: str) -> Optional[SwisstopoPlace]:
-        """Choose the place closest to a place called nearby_location, or None when none lies within MAX_NEAR_DISTANCE_M."""
+        """Choose the place nearest to one called nearby_location, or None beyond MAX_NEAR_DISTANCE_M."""
         closest_place = None
         closest_distance_m = math.inf
         # nearby_location can itself be the name of several places, so every pair counts
@@ -99,8 +97,10 @@ class PlaceFinder:
 
     def _find_near_settlement(self, place: SwisstopoPlace, places: List[SwisstopoPlace]) -> str:
         """
-        Name the settlement to give as near for one of several places: the nearest one that
-        leads back to it, so a model that copies it gets this place.
+        Name the settlement to give as near for one of several places.
+
+        It is the nearest settlement that leads back to this place, so a model that copies it gets
+        this place.
         """
         nearest_settlements = heapq.nsmallest(
             MAX_NEAR_SETTLEMENTS_TRIED,
@@ -149,11 +149,12 @@ class PlaceFinder:
 
     def find_place(self, location: str, nearby_location: Optional[str] = None) -> SwisstopoPlace:
         """
-        Find the place a user means. nearby_location is only used for a name of several places.
+        Find the place a user means.
 
-        Case, accents and periods are ignored. Raise CannotAnswerError for an unknown name,
-        suggesting similar names, and for a name of several places that nearby_location does not
-        tell apart, listing every place to call again with.
+        nearby_location is only used for a name of several places. Case, accents and periods are
+        ignored. Raise CannotAnswerError for an unknown name, suggesting similar names, and for a
+        name of several places that nearby_location does not tell apart, listing every place to call
+        again with.
         """
         places = self.place_lookup.find_places_named(location)
         if not places:

@@ -213,13 +213,11 @@ class MeasurementSource:
 
     def find_station_measurements(self, place: SwisstopoPlace) -> List[StationMeasurements]:
         """
-        Find the measurements of the station for a place: of the stations that published a
-        temperature in the last hour, the one with the smallest distance plus
-        METRES_PER_HEIGHT_METRE times the height gap. Return them oldest first, so the last entry
-        holds the latest measurements.
+        Find the measurements of the station for a place, the oldest first.
 
-        Raise CannotAnswerError when none of the first MAX_STATIONS_TRIED stations published a
-        temperature in the last hour.
+        Stations are ranked by distance plus METRES_PER_HEIGHT_METRE times the height gap, and the
+        first one that published a temperature in the last hour is taken. Raise CannotAnswerError
+        when none of the first MAX_STATIONS_TRIED stations did.
         """
         stations = self._load_stations()
         ranked_stations = sorted(stations.values(), key=lambda station: _calculate_weighted_distance_m(place, station))

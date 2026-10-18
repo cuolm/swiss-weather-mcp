@@ -104,8 +104,10 @@ def _join_with_and(words: List[str]) -> str:
 
 class SwisstopoPlace(NamedTuple):
     """
-    A named place of swissNAMES3D: one row as published, or several close rows of the same
-    name merged into one, such as a lake and the district on its shore.
+    A named place of swissNAMES3D.
+
+    One row as published, or several close rows of the same name merged into one, such as a lake and
+    the district on its shore.
     """
     name: str
     object_types: Tuple[str, ...]  # such as ("Quartier", "See"), in the order of OBJECT_TYPE_NAMES
@@ -182,8 +184,10 @@ class SwisstopoPlaceSource:
 
     def _ensure_archive(self) -> Path:
         """
-        Return the cached archive. Look for a newer edition first when no archive is cached, or
-        when the last look is more than EDITION_CHECK_INTERVAL ago.
+        Return the cached archive.
+
+        Look for a newer edition first when no archive is cached, or when the last look is more than
+        EDITION_CHECK_INTERVAL ago.
         """
         # Usually one archive is cached. Two are left when the process stopped after downloading a new
         # edition but before deleting the old one. Archive names end in their year, so the newest is the last.
@@ -211,8 +215,9 @@ class SwisstopoPlaceSource:
 
     def read_rows(self) -> List[SwisstopoPlace]:
         """
-        Read the rows of the object types in OBJECT_TYPES_BY_FILE from the archive. The lookup
-        reads them once and keeps only the places it builds from them.
+        Read the rows of the object types in OBJECT_TYPES_BY_FILE from the archive.
+
+        The lookup reads them once and keeps only the places it builds from them.
         """
         archive_file = self._ensure_archive()
         rows = []

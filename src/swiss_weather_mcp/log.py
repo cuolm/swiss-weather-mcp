@@ -9,11 +9,10 @@ LOG_LEVELS = list(get_args(LogLevel))
 
 def setup_logging(log_level: str = "INFO") -> None:
     """
-    Configure the root logger ("") to capture logs from the entry point, all internal
-    sub-modules, and third-party libraries via a single handler writing to stderr.
+    Send the log records of the whole program to stderr through one handler on the root logger.
 
-    Libraries that report their own progress get a fixed level of their own, so raising
-    log_level does not bring back the output they would otherwise flood the request with.
+    Libraries that log every request, such as httpx, keep the level WARNING, so a lower log_level
+    such as DEBUG does not flood the output with them.
     """
     logger_config = {
         "version": 1,
