@@ -255,13 +255,6 @@ async def test_read_hourly_forecast_past_the_end(service_fixture):
         )
 
 
-@pytest.mark.asyncio
-async def test_read_hourly_forecast_too_long(service_fixture):
-    with pytest.raises(CannotAnswerError, match="at most 24 hours"):
-        await service_fixture.read_hourly_forecast(
-            "Zurich", build_swiss_time("2026-09-23T13:00"), build_swiss_time("2026-09-24T14:00")
-        )
-
 
 @pytest.mark.asyncio
 async def test_read_hourly_forecast_when_the_clocks_go_back(service_fixture, source_fixture):
@@ -310,13 +303,6 @@ async def test_read_rain_outlook_past_the_end(service_fixture):
             "Zurich", build_swiss_time("2026-09-23T14:00"), build_swiss_time("2026-09-23T23:00")
         )
 
-
-@pytest.mark.asyncio
-async def test_read_rain_outlook_too_long(service_fixture):
-    with pytest.raises(CannotAnswerError, match="at most 48 hours"):
-        await service_fixture.read_rain_outlook(
-            "Zurich", build_swiss_time("2026-09-23T14:00"), build_swiss_time("2026-09-25T20:00")
-        )
 
 
 @pytest.mark.asyncio

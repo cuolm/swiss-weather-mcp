@@ -187,13 +187,14 @@ class SwissWeatherMCPServer:
             is the afternoon" or "when is the best time for a walk". Without end it returns the one
             hour starting at start. Each row covers the hour from its "from" to its "to": the
             temperature is the mean of that hour, while the rain chance and the weather cover the 3
-            hours up to "to", as MeteoSwiss publishes them only per 3 hours. For whole days use
-            daily_forecast, for rain amounts rain_outlook.
+            hours up to "to", as MeteoSwiss publishes them only per 3 hours. For whole days or
+            periods longer than a day use daily_forecast, which answers in far fewer rows, and for
+            rain amounts rain_outlook.
 
             Args:
                 location (str): Place name: a town, village, city district, lake or peak (e.g., "Zurich").
                 start (str): Swiss local time as a full hour in ISO 8601 without offset, e.g. "2026-09-23T15:00". Today or up to 8 days ahead.
-                end (str): Optional. Swiss local time as a full hour in ISO 8601 without offset, at most 24 hours after start.
+                end (str): Optional. Swiss local time as a full hour in ISO 8601 without offset, after start.
 
             Returns:
                 dict: The place and the forecast point used, with their altitudes, one row per
@@ -223,7 +224,7 @@ class SwissWeatherMCPServer:
             Args:
                 location (str): Place name: a town, village, city district, lake or peak (e.g., "Zurich").
                 start (str): Swiss local time the period starts, as a full hour in ISO 8601 without offset, e.g. "2026-09-23T12:00". Today or up to 8 days ahead.
-                end (str): Swiss local time the period ends, as a full hour in ISO 8601 without offset, at most 48 hours after start.
+                end (str): Swiss local time the period ends, as a full hour in ISO 8601 without offset, after start.
 
             Returns:
                 dict: The place and the forecast point used, with their altitudes, one row per

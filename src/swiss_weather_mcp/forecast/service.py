@@ -17,8 +17,6 @@ METRES_PER_KILOMETRE = 1000
 
 HOUR = timedelta(hours=1)
 RAIN_BLOCK = timedelta(hours=3)
-MAX_RAIN_OUTLOOK = timedelta(hours=48)
-MAX_HOURLY_FORECAST = timedelta(hours=24)
 
 
 def _check_full_hour(moment: datetime) -> None:
@@ -247,8 +245,8 @@ class ForecastService:
         hour from start to end, or for the one hour from start when end is None.
 
         Return the place and its forecast point, one row per hour labelled with its start and end, and the model
-        run. Times are timezone aware full hours, at most MAX_HOURLY_FORECAST apart. Raise
-        CannotAnswerError when they are not, or when the forecast does not cover them.
+        run. Times are timezone aware full hours. Raise CannotAnswerError when they are not, or
+        when the forecast does not cover them.
         """
         _check_full_hour(start_moment)
         # A row covers the hour before its stamp, so the first hour is the row stamped one hour after start.
@@ -261,9 +259,6 @@ class ForecastService:
         else:
             _check_full_hour(end_moment)
             _check_period_order(start_moment, end_moment)
-            if end_moment - start_moment > MAX_HOURLY_FORECAST:
-                max_hours = MAX_HOURLY_FORECAST // HOUR
-                raise CannotAnswerError(f"An hourly forecast covers at most {max_hours} hours; for whole days use daily_forecast.")
             last_stamp = end_moment.astimezone(timezone.utc)
             period = f"{format_swiss_time(start_moment)} to {format_swiss_time(end_moment)}"
 
@@ -312,16 +307,12 @@ class ForecastService:
         Read when and how much it may rain, in 3-hour blocks from start to end.
 
         Return the place and its forecast point, one row per block with the rain chance, the median
-        rainfall and the heaviest hour's 90th percentile, and the model run. Times are timezone aware full hours,
-        at most MAX_RAIN_OUTLOOK apart. Raise CannotAnswerError when they are not, or when the
-        forecast does not cover them.
+        rainfall and the heaviest hour's 90th percentile, and the model run. Times are timezone aware full hours.
+        Raise CannotAnswerError when they are not, or when the forecast does not cover them.
         """
         _check_full_hour(start_moment)
         _check_full_hour(end_moment)
         _check_period_order(start_moment, end_moment)
-        if end_moment - start_moment > MAX_RAIN_OUTLOOK:
-            max_hours = MAX_RAIN_OUTLOOK // HOUR
-            raise CannotAnswerError(f"A rain outlook covers at most {max_hours} hours; ask for a shorter period.")
 
         place, point = await self._find_place_and_point(location, nearby_location)
         chance_series, median_series, upper_series = await asyncio.gather(
