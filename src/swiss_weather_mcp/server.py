@@ -155,15 +155,15 @@ class SwissWeatherMCPServer:
         @_handle_tool_call
         async def forecast_daily(location: str, start_date: str, days: int = 1, near: Near = None) -> dict:
             """
-            Get the whole-day forecast for a place, for one day or several days in a row: the
-            cheapest way to answer "how is the weather" for a day, the weekend or the week.
+            Get the whole-day forecast for a place, for one day or several days in a row.
 
-            Each day covers a Swiss calendar day, 00:00 to 24:00 local time. The minimum and maximum
-            are the lowest and highest hourly mean temperature of that day, and the weather words
-            describe the daytime. Always use this for the rain of a whole day.
+            Use this for "how is the weather" on a day, at the weekend or during the week, and for
+            the total rain of a day. Each day covers a Swiss calendar day, 00:00 to 24:00 local
+            time. The minimum and maximum are the lowest and highest hourly mean temperature of
+            that day, and the weather words describe the daytime.
 
             Args:
-                location (str): Place name: a town, village, city district, lake or peak (e.g., "Zurich").
+                location (str): Place name: a town, village, city district, lake or peak (e.g. "Zurich").
                 start_date (str): The first Swiss calendar day in ISO 8601, e.g. "2026-09-23". Today or up to 8 days ahead.
                 days (int): How many days in a row, from 1 to 9. Default 1.
 
@@ -189,14 +189,14 @@ class SwissWeatherMCPServer:
 
             Use this for one hour, such as "how warm is it at 15:00", or part of a day, such as "how
             is the afternoon" or "when is the best time for a walk". Without end it returns the one
-            hour starting at start. Each row covers the hour from its "from" to its "to": the
-            temperature is the mean of that hour, while the rain chance and the weather cover the 3
-            hours up to "to", as MeteoSwiss publishes them only per 3 hours. For whole days or
+            hour starting at start. Each row is one hour, from its from time to its to time. The
+            temperature is the mean of that hour. The rain chance and the weather cover the 3 hours
+            up to the to time, because MeteoSwiss publishes them only per 3 hours. For whole days or
             periods longer than a day use forecast_daily, which answers in far fewer rows, and for
             rain amounts forecast_rain.
 
             Args:
-                location (str): Place name: a town, village, city district, lake or peak (e.g., "Zurich").
+                location (str): Place name: a town, village, city district, lake or peak (e.g. "Zurich").
                 start (str): Swiss local time as a full hour in ISO 8601 without offset, e.g. "2026-09-23T15:00". Today or up to 8 days ahead.
                 end (str): Optional. Swiss local time as a full hour in ISO 8601 without offset, after start.
 
@@ -223,10 +223,11 @@ class SwissWeatherMCPServer:
             rain stop". Each block gives the chance of rain, the median rainfall of the 3 hours, and
             how much the wettest hour of the block may bring (its 90th percentile). The median is
             often 0 when showers are possible, so read the chance and the "up to" amount as well.
-            A period up to the end of the forecast ends with its last full 3-hour block.
+            A period up to the end of the forecast ends with its last full 3-hour block. For the
+            total rain of a whole day use forecast_daily.
 
             Args:
-                location (str): Place name: a town, village, city district, lake or peak (e.g., "Zurich").
+                location (str): Place name: a town, village, city district, lake or peak (e.g. "Zurich").
                 start (str): Swiss local time the period starts, as a full hour in ISO 8601 without offset, e.g. "2026-09-23T12:00". Today or up to 8 days ahead.
                 end (str): Swiss local time the period ends, as a full hour in ISO 8601 without offset, after start.
 
@@ -252,7 +253,7 @@ class SwissWeatherMCPServer:
             and reported as hours.
 
             Args:
-                location (str): Place name: a town, village, city district, lake or peak (e.g., "Zurich").
+                location (str): Place name: a town, village, city district, lake or peak (e.g. "Zurich").
                 start (str): Swiss local time the period starts, as a full hour in ISO 8601 without offset, e.g. "2026-09-23T06:00". Today or up to 8 days ahead.
                 end (str): Swiss local time the period ends, as a full hour in ISO 8601 without offset, e.g. "2026-09-23T18:00".
 
@@ -275,14 +276,13 @@ class SwissWeatherMCPServer:
             Get the wind at a place at a specific time: mean speed, strongest gust and direction.
 
             The speed is the mean over the hour up to that time, and the gust the strongest
-            one-second gust in that hour, which is what makes wind hazardous. The gust's 90th
-            percentile is a cautious high estimate of that strongest gust: in 9 of 10 possible
-            outcomes the gust stays below it, and in 1 of 10 it is stronger, so it is not the
-            highest gust possible. The direction is where the wind blows from, in degrees clockwise
-            from north (0 is a north wind, 180 a south wind) and as a compass point.
+            one-second gust in that hour. In 9 of 10 possible outcomes the gust stays below its
+            90th percentile, so the percentile is a cautious high estimate, not the highest gust
+            possible. The direction is where the wind blows from, in degrees clockwise from north
+            (0 is a north wind, 180 a south wind) and as a compass point.
 
             Args:
-                location (str): Place name: a town, village, city district, lake or peak (e.g., "Zurich").
+                location (str): Place name: a town, village, city district, lake or peak (e.g. "Zurich").
                 when (str): Swiss local time as a full hour in ISO 8601 without offset, e.g. "2026-09-23T14:00". Today or up to 8 days ahead.
 
             Returns:
@@ -309,7 +309,7 @@ class SwissWeatherMCPServer:
             When a number is not needed, forecast_hourly answers "how cloudy" in plain words.
 
             Args:
-                location (str): Place name: a town, village, city district, lake or peak (e.g., "Zurich").
+                location (str): Place name: a town, village, city district, lake or peak (e.g. "Zurich").
                 when (str): Swiss local time as a full hour in ISO 8601 without offset, e.g. "2026-09-23T14:00". Today or up to 8 days ahead.
 
             Returns:
@@ -333,7 +333,7 @@ class SwissWeatherMCPServer:
             so it answers questions about snow in the mountains, such as how high a ski area has to be.
 
             Args:
-                location (str): Place name: a town, village, city district, lake or peak (e.g., "Zurich").
+                location (str): Place name: a town, village, city district, lake or peak (e.g. "Zurich").
                 when (str): Swiss local time as a full hour in ISO 8601 without offset, e.g. "2026-09-23T14:00". Today or up to 8 days ahead.
 
             Returns:
@@ -354,11 +354,11 @@ class SwissWeatherMCPServer:
             Get the latest measurements of a MeteoSwiss station near the location.
 
             These are the measurements of that station, not of the location itself. The station is
-            the one with the smallest distance plus 20 times the height gap, so it can be several
-            kilometres away and hundreds of metres higher or lower than the location. Always start
-            the answer with the data_from sentence, which names the station, its distance and its
-            height difference, and then give the values as the station's measurements. MeteoSwiss
-            publishes new values about every 10 minutes.
+            chosen by distance and height, so it can be several kilometres away and hundreds of
+            metres higher or lower than the location. Always start the answer with the data_from
+            sentence, which names the station, its distance and its height difference, and then
+            give the values as the station's measurements. MeteoSwiss publishes new values about
+            every 10 minutes.
 
             Temperature, humidity, dew point and pressure are measured at measured_at. Rain,
             sunshine, wind speed, the strongest gust and the wind direction cover the 10 minutes up
@@ -368,7 +368,7 @@ class SwissWeatherMCPServer:
             For later today or the coming days use forecast_hourly or forecast_daily.
 
             Args:
-                location (str): Place name: a town, village, city district, lake or peak (e.g., "Zurich").
+                location (str): Place name: a town, village, city district, lake or peak (e.g. "Zurich").
 
             Returns:
                 dict: The place, the station with its distance and height difference, the time of the
@@ -399,9 +399,10 @@ class SwissWeatherMCPServer:
             is sunny when the sun shone for at least 5 of the last 10 minutes, and rainy when it
             measured rain in the last 10 minutes. The counts are given for Switzerland and for
             each canton, as the number of sunny or rainy stations out of the stations that measure
-            it. Always give both numbers, because a canton with one station says little. A canton
-            with 0 sunny or rainy stations has none. A canton that is not listed has no station
-            that measures it. Liechtenstein is listed like a canton. At night no station is sunny.
+            it. Always give both numbers, because a share from one or two stations says little
+            about a canton. A canton with 0 has stations, but none of them is sunny or rainy. A
+            canton that is not listed has no station that measures it. Liechtenstein is listed like
+            a canton. At night no station is sunny.
 
             Args:
                 extreme (str): One of "warmest", "coldest", "windiest", "wettest" or "sunniest".
