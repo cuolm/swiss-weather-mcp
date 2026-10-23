@@ -10,6 +10,7 @@ from typing import Annotated, Any, Awaitable, Callable, Dict, Optional
 import requests
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
+from mcp.types import ToolAnnotations
 from platformdirs import user_cache_path
 from pydantic import Field
 
@@ -34,6 +35,11 @@ Near = Annotated[Optional[str], Field(description=(
     "Only when several places share the name: a village next to the place the user means. "
     "For \"the Blausee near Bettmeralp\" use location \"Blausee\" and near \"Bettmeralp\". Leave it out otherwise."
 ))]
+
+# The Claude apps run read-only tools without asking the user each time. Every tool only
+# reads, and all but the clock read the Swiss open data portal.
+READS_OPEN_DATA = ToolAnnotations(read_only_hint=True, open_world_hint=True)
+READS_THE_CLOCK = ToolAnnotations(read_only_hint=True, open_world_hint=False)
 
 
 def _parse_args() -> argparse.Namespace:
@@ -130,7 +136,7 @@ class SwissWeatherMCPServer:
         self._register_tools()
 
     def _register_tools(self) -> None:
-        @self.mcp.tool()
+        @self.mcp.tool(annotations=READS_THE_CLOCK)
         def current_date_and_time() -> str:
             """
             Get the current weekday and Swiss local time.
@@ -145,7 +151,7 @@ class SwissWeatherMCPServer:
             now = datetime.now(SWISS_TZ)
             return f"Today is {now:%A}, {now:%Y-%m-%dT%H:%M} (Swiss time)"
 
-        @self.mcp.tool()
+        @self.mcp.tool(annotations=READS_OPEN_DATA)
         @_handle_tool_call
         async def forecast_daily(location: str, start_date: str, days: int = 1, near: Near = None) -> dict:
             """
@@ -174,7 +180,7 @@ class SwissWeatherMCPServer:
             first_day = _parse_swiss_time(start_date).astimezone(SWISS_TZ).date()
             return await self.forecast_service.read_daily_forecast(location, first_day, days, near)
 
-        @self.mcp.tool()
+        @self.mcp.tool(annotations=READS_OPEN_DATA)
         @_handle_tool_call
         async def forecast_hourly(location: str, start: str, end: Optional[str] = None, near: Near = None) -> dict:
             """
@@ -207,7 +213,7 @@ class SwissWeatherMCPServer:
             end_moment = _parse_swiss_time(end) if end is not None else None
             return await self.forecast_service.read_hourly_forecast(location, start_moment, end_moment, near)
 
-        @self.mcp.tool()
+        @self.mcp.tool(annotations=READS_OPEN_DATA)
         @_handle_tool_call
         async def forecast_rain(location: str, start: str, end: str, near: Near = None) -> dict:
             """
@@ -236,7 +242,7 @@ class SwissWeatherMCPServer:
             end_moment = _parse_swiss_time(end)
             return await self.forecast_service.read_rain_outlook(location, start_moment, end_moment, near)
 
-        @self.mcp.tool()
+        @self.mcp.tool(annotations=READS_OPEN_DATA)
         @_handle_tool_call
         async def forecast_sunshine(location: str, start: str, end: str, near: Near = None) -> dict:
             """
@@ -262,7 +268,7 @@ class SwissWeatherMCPServer:
             end_moment = _parse_swiss_time(end)
             return await self.forecast_service.read_sunshine_hours(location, start_moment, end_moment, near)
 
-        @self.mcp.tool()
+        @self.mcp.tool(annotations=READS_OPEN_DATA)
         @_handle_tool_call
         async def forecast_wind(location: str, when: str, near: Near = None) -> dict:
             """
@@ -290,7 +296,7 @@ class SwissWeatherMCPServer:
             moment = _parse_swiss_time(when)
             return await self.forecast_service.read_wind(location, moment, near)
 
-        @self.mcp.tool()
+        @self.mcp.tool(annotations=READS_OPEN_DATA)
         @_handle_tool_call
         async def forecast_cloud_cover(location: str, when: str, near: Near = None) -> dict:
             """
@@ -317,7 +323,7 @@ class SwissWeatherMCPServer:
             moment = _parse_swiss_time(when)
             return await self.forecast_service.read_total_cloud_cover(location, moment, near)
 
-        @self.mcp.tool()
+        @self.mcp.tool(annotations=READS_OPEN_DATA)
         @_handle_tool_call
         async def forecast_freezing_level(location: str, when: str, near: Near = None) -> dict:
             """
@@ -341,7 +347,7 @@ class SwissWeatherMCPServer:
             moment = _parse_swiss_time(when)
             return await self.forecast_service.read_freezing_level(location, moment, near)
 
-        @self.mcp.tool()
+        @self.mcp.tool(annotations=READS_OPEN_DATA)
         @_handle_tool_call
         async def current_conditions(location: str, near: Near = None) -> dict:
             """
@@ -377,7 +383,7 @@ class SwissWeatherMCPServer:
             """
             return await self.measurement_service.read_current_conditions(location, near)
 
-        @self.mcp.tool()
+        @self.mcp.tool(annotations=READS_OPEN_DATA)
         @_handle_tool_call
         async def current_extremes(extreme: ExtremeName) -> dict:
             """

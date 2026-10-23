@@ -86,6 +86,14 @@ async def test_register_tools(server_fixture):
 
 
 @pytest.mark.asyncio
+async def test_register_tools_marks_every_tool_read_only(server_fixture):
+    for tool in await server_fixture.mcp.list_tools():
+        assert tool.annotations.read_only_hint is True
+        # Only the clock tool stays off the open data portal
+        assert tool.annotations.open_world_hint is (tool.name != "current_date_and_time")
+
+
+@pytest.mark.asyncio
 async def test_register_tools_describes_near(server_fixture):
     for tool in await server_fixture.mcp.list_tools():
         near = tool.input_schema.get("properties", {}).get("near")
