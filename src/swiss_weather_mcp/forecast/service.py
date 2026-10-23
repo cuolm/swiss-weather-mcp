@@ -92,8 +92,8 @@ def _build_forecast_point_fields(place: SwisstopoPlace, point: MeteoSwissPoint) 
     difference_m = round(point.altitude_m - place.altitude_m)
     return {
         "data_from": (
-            f"The forecast for {place.display_name} is the one MeteoSwiss makes for {point.display_name}, "
-            f"{distance_km} km away and {describe_height_difference(difference_m)}."
+            f"The forecast for {place.display_name} is the one MeteoSwiss makes for its forecast point "
+            f"{point.display_name}, {distance_km} km away and {describe_height_difference(difference_m)}."
         ),
         "place": place.display_name,
         "altitude_m": place.altitude_m,

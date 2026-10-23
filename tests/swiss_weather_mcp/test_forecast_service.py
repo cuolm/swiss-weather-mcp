@@ -172,8 +172,8 @@ async def test_read_wind_names_the_forecast_point(service_fixture):
     answer = await service_fixture.read_wind("Lindenhof", build_swiss_time("2026-09-23T14:00"))
 
     assert answer["data_from"] == (
-        "The forecast for Lindenhof (428 m) is the one MeteoSwiss makes for Zürich 8001 (409 m), "
-        "0.2 km away and 19 m lower."
+        "The forecast for Lindenhof (428 m) is the one MeteoSwiss makes for its forecast point "
+        "Zürich 8001 (409 m), 0.2 km away and 19 m lower."
     )
     assert (answer["place"], answer["altitude_m"]) == ("Lindenhof (428 m)", 428.0)
     assert answer["forecast_point"] == "Zürich 8001 (409 m)"
