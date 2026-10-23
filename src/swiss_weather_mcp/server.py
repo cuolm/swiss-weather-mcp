@@ -122,17 +122,14 @@ class SwissWeatherMCPServer:
         self.mcp = MCPServer(
             name="swiss_weather_mcp_server",
             instructions=(
-                "Weather in Switzerland from MeteoSwiss: what its stations measure now, and forecasts "
-                "for today and the next 8 days. There is no weather for past days or outside Switzerland.\n"
-                "- Times are Swiss local time. For \"tomorrow\", \"tonight\" or \"this weekend\", call "
-                "current_date_and_time first.\n"
-                "- For now, use current_conditions or current_extremes. For later, use forecast_daily or "
-                "forecast_hourly for an overview, or a forecast_* tool for one thing such as rain or wind.\n"
-                "- Values come from a nearby station or forecast point, not the place itself. Each answer "
-                "names it in data_from: tell the user.\n"
-                "- When a name matches several places, choose from what the user said or ask, then call "
-                "again with near.\n"
-                "- A refused call says why: fix the argument and call again."
+                "Weather for places in Switzerland from MeteoSwiss: what stations measure now (current_*), "
+                "and forecasts for today and the next 8 days (forecast_*).\n"
+                "- Values for a place come from the MeteoSwiss station or forecast point named in data_from, "
+                "which can be kilometres away and higher or lower. Say which one in the answer.\n"
+                "- Forecast values are medians, and medians do not add up: hours with 0 mm can still make a "
+                "wet day. Take the rain of a whole day from forecast_daily.\n"
+                "- If a name matches several places, choose from what the user said, or ask which village it "
+                "lies near. Then call again with the same location and that village as near."
             ),
             log_level=log_level,  # forwarded to uvicorn, which configures its own loggers
         )
