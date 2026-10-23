@@ -150,7 +150,7 @@ async def test_handle_tool_call_invalid_timestamp(server_fixture):
 async def test_handle_tool_call_portal_unreachable(server_fixture):
     server_fixture.forecast_service.read_freezing_level.side_effect = requests.ConnectionError("connection refused")
 
-    with pytest.raises(ToolError, match="Could not reach the Swiss open data portal"):
+    with pytest.raises(ToolError, match="Could not download the data"):
         await server_fixture.mcp.call_tool("forecast_freezing_level", FREEZING_LEVEL_CALL)
 
 

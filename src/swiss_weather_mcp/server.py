@@ -41,6 +41,8 @@ Near = Annotated[Optional[str], Field(description=(
 READS_OPEN_DATA = ToolAnnotations(read_only_hint=True, open_world_hint=True)
 READS_THE_CLOCK = ToolAnnotations(read_only_hint=True, open_world_hint=False)
 
+Tool = Callable[..., Awaitable[Dict[str, Any]]]
+
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run MCP Server")
@@ -84,14 +86,12 @@ def _parse_swiss_time(timestamp: str) -> datetime:
     return moment if moment.tzinfo else moment.replace(tzinfo=SWISS_TZ)
 
 
-def _handle_tool_call(tool: Callable[..., Awaitable[Dict[str, Any]]]) -> Callable[..., Awaitable[Dict[str, Any]]]:
+def _handle_tool_call(tool: Tool) -> Tool:
     """
-    Log each call of a tool, and turn the failures the model can act on into a ToolError.
+    Log each tool call, and turn the failures the model can act on into a ToolError.
 
-    A CannotAnswerError, such as a place or time the forecast cannot answer, and a request error,
-    the open data portal out of reach, become a ToolError: mcp shows its message to the model, and
-    it is logged as one warning line. Every other failure stays a crash, which mcp hides from the
-    model and logs with its traceback.
+    mcp shows a ToolError's message to the model. Any other error stays a crash:
+    mcp hides it from the model and logs its traceback.
     """
     @functools.wraps(tool)
     async def run_tool(**arguments: Any) -> Dict[str, Any]:
@@ -101,8 +101,9 @@ def _handle_tool_call(tool: Callable[..., Awaitable[Dict[str, Any]]]) -> Callabl
             logger.warning(f"{tool.__name__}: {error}")
             raise ToolError(str(error)) from error
         except requests.RequestException as error:
-            logger.warning(f"{tool.__name__}: could not reach the Swiss open data portal: {error}")
-            raise ToolError(f"Could not reach the Swiss open data portal, try again later: {error}") from error
+            message = f"Could not download the data, try again later: {error}"
+            logger.warning(f"{tool.__name__}: {message}")
+            raise ToolError(message) from error
 
         logger.info(f"{tool.__name__}: {arguments} -> {answer}")
         return answer
