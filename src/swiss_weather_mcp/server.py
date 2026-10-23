@@ -122,15 +122,17 @@ class SwissWeatherMCPServer:
         self.mcp = MCPServer(
             name="swiss_weather_mcp_server",
             instructions=(
-                "This MCP server provides hourly and daily weather forecasts for Switzerland for today "
-                "and the next 8 days, the weather measured now at a nearby MeteoSwiss station, and "
-                "where in Switzerland it is warmest, coldest, windiest, wettest or sunniest now. "
-                "MeteoSwiss forecasts whole hours, so forecast times must be full hours such as 14:00; "
-                "other times are refused. A location is the name of a place: a town, a village, a city "
-                "district, a lake, a peak or a pass. Forecasts come from a nearby MeteoSwiss forecast point "
-                "and measurements from a nearby MeteoSwiss station; the data_from sentence of each answer "
-                "names it. A name of several places is answered with all of them: use what the user "
-                "already said to choose one, or ask the user, and call again with near."
+                "Weather in Switzerland from MeteoSwiss: what its stations measure now, and forecasts "
+                "for today and the next 8 days. There is no weather for past days or outside Switzerland.\n"
+                "- Times are Swiss local time. For \"tomorrow\", \"tonight\" or \"this weekend\", call "
+                "current_date_and_time first.\n"
+                "- For now, use current_conditions or current_extremes. For later, use forecast_daily or "
+                "forecast_hourly for an overview, or a forecast_* tool for one thing such as rain or wind.\n"
+                "- Values come from a nearby station or forecast point, not the place itself. Each answer "
+                "names it in data_from: tell the user.\n"
+                "- When a name matches several places, choose from what the user said or ask, then call "
+                "again with near.\n"
+                "- A refused call says why: fix the argument and call again."
             ),
             log_level=log_level,  # forwarded to uvicorn, which configures its own loggers
         )
