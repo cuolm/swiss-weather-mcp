@@ -75,6 +75,11 @@ class MCPClient:
         )
         await self.session.discover()
 
+        # The server's guidance on how its tools work together, which MCP clients put into the system prompt
+        instructions = self.session.instructions
+        if instructions:
+            self.messages.append({"role": "system", "content": instructions})
+
         # List available tools, names only, the descriptions are multi line docstrings
         tools_result = await self.session.list_tools()
         tool_names = ", ".join(tool.name for tool in tools_result.tools)
