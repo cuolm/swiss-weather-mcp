@@ -73,7 +73,7 @@ class MCPClient:
         self.session = await self.exit_stack.enter_async_context(
             ClientSession(read_stream, write_stream)
         )
-        await self.session.initialize()
+        await self.session.discover()
 
         # List available tools, names only, the descriptions are multi line docstrings
         tools_result = await self.session.list_tools()

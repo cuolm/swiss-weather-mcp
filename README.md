@@ -5,7 +5,7 @@
 [![Release](https://github.com/cuolm/swiss-weather-mcp/actions/workflows/release.yaml/badge.svg)](https://github.com/cuolm/swiss-weather-mcp/actions/workflows/release.yaml)
 [![Tests](https://github.com/cuolm/swiss-weather-mcp/actions/workflows/tests.yaml/badge.svg)](https://github.com/cuolm/swiss-weather-mcp/actions/workflows/tests.yaml)
 
-A **Model Context Protocol ([MCP](https://modelcontextprotocol.info/))** server that provides AI applications with weather information for any place in Switzerland.
+A **Model Context Protocol ([MCP](https://modelcontextprotocol.io/))** server that provides AI applications with weather information for any place in Switzerland.
 
 - Forecasts for today and the next 8 days from the [MeteoSwiss local forecasts](https://opendatadocs.meteoswiss.ch/e-forecast-data/e4-local-forecast-data), updated every hour
 - Measurements from about 160 [SwissMetNet weather stations](https://opendatadocs.meteoswiss.ch/a-data-groundbased/a1-automatic-weather-stations), updated every 10 minutes
@@ -236,7 +236,7 @@ Configure the mcp.json file in LMStudio. Replace `<path-to>` so the command is t
 - [Automatic Weather Stations (SwissMetNet)](https://opendatadocs.meteoswiss.ch/a-data-groundbased/a1-automatic-weather-stations)
 - [swissNAMES3D (swisstopo)](https://www.swisstopo.admin.ch/en/landscape-model-swissnames3d)
 - [Model Context Protocol](https://github.com/modelcontextprotocol/python-sdk)
-- [MCP Server Quickstart](https://modelcontextprotocol.info/docs/quickstart/server/)
+- [MCP Server Quickstart](https://modelcontextprotocol.io/docs/develop/build-server)
 
 ## License
 Licensed under the [Apache License 2.0](/LICENSE.txt).
