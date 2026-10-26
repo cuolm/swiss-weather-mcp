@@ -371,11 +371,11 @@ class SwissWeatherMCPServer:
                 location (str): Place name: a town, village, city district, lake or peak (e.g. "Zurich").
 
             Returns:
-                dict: The place, the station with its distance and height difference, the time of the
-                    measurements and the measured values; the field names give the units. A value is
-                    None when the station does not measure it, and a change or a last-hour value is
-                    None when the station has not published all the measurements it needs, such as
-                    shortly after midnight UTC.
+                dict: data_from, which names the station with its distance and height difference,
+                    the place, the time of the measurements and the measured values; the field names
+                    give the units. A value is None when the station does not measure it, and a
+                    change or a last-hour value is None when the station has not published all the
+                    measurements it needs, such as shortly after midnight UTC.
 
             Examples:
                 current_conditions("Zurich")

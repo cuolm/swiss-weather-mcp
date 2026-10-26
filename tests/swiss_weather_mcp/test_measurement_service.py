@@ -30,11 +30,7 @@ async def test_read_current_conditions(measurement_service_fixture):
             "The measurements for Zürich (418 m) are those of the MeteoSwiss station Zürich / Fluntern (604 m), "
             "2.1 km away and 186 m higher. It measured the following values at 16:00."
         ),
-        "place": "Zürich (418 m)",
-        "altitude_m": 418.0,
-        "station": "Zürich / Fluntern (604 m)",
-        "station_distance_km": 2.1,
-        "station_altitude_difference_m": 186,
+        "place": "Zürich",
         "measured_at": "2026-09-25T16:00+02:00",
         "temperature_c": 21.0,
         "humidity_percent": 34.3,
@@ -59,10 +55,9 @@ async def test_read_current_conditions_values_the_station_lacks(measurement_serv
     # The Davos station, next to Davos Dorf, has no rain or direction here
     answer = await measurement_service_fixture.read_current_conditions("Davos Dorf")
 
-    assert (answer["station"], answer["station_distance_km"], answer["station_altitude_difference_m"]) == ("Davos (1594 m)", 0.5, 30)
     assert answer["rain_last_10_minutes_mm"] is None
     assert (answer["wind_direction_degrees"], answer["compass_point"]) == (None, None)
-    assert "0.5 km away and 30 m higher" in answer["data_from"]
+    assert "station Davos (1594 m), 0.5 km away and 30 m higher" in answer["data_from"]
 
 
 @pytest.mark.asyncio
@@ -127,7 +122,7 @@ async def test_read_current_conditions_for_a_district(measurement_service_fixtur
         "The measurements for Lindenhof (428 m) are those of the MeteoSwiss station Zürich / Fluntern (604 m), "
         "2.2 km away and 176 m higher."
     )
-    assert (answer["place"], answer["altitude_m"]) == ("Lindenhof (428 m)", 428.0)
+    assert answer["place"] == "Lindenhof"
 
 
 # --- read_current_extremes ---

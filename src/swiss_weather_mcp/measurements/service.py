@@ -62,13 +62,15 @@ class StationValue(NamedTuple):
     value: float
 
 
-def _build_data_from_sentence(place: SwisstopoPlace, measurements: StationMeasurements,
-                              distance_km: float, difference_m: int) -> str:
+def _build_data_from_sentence(place: SwisstopoPlace, measurements: StationMeasurements) -> str:
     """Build the data_from sentence: the station that measured the values, its distance and height difference."""
+    station = measurements.station
+    distance_km = round(calculate_distance_m(place, station) / METRES_PER_KILOMETRE, 1)
+    difference_m = round(station.altitude_m - place.altitude_m)
     measured_at = measurements.measured_at.astimezone(SWISS_TZ)
     return (
         f"The measurements for {place.display_name} are those of the MeteoSwiss station "
-        f"{measurements.station.display_name}, {distance_km} km away and {describe_height_difference(difference_m)}. "
+        f"{station.display_name}, {distance_km} km away and {describe_height_difference(difference_m)}. "
         f"It measured the following values at {measured_at:%H:%M}."
     )
 
@@ -225,17 +227,10 @@ class MeasurementService:
         place = await self._find_place(location, nearby_location)
         all_measurements = await self._find_station_measurements(place)
         latest_measurements = all_measurements[-1]
-        station = latest_measurements.station
-        distance_km = round(calculate_distance_m(place, station) / METRES_PER_KILOMETRE, 1)
-        difference_m = round(station.altitude_m - place.altitude_m)
 
         answer: Dict[str, Any] = {
-            "data_from": _build_data_from_sentence(place, latest_measurements, distance_km, difference_m),
-            "place": place.display_name,
-            "altitude_m": place.altitude_m,
-            "station": station.display_name,
-            "station_distance_km": distance_km,
-            "station_altitude_difference_m": difference_m,
+            "data_from": _build_data_from_sentence(place, latest_measurements),
+            "place": place.name,
             "measured_at": format_swiss_time(latest_measurements.measured_at),
         }
         for field, parameter in MEASURED_FIELDS:
