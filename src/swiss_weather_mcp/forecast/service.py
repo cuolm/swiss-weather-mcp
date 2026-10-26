@@ -130,111 +130,86 @@ class ForecastService:
         """Read one parameter for one point in a worker thread, so a download does not block other requests."""
         return await asyncio.to_thread(self.forecast_source.read_series, parameter, point)
 
-    async def read_freezing_level(
-        self, location: str, moment: datetime, nearby_location: Optional[str] = None
-    ) -> Dict[str, Any]:
-        """Read the height of the 0 °C line at a moment."""
-        _check_full_hour(moment)
-        place, point = await self._find_place_and_point(location, nearby_location)
-        series = await self._read_series(parameters.FREEZING_LEVEL, point)
-        freezing_level_m = _get_hourly_value(series, moment, point)
-        return {
-            "value": freezing_level_m,
-            "unit": "m above sea level",
-            **_build_forecast_point_fields(place, point),
-            "valid_at": format_swiss_time(moment),
-            "model_run": format_swiss_time(series.run_time),
-        }
+    async def _read_daily_series_if_published(self, parameter: str, point: MeteoSwissPoint) -> Optional[ForecastSeries]:
+        """Read one parameter for one point, or return None when MeteoSwiss does not publish it there."""
+        try:
+            return await self._read_series(parameter, point)
+        except CannotAnswerError as error:
+            logger.info(f"No daily {parameter} for {point.display_name}: {error}")
+            return None
 
-    async def read_wind(self, location: str, moment: datetime, nearby_location: Optional[str] = None) -> Dict[str, Any]:
-        """Read the wind for the hour up to a moment: mean speed, gusts and direction."""
-        _check_full_hour(moment)
+    async def read_daily_forecast(
+        self, location: str, first_day: date, days: int, nearby_location: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Read the whole-day forecast for 1 to MAX_DAYS Swiss calendar days in a row from first_day.
+
+        A value MeteoSwiss does not publish for the forecast point is None. Raise CannotAnswerError
+        when days is out of range or no day has a forecast.
+        """
+        if not 1 <= days <= MAX_DAYS:
+            raise CannotAnswerError(f"days must be between 1 and {MAX_DAYS}, not {days}.")
+
         place, point = await self._find_place_and_point(location, nearby_location)
-        speed_series, gust_series, upper_gust_series, direction_series = await asyncio.gather(
-            self._read_series(parameters.WIND_SPEED, point),
-            self._read_series(parameters.WIND_GUSTS, point),
-            self._read_series(parameters.WIND_GUSTS_Q90, point),
-            self._read_series(parameters.WIND_DIRECTION, point),
+        min_series, max_series, rain_series, rain_lower_series, rain_upper_series, pictogram_series = await asyncio.gather(
+            self._read_daily_series_if_published(parameters.TEMPERATURE_DAY_MIN, point),
+            self._read_daily_series_if_published(parameters.TEMPERATURE_DAY_MAX, point),
+            self._read_daily_series_if_published(parameters.PRECIPITATION_DAY, point),
+            self._read_daily_series_if_published(parameters.PRECIPITATION_DAY_Q10, point),
+            self._read_daily_series_if_published(parameters.PRECIPITATION_DAY_Q90, point),
+            self._read_daily_series_if_published(parameters.WEATHER_PICTOGRAM_DAY, point),
         )
 
-        speed_kmh = _get_hourly_value(speed_series, moment, point)
-        gusts_kmh = _get_hourly_value(gust_series, moment, point)
-        upper_gusts_kmh = _get_hourly_value(upper_gust_series, moment, point)
-        direction_degrees = _get_hourly_value(direction_series, moment, point)
-        compass_point = find_compass_point(direction_degrees)
-        return {
-            "speed_kmh": speed_kmh,
-            "gusts_kmh": gusts_kmh,
-            "gusts_90th_percentile_kmh": upper_gusts_kmh,
-            "direction_degrees": direction_degrees,
-            "compass_point": compass_point,
-            **_build_forecast_point_fields(place, point),
-            "valid_at": format_swiss_time(moment),
-            "model_run": format_swiss_time(speed_series.run_time),
-        }
-
-    async def read_sunshine_hours(
-        self, location: str, start_moment: datetime, end_moment: datetime, nearby_location: Optional[str] = None
-    ) -> Dict[str, Any]:
-        """Add up the sunshine over a period, in hours."""
-        _check_full_hour(start_moment)
-        _check_full_hour(end_moment)
-        _check_period_order(start_moment, end_moment)
-        # A row covers the hour before its stamp, so the first hour is the row stamped one hour after start.
-        # UTC, because adding hours in Swiss time goes wrong when the clocks change.
-        first_stamp = start_moment.astimezone(timezone.utc) + HOUR
-        last_stamp = end_moment.astimezone(timezone.utc)
-        hour_stamps = _create_stamps(first_stamp, last_stamp, HOUR)
-
-        place, point = await self._find_place_and_point(location, nearby_location)
-        series = await self._read_series(parameters.SUNSHINE, point)
-        period_is_covered = all(stamp in series.values for stamp in hour_stamps)
-        if not period_is_covered:
-            raise CannotAnswerError(
-                f"{format_swiss_time(start_moment)} to {format_swiss_time(end_moment)} is not fully covered "
-                f"by the forecast for {point.display_name}. {_describe_covered_range(series)}"
+        rows = []
+        for offset in range(days):
+            day = first_day + timedelta(days=offset)
+            temperature_min_c = _get_daily_value(min_series, day)
+            temperature_max_c = _get_daily_value(max_series, day)
+            rainfall_median_mm = _get_daily_value(rain_series, day)
+            rainfall_lower_mm = _get_daily_value(rain_lower_series, day)
+            rainfall_upper_mm = _get_daily_value(rain_upper_series, day)
+            pictogram_value = _get_daily_value(pictogram_series, day)
+            day_values = (
+                temperature_min_c, temperature_max_c, rainfall_median_mm, rainfall_lower_mm, rainfall_upper_mm,
+                pictogram_value,
             )
+            if all(value is None for value in day_values):
+                continue
 
-        sunshine_minutes = 0.0
-        for stamp in hour_stamps:
-            sunshine_minutes += series.values[stamp]
+            # The pictogram is published as a code, which is only useful once it is spelled out
+            pictogram_code: Optional[int] = None
+            weather: Optional[str] = None
+            weather_emoji: Optional[str] = None
+            if pictogram_value is not None:
+                pictogram_code = int(pictogram_value)
+                weather, weather_emoji = _describe_pictogram(pictogram_code)
+
+            row = {
+                "date": day.isoformat(),
+                "weekday": f"{day:%A}",
+                "temperature_min_c": temperature_min_c,
+                "temperature_max_c": temperature_max_c,
+                "rainfall_median_mm": rainfall_median_mm,
+                "rainfall_10th_percentile_mm": rainfall_lower_mm,
+                "rainfall_90th_percentile_mm": rainfall_upper_mm,
+                "pictogram_code": pictogram_code,
+                "weather": weather,
+                "weather_emoji": weather_emoji,
+            }
+            rows.append(row)
+
+        # All series come from the same model run, so any published one gives its time
+        run_time: Optional[datetime] = None
+        for series in (min_series, max_series, rain_series, rain_lower_series, rain_upper_series, pictogram_series):
+            if series is not None:
+                run_time = series.run_time
+                break
+        if not rows or run_time is None:
+            raise CannotAnswerError(f"MeteoSwiss has no daily forecast for {point.display_name} from {first_day.isoformat()}.")
         return {
-            "value": round(sunshine_minutes / 60, 1),
-            "unit": "h",
             **_build_forecast_point_fields(place, point),
-            "from": format_swiss_time(start_moment),
-            "to": format_swiss_time(end_moment),
-            "model_run": format_swiss_time(series.run_time),
-        }
-
-    async def read_total_cloud_cover(
-        self, location: str, moment: datetime, nearby_location: Optional[str] = None
-    ) -> Dict[str, Any]:
-        """Estimate the total cloud cover at a moment from the three overlapping layers."""
-        _check_full_hour(moment)
-        place, point = await self._find_place_and_point(location, nearby_location)
-        low_series, medium_series, high_series = await asyncio.gather(
-            self._read_series(parameters.CLOUD_COVER_LOW, point),
-            self._read_series(parameters.CLOUD_COVER_MEDIUM, point),
-            self._read_series(parameters.CLOUD_COVER_HIGH, point),
-        )
-
-        low_fraction = _get_hourly_value(low_series, moment, point)
-        medium_fraction = _get_hourly_value(medium_series, moment, point)
-        high_fraction = _get_hourly_value(high_series, moment, point)
-
-        # The layers overlap, so they cannot simply be added. Assuming they are independent, the sky
-        # is clear only where all three are clear, which is the standard random overlap estimate.
-        clear_sky = (1 - low_fraction) * (1 - medium_fraction) * (1 - high_fraction)
-        return {
-            "value": round((1 - clear_sky) * 100, 1),
-            "unit": "%",
-            **_build_forecast_point_fields(place, point),
-            "valid_at": format_swiss_time(moment),
-            "low_percent": round(low_fraction * 100, 1),
-            "medium_percent": round(medium_fraction * 100, 1),
-            "high_percent": round(high_fraction * 100, 1),
-            "model_run": format_swiss_time(low_series.run_time),
+            "days": rows,
+            "model_run": format_swiss_time(run_time),
         }
 
     async def read_temperature_forecast(
@@ -371,84 +346,109 @@ class ForecastService:
             "model_run": format_swiss_time(median_series.run_time),
         }
 
-    async def _read_daily_series_if_published(self, parameter: str, point: MeteoSwissPoint) -> Optional[ForecastSeries]:
-        """Read one parameter for one point, or return None when MeteoSwiss does not publish it there."""
-        try:
-            return await self._read_series(parameter, point)
-        except CannotAnswerError as error:
-            logger.info(f"No daily {parameter} for {point.display_name}: {error}")
-            return None
-
-    async def read_daily_forecast(
-        self, location: str, first_day: date, days: int, nearby_location: Optional[str] = None
+    async def read_sunshine_hours(
+        self, location: str, start_moment: datetime, end_moment: datetime, nearby_location: Optional[str] = None
     ) -> Dict[str, Any]:
-        """
-        Read the whole-day forecast for 1 to MAX_DAYS Swiss calendar days in a row from first_day.
-
-        A value MeteoSwiss does not publish for the forecast point is None. Raise CannotAnswerError
-        when days is out of range or no day has a forecast.
-        """
-        if not 1 <= days <= MAX_DAYS:
-            raise CannotAnswerError(f"days must be between 1 and {MAX_DAYS}, not {days}.")
+        """Add up the sunshine over a period, in hours."""
+        _check_full_hour(start_moment)
+        _check_full_hour(end_moment)
+        _check_period_order(start_moment, end_moment)
+        # A row covers the hour before its stamp, so the first hour is the row stamped one hour after start.
+        # UTC, because adding hours in Swiss time goes wrong when the clocks change.
+        first_stamp = start_moment.astimezone(timezone.utc) + HOUR
+        last_stamp = end_moment.astimezone(timezone.utc)
+        hour_stamps = _create_stamps(first_stamp, last_stamp, HOUR)
 
         place, point = await self._find_place_and_point(location, nearby_location)
-        min_series, max_series, rain_series, rain_lower_series, rain_upper_series, pictogram_series = await asyncio.gather(
-            self._read_daily_series_if_published(parameters.TEMPERATURE_DAY_MIN, point),
-            self._read_daily_series_if_published(parameters.TEMPERATURE_DAY_MAX, point),
-            self._read_daily_series_if_published(parameters.PRECIPITATION_DAY, point),
-            self._read_daily_series_if_published(parameters.PRECIPITATION_DAY_Q10, point),
-            self._read_daily_series_if_published(parameters.PRECIPITATION_DAY_Q90, point),
-            self._read_daily_series_if_published(parameters.WEATHER_PICTOGRAM_DAY, point),
+        series = await self._read_series(parameters.SUNSHINE, point)
+        period_is_covered = all(stamp in series.values for stamp in hour_stamps)
+        if not period_is_covered:
+            raise CannotAnswerError(
+                f"{format_swiss_time(start_moment)} to {format_swiss_time(end_moment)} is not fully covered "
+                f"by the forecast for {point.display_name}. {_describe_covered_range(series)}"
+            )
+
+        sunshine_minutes = 0.0
+        for stamp in hour_stamps:
+            sunshine_minutes += series.values[stamp]
+        return {
+            "value": round(sunshine_minutes / 60, 1),
+            "unit": "h",
+            **_build_forecast_point_fields(place, point),
+            "from": format_swiss_time(start_moment),
+            "to": format_swiss_time(end_moment),
+            "model_run": format_swiss_time(series.run_time),
+        }
+
+    async def read_wind(self, location: str, moment: datetime, nearby_location: Optional[str] = None) -> Dict[str, Any]:
+        """Read the wind for the hour up to a moment: mean speed, gusts and direction."""
+        _check_full_hour(moment)
+        place, point = await self._find_place_and_point(location, nearby_location)
+        speed_series, gust_series, upper_gust_series, direction_series = await asyncio.gather(
+            self._read_series(parameters.WIND_SPEED, point),
+            self._read_series(parameters.WIND_GUSTS, point),
+            self._read_series(parameters.WIND_GUSTS_Q90, point),
+            self._read_series(parameters.WIND_DIRECTION, point),
         )
 
-        rows = []
-        for offset in range(days):
-            day = first_day + timedelta(days=offset)
-            temperature_min_c = _get_daily_value(min_series, day)
-            temperature_max_c = _get_daily_value(max_series, day)
-            rainfall_median_mm = _get_daily_value(rain_series, day)
-            rainfall_lower_mm = _get_daily_value(rain_lower_series, day)
-            rainfall_upper_mm = _get_daily_value(rain_upper_series, day)
-            pictogram_value = _get_daily_value(pictogram_series, day)
-            day_values = (
-                temperature_min_c, temperature_max_c, rainfall_median_mm, rainfall_lower_mm, rainfall_upper_mm,
-                pictogram_value,
-            )
-            if all(value is None for value in day_values):
-                continue
-
-            # The pictogram is published as a code, which is only useful once it is spelled out
-            pictogram_code: Optional[int] = None
-            weather: Optional[str] = None
-            weather_emoji: Optional[str] = None
-            if pictogram_value is not None:
-                pictogram_code = int(pictogram_value)
-                weather, weather_emoji = _describe_pictogram(pictogram_code)
-
-            row = {
-                "date": day.isoformat(),
-                "weekday": f"{day:%A}",
-                "temperature_min_c": temperature_min_c,
-                "temperature_max_c": temperature_max_c,
-                "rainfall_median_mm": rainfall_median_mm,
-                "rainfall_10th_percentile_mm": rainfall_lower_mm,
-                "rainfall_90th_percentile_mm": rainfall_upper_mm,
-                "pictogram_code": pictogram_code,
-                "weather": weather,
-                "weather_emoji": weather_emoji,
-            }
-            rows.append(row)
-
-        # All series come from the same model run, so any published one gives its time
-        run_time: Optional[datetime] = None
-        for series in (min_series, max_series, rain_series, rain_lower_series, rain_upper_series, pictogram_series):
-            if series is not None:
-                run_time = series.run_time
-                break
-        if not rows or run_time is None:
-            raise CannotAnswerError(f"MeteoSwiss has no daily forecast for {point.display_name} from {first_day.isoformat()}.")
+        speed_kmh = _get_hourly_value(speed_series, moment, point)
+        gusts_kmh = _get_hourly_value(gust_series, moment, point)
+        upper_gusts_kmh = _get_hourly_value(upper_gust_series, moment, point)
+        direction_degrees = _get_hourly_value(direction_series, moment, point)
+        compass_point = find_compass_point(direction_degrees)
         return {
+            "speed_kmh": speed_kmh,
+            "gusts_kmh": gusts_kmh,
+            "gusts_90th_percentile_kmh": upper_gusts_kmh,
+            "direction_degrees": direction_degrees,
+            "compass_point": compass_point,
             **_build_forecast_point_fields(place, point),
-            "days": rows,
-            "model_run": format_swiss_time(run_time),
+            "valid_at": format_swiss_time(moment),
+            "model_run": format_swiss_time(speed_series.run_time),
+        }
+
+    async def read_total_cloud_cover(
+        self, location: str, moment: datetime, nearby_location: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Estimate the total cloud cover at a moment from the three overlapping layers."""
+        _check_full_hour(moment)
+        place, point = await self._find_place_and_point(location, nearby_location)
+        low_series, medium_series, high_series = await asyncio.gather(
+            self._read_series(parameters.CLOUD_COVER_LOW, point),
+            self._read_series(parameters.CLOUD_COVER_MEDIUM, point),
+            self._read_series(parameters.CLOUD_COVER_HIGH, point),
+        )
+
+        low_fraction = _get_hourly_value(low_series, moment, point)
+        medium_fraction = _get_hourly_value(medium_series, moment, point)
+        high_fraction = _get_hourly_value(high_series, moment, point)
+
+        # The layers overlap, so they cannot simply be added. Assuming they are independent, the sky
+        # is clear only where all three are clear, which is the standard random overlap estimate.
+        clear_sky = (1 - low_fraction) * (1 - medium_fraction) * (1 - high_fraction)
+        return {
+            "value": round((1 - clear_sky) * 100, 1),
+            "unit": "%",
+            **_build_forecast_point_fields(place, point),
+            "valid_at": format_swiss_time(moment),
+            "low_percent": round(low_fraction * 100, 1),
+            "medium_percent": round(medium_fraction * 100, 1),
+            "high_percent": round(high_fraction * 100, 1),
+            "model_run": format_swiss_time(low_series.run_time),
+        }
+
+    async def read_freezing_level(
+        self, location: str, moment: datetime, nearby_location: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Read the height of the 0 °C line at a moment."""
+        _check_full_hour(moment)
+        place, point = await self._find_place_and_point(location, nearby_location)
+        series = await self._read_series(parameters.FREEZING_LEVEL, point)
+        freezing_level_m = _get_hourly_value(series, moment, point)
+        return {
+            "value": freezing_level_m,
+            "unit": "m above sea level",
+            **_build_forecast_point_fields(place, point),
+            "valid_at": format_swiss_time(moment),
+            "model_run": format_swiss_time(series.run_time),
         }
