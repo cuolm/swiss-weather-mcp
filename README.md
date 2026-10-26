@@ -126,7 +126,7 @@ The bundled MCP client tests the server over stdio. It needs the `client` extra 
 
 ## Available Tools
 
-The forecast tools take a `location` (the name of a place, such as `"Zurich"`) and a Swiss local time,
+The forecast tools take a `location` (the name of a place, such as `"Zürich"`) and a Swiss local time,
 or a date for `forecast_daily`. Every tool that takes a `location` also takes an optional `near`, only
 needed when several places share the name (see [Locations](#locations)). Each answer holds the forecast,
 the place, the time it applies to, and the model run. It names the MeteoSwiss forecast point only when
@@ -135,14 +135,14 @@ the point is not next to the place (see [Forecast Points](#forecast-points)).
 | Tool | Purpose | Example Call |
 |------|---------|--------------|
 | `current_date_and_time()` | Today's weekday and the Swiss time now | `current_date_and_time()` |
-| `forecast_daily(location, start_date, days)` | One row per day, 1 to 9 days: lowest and highest temperature, median rainfall with its 10th and 90th percentile, daytime weather in words with an emoji | `forecast_daily("Zurich", "2026-09-26", 2)` |
-| `forecast_temperature(location, start, end)` | Temperature hour by hour over any period within the forecast, or one hour without `end`: mean (°C) with its 10th and 90th percentile | `forecast_temperature("Zurich", "2026-09-23T15:00")` |
-| `forecast_rain(location, start, end)` | Rain and weather in 3-hour blocks over any period within the forecast: chance (%), median (mm), how much the wettest hour may bring (mm) and the weather in words with an emoji | `forecast_rain("Zurich", "2026-09-23T12:00", "2026-09-24T00:00")` |
-| `forecast_sunshine(location, start, end)` | Sunshine (h) summed over a period | `forecast_sunshine("Zurich", "2026-09-23T06:00", "2026-09-23T18:00")` |
-| `forecast_wind(location, when)` | Mean speed and strongest gust (km/h) in the hour up to that time, how strong that gust may get (its 90th percentile), and the direction as degrees and compass point | `forecast_wind("Titlis", "2026-09-23T14:00")` |
-| `forecast_cloud_cover(location, when)` | Estimated total cloud cover (%) plus the low, medium and high layers | `forecast_cloud_cover("Zurich", "2026-09-23T14:00")` |
-| `forecast_freezing_level(location, when)` | Height of the 0 °C line (m above sea level) | `forecast_freezing_level("Zermatt", "2026-09-23T14:00")` |
-| `measurements_current(location)` | Measured now at a MeteoSwiss station near the place: temperature, humidity, dew point, rain and sunshine in the last 10 minutes, wind, gust, direction and sea-level pressure, plus the temperature and pressure change over the last 3 hours and the rain, sunshine and strongest gust of the last hour | `measurements_current("Zurich")` |
+| `forecast_daily(location, start_date, days)` | One row per day, 1 to 9 days: lowest and highest temperature, median rainfall with its 10th and 90th percentile, daytime weather in words with an emoji | `forecast_daily("Zürich", "2026-09-26", 2)` |
+| `forecast_temperature(location, start, end)` | Temperature hour by hour over any period within the forecast, or one hour without `end`: mean (°C) with its 10th and 90th percentile | `forecast_temperature("Zürich", "2026-09-23T15:00")` |
+| `forecast_rain(location, start, end)` | Rain and weather in 3-hour blocks over any period within the forecast: chance (%), median (mm), how much the wettest hour may bring (mm) and the weather in words with an emoji | `forecast_rain("Zürich", "2026-09-23T12:00", "2026-09-24T00:00")` |
+| `forecast_sunshine(location, start, end)` | Sunshine (h) summed over a period | `forecast_sunshine("Zürich", "2026-09-23T06:00", "2026-09-23T18:00")` |
+| `forecast_wind(location, when)` | Mean speed and strongest gust (km/h) in the hour up to that time, how strong that gust may get (its 90th percentile), and the direction as degrees and compass point | `forecast_wind("Zürich", "2026-09-23T14:00")` |
+| `forecast_cloud_cover(location, when)` | Estimated total cloud cover (%) plus the low, medium and high layers | `forecast_cloud_cover("Zürich", "2026-09-23T14:00")` |
+| `forecast_freezing_level(location, when)` | Height of the 0 °C line (m above sea level) | `forecast_freezing_level("Zürich", "2026-09-23T14:00")` |
+| `measurements_current(location)` | Measured now at a MeteoSwiss station near the place: temperature, humidity, dew point, rain and sunshine in the last 10 minutes, wind, gust, direction and sea-level pressure, plus the temperature and pressure change over the last 3 hours and the rain, sunshine and strongest gust of the last hour | `measurements_current("Zürich")` |
 | `measurements_extremes(extreme)` | Where in Switzerland it is `warmest`, `coldest`, `windiest`, `wettest` or `sunniest` now, from the measurements of all weather stations: the first 5 stations by temperature or gust, or how many stations are sunny or rainy in Switzerland and in each canton | `measurements_extremes("sunniest")` |
 
 ## Good to Know
