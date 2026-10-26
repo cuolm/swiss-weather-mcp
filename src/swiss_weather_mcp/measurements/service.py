@@ -218,7 +218,7 @@ class MeasurementService:
         """Read every station's latest measurements in a worker thread, so a download does not block other requests."""
         return await asyncio.to_thread(self.measurement_source.read_all_stations_latest_measurements)
 
-    async def read_current_conditions(self, location: str, nearby_location: Optional[str] = None) -> Dict[str, Any]:
+    async def read_current(self, location: str, nearby_location: Optional[str] = None) -> Dict[str, Any]:
         """
         Read the latest measurements of the station chosen for the location.
 
@@ -249,7 +249,7 @@ class MeasurementService:
         answer["strongest_gust_last_hour_kmh"] = _find_highest_last_hour(all_measurements, parameters.WIND_GUSTS)
         return answer
 
-    async def read_current_extremes(self, extreme: str) -> Dict[str, Any]:
+    async def read_extremes(self, extreme: str) -> Dict[str, Any]:
         """
         Read where in Switzerland a measured value is at its extreme now.
 

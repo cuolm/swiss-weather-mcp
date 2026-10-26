@@ -11,12 +11,12 @@ from swiss_weather_mcp.forecast.source import MeteoSwissPoint
 from swiss_weather_mcp.places import SwisstopoPlace
 
 
-# --- read_daily_forecast ---
+# --- read_daily ---
 
 @pytest.mark.asyncio
-async def test_read_daily_forecast(service_fixture):
+async def test_read_daily(service_fixture):
     # The fixture publishes daily values for 23 and 24 September only, so 25 September is left out
-    answer = await service_fixture.read_daily_forecast("Zurich", date(2026, 9, 23), 3)
+    answer = await service_fixture.read_daily("Zurich", date(2026, 9, 23), 3)
 
     assert [day["date"] for day in answer["days"]] == ["2026-09-23", "2026-09-24"]
     assert [day["weekday"] for day in answer["days"]] == ["Wednesday", "Thursday"]
@@ -26,63 +26,63 @@ async def test_read_daily_forecast(service_fixture):
 
 
 @pytest.mark.asyncio
-async def test_read_daily_forecast_one_day(service_fixture):
-    answer = await service_fixture.read_daily_forecast("Zurich", date(2026, 9, 24), 1)
+async def test_read_daily_one_day(service_fixture):
+    answer = await service_fixture.read_daily("Zurich", date(2026, 9, 24), 1)
     assert [day["date"] for day in answer["days"]] == ["2026-09-24"]
 
 
 @pytest.mark.asyncio
-async def test_read_daily_forecast_missing_parameter(service_fixture):
+async def test_read_daily_missing_parameter(service_fixture):
     # Only tre200px has rows in this fixture, the other daily files have none for Zurich
-    answer = await service_fixture.read_daily_forecast("Zurich", date(2026, 9, 23), 1)
+    answer = await service_fixture.read_daily("Zurich", date(2026, 9, 23), 1)
     assert answer["days"][0]["rainfall_median_mm"] is None
 
 
 @pytest.mark.asyncio
-async def test_read_daily_forecast_without_a_pictogram(service_fixture):
+async def test_read_daily_without_a_pictogram(service_fixture):
     # jp2000d0 has no rows for Zurich, so every day still has the weather fields, set to None
-    answer = await service_fixture.read_daily_forecast("Zurich", date(2026, 9, 23), 1)
+    answer = await service_fixture.read_daily("Zurich", date(2026, 9, 23), 1)
     day = answer["days"][0]
     assert (day["pictogram_code"], day["weather"], day["weather_emoji"]) == (None, None, None)
 
 
 @pytest.mark.asyncio
-async def test_read_daily_forecast_with_a_pictogram(service_fixture, source_fixture):
+async def test_read_daily_with_a_pictogram(service_fixture, source_fixture):
     source_fixture.published["jp2000d0"] = {"202609230000": "2"}
-    answer = await service_fixture.read_daily_forecast("Zurich", date(2026, 9, 23), 1)
+    answer = await service_fixture.read_daily("Zurich", date(2026, 9, 23), 1)
     day = answer["days"][0]
     assert (day["pictogram_code"], day["weather"], day["weather_emoji"]) == (2, "mostly sunny, some clouds", "🌤️")
 
 
 @pytest.mark.asyncio
-async def test_read_daily_forecast_invalid_days(service_fixture):
+async def test_read_daily_invalid_days(service_fixture):
     for days in (0, 10):
         with pytest.raises(CannotAnswerError, match="between 1 and 9"):
-            await service_fixture.read_daily_forecast("Zurich", date(2026, 9, 23), days)
+            await service_fixture.read_daily("Zurich", date(2026, 9, 23), days)
 
 
 @pytest.mark.asyncio
-async def test_read_daily_forecast_outside_the_forecast(service_fixture):
+async def test_read_daily_outside_the_forecast(service_fixture):
     # Every parameter exists, but none reaches these days, so there is nothing to answer with
     with pytest.raises(CannotAnswerError, match="no daily forecast"):
-        await service_fixture.read_daily_forecast("Zurich", date(2026, 10, 30), 3)
+        await service_fixture.read_daily("Zurich", date(2026, 10, 30), 3)
 
 
 @pytest.mark.asyncio
-async def test_read_daily_forecast_does_not_hide_a_bug(service_fixture, mocker):
+async def test_read_daily_does_not_hide_a_bug(service_fixture, mocker):
     # A ValueError that is not a CannotAnswerError is a bug, not a parameter missing for this place
     mocker.patch.object(service_fixture.forecast_source, "read_series", side_effect=ValueError("could not convert"))
 
     with pytest.raises(ValueError, match="could not convert"):
-        await service_fixture.read_daily_forecast("Zurich", date(2026, 9, 23), 1)
+        await service_fixture.read_daily("Zurich", date(2026, 9, 23), 1)
 
 
-# --- read_rain_outlook ---
+# --- read_rain ---
 
 @pytest.mark.asyncio
-async def test_read_rain_outlook(service_fixture):
+async def test_read_rain(service_fixture):
     # 14:00 to 20:00 Swiss is 12:00 to 18:00 UTC: two blocks, ending at 15:00 and 18:00 UTC
-    answer = await service_fixture.read_rain_outlook(
+    answer = await service_fixture.read_rain(
         "Zurich", build_swiss_time("2026-09-23T14:00"), build_swiss_time("2026-09-23T20:00")
     )
 
@@ -103,18 +103,18 @@ async def test_read_rain_outlook(service_fixture):
 
 
 @pytest.mark.asyncio
-async def test_read_rain_outlook_past_the_end(service_fixture):
+async def test_read_rain_past_the_end(service_fixture):
     with pytest.raises(CannotAnswerError, match="not fully covered by the forecast"):
-        await service_fixture.read_rain_outlook(
+        await service_fixture.read_rain(
             "Zurich", build_swiss_time("2026-09-23T14:00"), build_swiss_time("2026-09-23T23:00")
         )
 
 
 
 @pytest.mark.asyncio
-async def test_read_rain_outlook_up_to_the_end_of_the_forecast(service_fixture):
+async def test_read_rain_up_to_the_end_of_the_forecast(service_fixture):
     # The forecast ends at 20:00 Swiss, so the third block, 20:00 to 23:00, is left out
-    answer = await service_fixture.read_rain_outlook(
+    answer = await service_fixture.read_rain(
         "Zurich", build_swiss_time("2026-09-23T14:00"), build_swiss_time("2026-09-23T21:00")
     )
 
@@ -125,27 +125,27 @@ async def test_read_rain_outlook_up_to_the_end_of_the_forecast(service_fixture):
 
 
 @pytest.mark.asyncio
-async def test_read_rain_outlook_refuses_a_start_inside_an_hour(service_fixture):
+async def test_read_rain_refuses_a_start_inside_an_hour(service_fixture):
     with pytest.raises(CannotAnswerError, match="is not a full hour"):
-        await service_fixture.read_rain_outlook(
+        await service_fixture.read_rain(
             "Zurich", build_swiss_time("2026-09-23T14:30"), build_swiss_time("2026-09-23T20:00")
         )
 
 
 @pytest.mark.asyncio
-async def test_read_rain_outlook_reversed_period(service_fixture):
+async def test_read_rain_reversed_period(service_fixture):
     with pytest.raises(CannotAnswerError, match="must be after its start"):
-        await service_fixture.read_rain_outlook(
+        await service_fixture.read_rain(
             "Zurich", build_swiss_time("2026-09-23T20:00"), build_swiss_time("2026-09-23T14:00")
         )
 
 
-# --- read_temperature_forecast ---
+# --- read_temperature ---
 
 @pytest.mark.asyncio
-async def test_read_temperature_forecast(service_fixture):
+async def test_read_temperature(service_fixture):
     # 13:00 to 15:00 Swiss is 11:00 to 13:00 UTC: the hours ending at 12:00 and 13:00 UTC
-    answer = await service_fixture.read_temperature_forecast(
+    answer = await service_fixture.read_temperature(
         "Zurich", build_swiss_time("2026-09-23T13:00"), build_swiss_time("2026-09-23T15:00")
     )
 
@@ -164,19 +164,19 @@ async def test_read_temperature_forecast(service_fixture):
 
 
 @pytest.mark.asyncio
-async def test_read_temperature_forecast_one_hour(service_fixture):
+async def test_read_temperature_one_hour(service_fixture):
     # Without an end, the one hour starting at start: 13:00 to 14:00 Swiss, the row stamped 12:00 UTC
-    answer = await service_fixture.read_temperature_forecast("Zurich", build_swiss_time("2026-09-23T13:00"))
+    answer = await service_fixture.read_temperature("Zurich", build_swiss_time("2026-09-23T13:00"))
 
     assert [(hour["from"], hour["to"]) for hour in answer["hours"]] == [("2026-09-23T13:00+02:00", "2026-09-23T14:00+02:00")]
     assert answer["hours"][0]["temperature_c"] == 12.0
 
 
 @pytest.mark.asyncio
-async def test_read_temperature_forecast_refuses_a_start_inside_an_hour(service_fixture):
+async def test_read_temperature_refuses_a_start_inside_an_hour(service_fixture):
     # MeteoSwiss forecasts whole hours, so the model is told which full hours it can ask for
     with pytest.raises(CannotAnswerError) as raised:
-        await service_fixture.read_temperature_forecast("Zurich", build_swiss_time("2026-09-23T14:30"))
+        await service_fixture.read_temperature("Zurich", build_swiss_time("2026-09-23T14:30"))
 
     assert str(raised.value) == (
         "2026-09-23T14:30+02:00 is not a full hour. MeteoSwiss forecasts whole hours, so use a full hour "
@@ -185,19 +185,19 @@ async def test_read_temperature_forecast_refuses_a_start_inside_an_hour(service_
 
 
 @pytest.mark.asyncio
-async def test_read_temperature_forecast_refuses_an_end_inside_an_hour(service_fixture):
+async def test_read_temperature_refuses_an_end_inside_an_hour(service_fixture):
     with pytest.raises(CannotAnswerError, match="is not a full hour"):
-        await service_fixture.read_temperature_forecast(
+        await service_fixture.read_temperature(
             "Zurich", build_swiss_time("2026-09-23T13:00"), build_swiss_time("2026-09-23T14:30")
         )
 
 
 @pytest.mark.asyncio
-async def test_read_temperature_forecast_outside_the_forecast(service_fixture):
+async def test_read_temperature_outside_the_forecast(service_fixture):
     # Times are written as the answers write them, with the offset of their own date: 30 October is
     # already winter time, the covered range is still summer time
     with pytest.raises(CannotAnswerError, match="is not fully covered by the forecast") as raised:
-        await service_fixture.read_temperature_forecast("Zurich", build_swiss_time("2026-10-30T14:00"))
+        await service_fixture.read_temperature("Zurich", build_swiss_time("2026-10-30T14:00"))
 
     assert str(raised.value).startswith("2026-10-30T14:00+01:00 is not fully covered by the forecast")
     assert "The forecast covers 2026-09-23T08:00+02:00 to 2026-09-23T15:00+02:00." in str(raised.value)
@@ -205,23 +205,23 @@ async def test_read_temperature_forecast_outside_the_forecast(service_fixture):
 
 
 @pytest.mark.asyncio
-async def test_read_temperature_forecast_past_the_end(service_fixture):
+async def test_read_temperature_past_the_end(service_fixture):
     with pytest.raises(CannotAnswerError, match="not fully covered by the forecast"):
-        await service_fixture.read_temperature_forecast(
+        await service_fixture.read_temperature(
             "Zurich", build_swiss_time("2026-09-23T13:00"), build_swiss_time("2026-09-23T17:00")
         )
 
 
 
 @pytest.mark.asyncio
-async def test_read_temperature_forecast_when_the_clocks_go_back(service_fixture, source_fixture):
+async def test_read_temperature_when_the_clocks_go_back(service_fixture, source_fixture):
     # On 25 October 2026 the clocks go back from 03:00 to 02:00, so 01:00 to 04:00 Swiss is 4 hours,
     # the rows stamped 00:00 to 03:00 UTC, and the hour after 02:00 comes twice
     for parameter in ("tre200h0", "treq10h0", "treq90h0"):
         for utc_hour in ("00", "01", "02", "03"):
             source_fixture.published[parameter][f"20261025{utc_hour}00"] = "1"
 
-    answer = await service_fixture.read_temperature_forecast(
+    answer = await service_fixture.read_temperature(
         "Zurich", build_swiss_time("2026-10-25T01:00"), build_swiss_time("2026-10-25T04:00")
     )
 
@@ -233,13 +233,13 @@ async def test_read_temperature_forecast_when_the_clocks_go_back(service_fixture
     ]
 
 
-# --- read_sunshine_hours ---
+# --- read_sunshine ---
 
 @pytest.mark.asyncio
-async def test_read_sunshine_hours(service_fixture):
+async def test_read_sunshine(service_fixture):
     # 08:00 to 15:00 Swiss is 06:00 to 13:00 UTC, the rows stamped 07:00 to 13:00 UTC: 60 + 45
     # minutes. The row stamped 06:00 covers 05:00 to 06:00 UTC, before the period starts.
-    answer = await service_fixture.read_sunshine_hours(
+    answer = await service_fixture.read_sunshine(
         "Zurich", build_swiss_time("2026-09-23T08:00"), build_swiss_time("2026-09-23T15:00")
     )
     assert answer["value"] == 1.8
@@ -249,55 +249,55 @@ async def test_read_sunshine_hours(service_fixture):
 
 
 @pytest.mark.asyncio
-async def test_read_sunshine_hours_single_hour(service_fixture):
+async def test_read_sunshine_single_hour(service_fixture):
     # 14:00 to 15:00 Swiss is the row stamped 13:00 UTC, 45 minutes. The row stamped 12:00 UTC
     # covers 13:00 to 14:00 Swiss, the hour before the period, and must not be counted.
-    answer = await service_fixture.read_sunshine_hours(
+    answer = await service_fixture.read_sunshine(
         "Zurich", build_swiss_time("2026-09-23T14:00"), build_swiss_time("2026-09-23T15:00")
     )
     assert answer["value"] == 0.8
 
 
 @pytest.mark.asyncio
-async def test_read_sunshine_hours_without_an_end(service_fixture):
+async def test_read_sunshine_without_an_end(service_fixture):
     # Without an end, the one hour starting at start: 14:00 to 15:00 Swiss, the row stamped 13:00 UTC
-    answer = await service_fixture.read_sunshine_hours("Zurich", build_swiss_time("2026-09-23T14:00"))
+    answer = await service_fixture.read_sunshine("Zurich", build_swiss_time("2026-09-23T14:00"))
 
     assert answer["value"] == 0.8
     assert (answer["from"], answer["to"]) == ("2026-09-23T14:00+02:00", "2026-09-23T15:00+02:00")
 
 
 @pytest.mark.asyncio
-async def test_read_sunshine_hours_past_the_end(service_fixture):
+async def test_read_sunshine_past_the_end(service_fixture):
     # The last row is stamped 13:00 UTC, 15:00 Swiss, so a period to 16:00 would be summed short
     with pytest.raises(CannotAnswerError, match="not fully covered by the forecast"):
-        await service_fixture.read_sunshine_hours(
+        await service_fixture.read_sunshine(
             "Zurich", build_swiss_time("2026-09-23T14:00"), build_swiss_time("2026-09-23T16:00")
         )
 
 
 @pytest.mark.asyncio
-async def test_read_sunshine_hours_with_a_missing_hour(service_fixture, source_fixture):
+async def test_read_sunshine_with_a_missing_hour(service_fixture, source_fixture):
     # An hour MeteoSwiss leaves empty would make the sum too low, so the period is refused
     del source_fixture.published["sre000h0"]["202609231000"]
     with pytest.raises(CannotAnswerError, match="not fully covered by the forecast"):
-        await service_fixture.read_sunshine_hours(
+        await service_fixture.read_sunshine(
             "Zurich", build_swiss_time("2026-09-23T08:00"), build_swiss_time("2026-09-23T15:00")
         )
 
 
 @pytest.mark.asyncio
-async def test_read_sunshine_hours_refuses_an_end_inside_an_hour(service_fixture):
+async def test_read_sunshine_refuses_an_end_inside_an_hour(service_fixture):
     with pytest.raises(CannotAnswerError, match="is not a full hour"):
-        await service_fixture.read_sunshine_hours(
+        await service_fixture.read_sunshine(
             "Zurich", build_swiss_time("2026-09-23T14:00"), build_swiss_time("2026-09-23T14:30")
         )
 
 
 @pytest.mark.asyncio
-async def test_read_sunshine_hours_reversed_period(service_fixture):
+async def test_read_sunshine_reversed_period(service_fixture):
     with pytest.raises(CannotAnswerError, match="must be after its start"):
-        await service_fixture.read_sunshine_hours(
+        await service_fixture.read_sunshine(
             "Zurich", build_swiss_time("2026-09-23T15:00"), build_swiss_time("2026-09-23T09:00")
         )
 
@@ -328,11 +328,11 @@ async def test_read_wind_names_the_forecast_point(service_fixture):
     assert answer["speed_kmh"] == 12.5
 
 
-# --- read_total_cloud_cover ---
+# --- read_cloud_cover ---
 
 @pytest.mark.asyncio
-async def test_read_total_cloud_cover(service_fixture):
-    answer = await service_fixture.read_total_cloud_cover("Zurich", build_swiss_time("2026-09-23T14:00"))
+async def test_read_cloud_cover(service_fixture):
+    answer = await service_fixture.read_cloud_cover("Zurich", build_swiss_time("2026-09-23T14:00"))
 
     # Half the sky low and half high: clear only where both are clear, 1 - 0.5 * 0.5 = 75%
     assert answer["value"] == 75.0
@@ -340,9 +340,9 @@ async def test_read_total_cloud_cover(service_fixture):
 
 
 @pytest.mark.asyncio
-async def test_read_total_cloud_cover_refuses_a_time_inside_an_hour(service_fixture):
+async def test_read_cloud_cover_refuses_a_time_inside_an_hour(service_fixture):
     with pytest.raises(CannotAnswerError, match="is not a full hour"):
-        await service_fixture.read_total_cloud_cover("Zurich", build_swiss_time("2026-09-23T14:20"))
+        await service_fixture.read_cloud_cover("Zurich", build_swiss_time("2026-09-23T14:20"))
 
 
 # --- parallel reads ---
@@ -353,11 +353,11 @@ PARALLEL_READ_TIMEOUT_SECONDS = 2
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("method_name, arguments, file_count", [
-    ("read_daily_forecast", ("Zurich", date(2026, 9, 23), 1), 6),
-    ("read_rain_outlook", ("Zurich", build_swiss_time("2026-09-23T14:00"), build_swiss_time("2026-09-23T20:00")), 4),
-    ("read_temperature_forecast", ("Zurich", build_swiss_time("2026-09-23T13:00")), 3),
+    ("read_daily", ("Zurich", date(2026, 9, 23), 1), 6),
+    ("read_rain", ("Zurich", build_swiss_time("2026-09-23T14:00"), build_swiss_time("2026-09-23T20:00")), 4),
+    ("read_temperature", ("Zurich", build_swiss_time("2026-09-23T13:00")), 3),
     ("read_wind", ("Zurich", build_swiss_time("2026-09-23T14:00")), 4),
-    ("read_total_cloud_cover", ("Zurich", build_swiss_time("2026-09-23T14:00")), 3),
+    ("read_cloud_cover", ("Zurich", build_swiss_time("2026-09-23T14:00")), 3),
 ])
 async def test_read_files_in_parallel(mocker, service_fixture, method_name, arguments, file_count):
     # Each read waits until all reads of the tool have started, so reads one after the other time out

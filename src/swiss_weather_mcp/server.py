@@ -176,7 +176,7 @@ class SwissWeatherMCPServer:
                 forecast_daily("Zürich", "2026-09-26", 2)   # a weekend
             """
             first_day = _parse_swiss_time(start_date).astimezone(SWISS_TZ).date()
-            return await self.forecast_service.read_daily_forecast(location, first_day, days, near)
+            return await self.forecast_service.read_daily(location, first_day, days, near)
 
         @self.mcp.tool(annotations=READS_OPEN_DATA)
         @_handle_tool_call
@@ -208,7 +208,7 @@ class SwissWeatherMCPServer:
             """
             start_moment = _parse_swiss_time(start)
             end_moment = _parse_swiss_time(end)
-            return await self.forecast_service.read_rain_outlook(location, start_moment, end_moment, near)
+            return await self.forecast_service.read_rain(location, start_moment, end_moment, near)
 
         @self.mcp.tool(annotations=READS_OPEN_DATA)
         @_handle_tool_call
@@ -236,7 +236,7 @@ class SwissWeatherMCPServer:
             """
             start_moment = _parse_swiss_time(start)
             end_moment = _parse_swiss_time(end) if end is not None else None
-            return await self.forecast_service.read_temperature_forecast(location, start_moment, end_moment, near)
+            return await self.forecast_service.read_temperature(location, start_moment, end_moment, near)
 
         @self.mcp.tool(annotations=READS_OPEN_DATA)
         @_handle_tool_call
@@ -262,7 +262,7 @@ class SwissWeatherMCPServer:
             """
             start_moment = _parse_swiss_time(start)
             end_moment = _parse_swiss_time(end) if end is not None else None
-            return await self.forecast_service.read_sunshine_hours(location, start_moment, end_moment, near)
+            return await self.forecast_service.read_sunshine(location, start_moment, end_moment, near)
 
         @self.mcp.tool(annotations=READS_OPEN_DATA)
         @_handle_tool_call
@@ -315,7 +315,7 @@ class SwissWeatherMCPServer:
                 forecast_cloud_cover("Zürich", "2026-09-23T14:00")
             """
             moment = _parse_swiss_time(when)
-            return await self.forecast_service.read_total_cloud_cover(location, moment, near)
+            return await self.forecast_service.read_cloud_cover(location, moment, near)
 
         @self.mcp.tool(annotations=READS_OPEN_DATA)
         @_handle_tool_call
@@ -359,7 +359,7 @@ class SwissWeatherMCPServer:
             Examples:
                 measurements_current("Zürich")
             """
-            return await self.measurement_service.read_current_conditions(location, near)
+            return await self.measurement_service.read_current(location, near)
 
         @self.mcp.tool(annotations=READS_OPEN_DATA)
         @_handle_tool_call
@@ -383,7 +383,7 @@ class SwissWeatherMCPServer:
             Examples:
                 measurements_extremes("warmest")
             """
-            return await self.measurement_service.read_current_extremes(extreme)
+            return await self.measurement_service.read_extremes(extreme)
 
     def run(self, transport: str, host: str, port: int) -> None:
         """Serve the tools over stdio, or over streamable HTTP on host and port, until the process stops."""

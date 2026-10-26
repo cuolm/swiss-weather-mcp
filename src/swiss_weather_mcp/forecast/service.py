@@ -138,7 +138,7 @@ class ForecastService:
             logger.info(f"No daily {parameter} for {point.display_name}: {error}")
             return None
 
-    async def read_daily_forecast(
+    async def read_daily(
         self, location: str, first_day: date, days: int, nearby_location: Optional[str] = None
     ) -> Dict[str, Any]:
         """
@@ -212,7 +212,7 @@ class ForecastService:
             "model_run": format_swiss_time(run_time),
         }
 
-    async def read_rain_outlook(
+    async def read_rain(
         self, location: str, start_moment: datetime, end_moment: datetime, nearby_location: Optional[str] = None
     ) -> Dict[str, Any]:
         """
@@ -290,7 +290,7 @@ class ForecastService:
             "model_run": format_swiss_time(median_series.run_time),
         }
 
-    async def read_temperature_forecast(
+    async def read_temperature(
         self, location: str, start_moment: datetime, end_moment: Optional[datetime] = None,
         nearby_location: Optional[str] = None,
     ) -> Dict[str, Any]:
@@ -346,7 +346,7 @@ class ForecastService:
             "model_run": format_swiss_time(temperature_series.run_time),
         }
 
-    async def read_sunshine_hours(
+    async def read_sunshine(
         self, location: str, start_moment: datetime, end_moment: Optional[datetime] = None,
         nearby_location: Optional[str] = None,
     ) -> Dict[str, Any]:
@@ -410,7 +410,7 @@ class ForecastService:
             "model_run": format_swiss_time(speed_series.run_time),
         }
 
-    async def read_total_cloud_cover(
+    async def read_cloud_cover(
         self, location: str, moment: datetime, nearby_location: Optional[str] = None
     ) -> Dict[str, Any]:
         """Estimate the total cloud cover at a moment from the three overlapping layers."""

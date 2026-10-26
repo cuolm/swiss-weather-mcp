@@ -19,11 +19,11 @@ def build_measurements(utc_time: str, values: dict) -> StationMeasurements:
     return StationMeasurements(FLUNTERN, measured_at, values)
 
 
-# --- read_current_conditions ---
+# --- read_current ---
 
 @pytest.mark.asyncio
-async def test_read_current_conditions(measurement_service_fixture):
-    answer = await measurement_service_fixture.read_current_conditions("Zurich")
+async def test_read_current(measurement_service_fixture):
+    answer = await measurement_service_fixture.read_current("Zurich")
 
     assert answer == {
         "data_from": (
@@ -51,9 +51,9 @@ async def test_read_current_conditions(measurement_service_fixture):
 
 
 @pytest.mark.asyncio
-async def test_read_current_conditions_values_the_station_lacks(measurement_service_fixture):
+async def test_read_current_values_the_station_lacks(measurement_service_fixture):
     # The Davos station, next to Davos Dorf, has no rain or direction here
-    answer = await measurement_service_fixture.read_current_conditions("Davos Dorf")
+    answer = await measurement_service_fixture.read_current("Davos Dorf")
 
     assert answer["rain_last_10_minutes_mm"] is None
     assert (answer["wind_direction_degrees"], answer["compass_point"]) == (None, None)
@@ -61,9 +61,9 @@ async def test_read_current_conditions_values_the_station_lacks(measurement_serv
 
 
 @pytest.mark.asyncio
-async def test_read_current_conditions_without_earlier_measurements(measurement_service_fixture):
+async def test_read_current_without_earlier_measurements(measurement_service_fixture):
     # The Davos station has published only one row, so nothing to compare with and no full hour
-    answer = await measurement_service_fixture.read_current_conditions("Davos Dorf")
+    answer = await measurement_service_fixture.read_current("Davos Dorf")
 
     assert answer["temperature_c"] == 16.5
     assert answer["temperature_change_last_3_hours_c"] is None
@@ -114,9 +114,9 @@ def test_find_highest_last_hour_of_gusts():
 
 
 @pytest.mark.asyncio
-async def test_read_current_conditions_for_a_district(measurement_service_fixture):
+async def test_read_current_for_a_district(measurement_service_fixture):
     # The station is found from the district itself, not from the town around it
-    answer = await measurement_service_fixture.read_current_conditions("Lindenhof")
+    answer = await measurement_service_fixture.read_current("Lindenhof")
 
     assert answer["data_from"].startswith(
         "The measurements for Lindenhof (428 m) are those of the MeteoSwiss station Zürich / Fluntern (604 m), "
@@ -125,12 +125,12 @@ async def test_read_current_conditions_for_a_district(measurement_service_fixtur
     assert answer["place"] == "Lindenhof"
 
 
-# --- read_current_extremes ---
+# --- read_extremes ---
 
 @pytest.mark.asyncio
-async def test_read_current_extremes_warmest(measurement_service_fixture):
+async def test_read_extremes_warmest(measurement_service_fixture):
     # The Uetliberg station has no thermometer, so it is not ranked
-    answer = await measurement_service_fixture.read_current_extremes("warmest")
+    answer = await measurement_service_fixture.read_extremes("warmest")
 
     assert answer == {
         "extreme": "warmest",
@@ -144,15 +144,15 @@ async def test_read_current_extremes_warmest(measurement_service_fixture):
 
 
 @pytest.mark.asyncio
-async def test_read_current_extremes_coldest(measurement_service_fixture):
-    answer = await measurement_service_fixture.read_current_extremes("coldest")
+async def test_read_extremes_coldest(measurement_service_fixture):
+    answer = await measurement_service_fixture.read_extremes("coldest")
     assert [row["station"] for row in answer["stations"]] == [
         "Davos (1594 m)", "Zürich / Fluntern (604 m)", "Zürich / Kloten (426 m)",
     ]
 
 
 @pytest.mark.asyncio
-async def test_read_current_extremes_lists_5_stations(mocker, measurement_service_fixture):
+async def test_read_extremes_lists_5_stations(mocker, measurement_service_fixture):
     all_measurements = []
     for temperature_c in (11.0, 12.0, 13.0, 14.0, 15.0, 16.0):
         all_measurements.append(build_measurements("2026-09-25T14:00", {parameters.TEMPERATURE: temperature_c}))
@@ -160,20 +160,20 @@ async def test_read_current_extremes_lists_5_stations(mocker, measurement_servic
         measurement_service_fixture.measurement_source, "read_all_stations_latest_measurements",
         return_value=all_measurements,
     )
-    answer = await measurement_service_fixture.read_current_extremes("warmest")
+    answer = await measurement_service_fixture.read_extremes("warmest")
     assert [row["temperature_c"] for row in answer["stations"]] == [16.0, 15.0, 14.0, 13.0, 12.0]
 
 
 @pytest.mark.asyncio
-async def test_read_current_extremes_windiest(measurement_service_fixture):
-    answer = await measurement_service_fixture.read_current_extremes("windiest")
+async def test_read_extremes_windiest(measurement_service_fixture):
+    answer = await measurement_service_fixture.read_extremes("windiest")
     assert answer["stations"][0] == {"station": "Davos (1594 m)", "canton": "Graubünden", "gusts_kmh": 28.8}
 
 
 @pytest.mark.asyncio
-async def test_read_current_extremes_sunniest(measurement_service_fixture):
+async def test_read_extremes_sunniest(measurement_service_fixture):
     # Kloten had only 4 minutes of sun, so 2 of the 3 stations in Zürich are sunny
-    answer = await measurement_service_fixture.read_current_extremes("sunniest")
+    answer = await measurement_service_fixture.read_extremes("sunniest")
 
     assert answer == {
         "extreme": "sunniest",
@@ -188,10 +188,10 @@ async def test_read_current_extremes_sunniest(measurement_service_fixture):
 
 
 @pytest.mark.asyncio
-async def test_read_current_extremes_wettest(measurement_service_fixture):
+async def test_read_extremes_wettest(measurement_service_fixture):
     # The Uetliberg and Davos stations measure no rain, so they count neither as rainy nor as
     # measuring, and Graubünden has no measuring station left
-    answer = await measurement_service_fixture.read_current_extremes("wettest")
+    answer = await measurement_service_fixture.read_extremes("wettest")
 
     assert answer == {
         "extreme": "wettest",
@@ -204,13 +204,13 @@ async def test_read_current_extremes_wettest(measurement_service_fixture):
 
 
 @pytest.mark.asyncio
-async def test_read_current_extremes_wettest_when_dry(mocker, measurement_service_fixture):
+async def test_read_extremes_wettest_when_dry(mocker, measurement_service_fixture):
     dry_fluntern = build_measurements("2026-09-25T14:00", {parameters.PRECIPITATION: 0.0})
     mocker.patch.object(
         measurement_service_fixture.measurement_source, "read_all_stations_latest_measurements",
         return_value=[dry_fluntern],
     )
-    answer = await measurement_service_fixture.read_current_extremes("wettest")
+    answer = await measurement_service_fixture.read_extremes("wettest")
 
     assert (answer["rainy_stations"], answer["measuring_stations"]) == (0, 1)
     # The canton is listed with 0, so it is not mistaken for a canton without measurements
@@ -221,18 +221,18 @@ async def test_read_current_extremes_wettest_when_dry(mocker, measurement_servic
 
 
 @pytest.mark.asyncio
-async def test_read_current_extremes_unknown_extreme(measurement_service_fixture):
+async def test_read_extremes_unknown_extreme(measurement_service_fixture):
     with pytest.raises(CannotAnswerError, match="warmest, coldest, windiest, wettest, sunniest"):
-        await measurement_service_fixture.read_current_extremes("foggiest")
+        await measurement_service_fixture.read_extremes("foggiest")
 
 
 @pytest.mark.asyncio
-async def test_read_current_extremes_without_measurements(mocker, measurement_service_fixture):
+async def test_read_extremes_without_measurements(mocker, measurement_service_fixture):
     mocker.patch.object(
         measurement_service_fixture.measurement_source, "read_all_stations_latest_measurements", return_value=[],
     )
     with pytest.raises(CannotAnswerError, match="publishes no measurements"):
-        await measurement_service_fixture.read_current_extremes("warmest")
+        await measurement_service_fixture.read_extremes("warmest")
 
 
 # --- _build_canton_rows ---
