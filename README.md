@@ -129,8 +129,8 @@ The bundled MCP client tests the server over stdio. It needs the `client` extra 
 The forecast tools take a `location` (the name of a place, such as `"Zurich"`) and a Swiss local time,
 or a date for `forecast_daily`. Every tool that takes a `location` also takes an optional `near`, only
 needed when several places share the name (see [Locations](#locations)). Each answer holds the forecast,
-the place and the MeteoSwiss forecast point used, with their altitudes and distance, the time it applies
-to, and the model run.
+the place, the time it applies to, and the model run. It names the MeteoSwiss forecast point only when
+the point is not next to the place (see [Forecast Points](#forecast-points)).
 
 | Tool | Purpose | Example Call |
 |------|---------|--------------|
@@ -172,7 +172,8 @@ to, and the model run.
 - An unknown name gets suggestions, such as `Davos Dorf` and `Davos Platz` for `Davos`.
 
 ### Forecast Points
-- The forecast comes from a MeteoSwiss forecast point near the place, and every answer names it.
+- The forecast comes from a MeteoSwiss forecast point near the place. An answer names it in
+  data_from when it is more than 1 km away or more than 50 m higher or lower.
 - Weather changes faster with height than with distance: in the standard atmosphere, air cools by
   0.65 °C per 100 m.
 - So among the points within 5 km, the server takes the one with the smallest distance plus 20 times
