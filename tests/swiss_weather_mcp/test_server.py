@@ -22,8 +22,8 @@ EXPECTED_TOOLS = {
     "forecast_wind": ["location", "when", "near"],
     "forecast_cloud_cover": ["location", "when", "near"],
     "forecast_freezing_level": ["location", "when", "near"],
-    "current_conditions": ["location", "near"],
-    "current_extremes": ["extreme"],
+    "measurements_current": ["location", "near"],
+    "measurements_extremes": ["extreme"],
 }
 
 FREEZING_LEVEL_CALL = {"location": "Zurich", "when": "2026-09-24T14:00"}
@@ -103,17 +103,17 @@ async def test_register_tools_describes_near(server_fixture):
 
 
 @pytest.mark.asyncio
-async def test_current_conditions_passes_near_on(server_fixture):
+async def test_measurements_current_passes_near_on(server_fixture):
     server_fixture.measurement_service.read_current_conditions.return_value = {"place": "Blausee (445 m)"}
 
-    await server_fixture.mcp.call_tool("current_conditions", {"location": "Blausee", "near": "Wallisellen"})
+    await server_fixture.mcp.call_tool("measurements_current", {"location": "Blausee", "near": "Wallisellen"})
     server_fixture.measurement_service.read_current_conditions.assert_awaited_once_with("Blausee", "Wallisellen")
 
 
 @pytest.mark.asyncio
-async def test_current_extremes_refuses_an_unknown_extreme(server_fixture):
+async def test_measurements_extremes_refuses_an_unknown_extreme(server_fixture):
     with pytest.raises(ToolError, match="'warmest', 'coldest', 'windiest', 'wettest' or 'sunniest'"):
-        await server_fixture.mcp.call_tool("current_extremes", {"extreme": "hottest"})
+        await server_fixture.mcp.call_tool("measurements_extremes", {"extreme": "hottest"})
     server_fixture.measurement_service.read_current_extremes.assert_not_awaited()
 
 

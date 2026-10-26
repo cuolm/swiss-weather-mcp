@@ -122,7 +122,7 @@ class SwissWeatherMCPServer:
         self.mcp = MCPServer(
             name="swiss_weather_mcp_server",
             instructions=(
-                "Weather for places in Switzerland from MeteoSwiss: what stations measure now (current_*), "
+                "Weather for places in Switzerland from MeteoSwiss: what stations measure now (measurements_*), "
                 "and forecasts for today and the next 8 days (forecast_*).\n"
                 "- Values for a place come from the MeteoSwiss station or forecast point named in data_from, "
                 "which can be kilometres away and higher or lower. When an answer has data_from, say which "
@@ -349,7 +349,7 @@ class SwissWeatherMCPServer:
 
         @self.mcp.tool(annotations=READS_OPEN_DATA)
         @_handle_tool_call
-        async def current_conditions(location: str, near: Near = None) -> dict:
+        async def measurements_current(location: str, near: Near = None) -> dict:
             """
             Get the latest measurements of a MeteoSwiss station near the location.
 
@@ -378,14 +378,14 @@ class SwissWeatherMCPServer:
                     measurements it needs, such as shortly after midnight UTC.
 
             Examples:
-                current_conditions("Zurich")
-                current_conditions("Braunwald")
+                measurements_current("Zurich")
+                measurements_current("Braunwald")
             """
             return await self.measurement_service.read_current_conditions(location, near)
 
         @self.mcp.tool(annotations=READS_OPEN_DATA)
         @_handle_tool_call
-        async def current_extremes(extreme: ExtremeName) -> dict:
+        async def measurements_extremes(extreme: ExtremeName) -> dict:
             """
             Get where in Switzerland it is warmest, coldest, windiest, wettest or sunniest now.
 
@@ -414,8 +414,8 @@ class SwissWeatherMCPServer:
                     A station that does not measure the value is left out everywhere.
 
             Examples:
-                current_extremes("warmest")
-                current_extremes("sunniest")
+                measurements_extremes("warmest")
+                measurements_extremes("sunniest")
             """
             return await self.measurement_service.read_current_extremes(extreme)
 
