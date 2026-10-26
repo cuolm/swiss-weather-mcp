@@ -237,12 +237,12 @@ class ForecastService:
             "model_run": format_swiss_time(low_series.run_time),
         }
 
-    async def read_hourly_forecast(
+    async def read_temperature_forecast(
         self, location: str, start_moment: datetime, end_moment: Optional[datetime] = None,
         nearby_location: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
-        Read the hourly forecast from start to end, or for the one hour from start when end is None.
+        Read the temperature hour by hour from start to end, or for the one hour from start when end is None.
 
         Times are timezone aware full hours. Raise CannotAnswerError when they are not, or when the
         forecast does not cover them.
@@ -262,35 +262,29 @@ class ForecastService:
             period = f"{format_swiss_time(start_moment)} to {format_swiss_time(end_moment)}"
 
         place, point = await self._find_place_and_point(location, nearby_location)
-        temperature_series, lower_series, upper_series, chance_series, pictogram_series = await asyncio.gather(
+        temperature_series, lower_series, upper_series = await asyncio.gather(
             self._read_series(parameters.TEMPERATURE, point),
             self._read_series(parameters.TEMPERATURE_Q10, point),
             self._read_series(parameters.TEMPERATURE_Q90, point),
-            self._read_series(parameters.PRECIPITATION_PROBABILITY, point),
-            self._read_series(parameters.WEATHER_PICTOGRAM, point),
         )
 
         hour_stamps = _create_stamps(first_stamp, last_stamp, HOUR)
-        for series in (temperature_series, lower_series, upper_series, chance_series, pictogram_series):
+        for series in (temperature_series, lower_series, upper_series):
             period_is_covered = all(stamp in series.values for stamp in hour_stamps)
             if not period_is_covered:
                 raise CannotAnswerError(
                     f"{period} is not fully covered by the forecast for {point.display_name}. "
-                    f"{_describe_covered_range(pictogram_series)}"
+                    f"{_describe_covered_range(temperature_series)}"
                 )
 
         hours = []
         for stamp in hour_stamps:
-            weather, weather_emoji = _describe_pictogram(int(pictogram_series.values[stamp]))
             hours.append({
                 "from": format_swiss_time(stamp - HOUR),
                 "to": format_swiss_time(stamp),
                 "temperature_c": temperature_series.values[stamp],
                 "temperature_10th_percentile_c": lower_series.values[stamp],
                 "temperature_90th_percentile_c": upper_series.values[stamp],
-                "rain_chance_percent": chance_series.values[stamp],
-                "weather": weather,
-                "weather_emoji": weather_emoji,
             })
 
         return {
@@ -303,7 +297,7 @@ class ForecastService:
         self, location: str, start_moment: datetime, end_moment: datetime, nearby_location: Optional[str] = None
     ) -> Dict[str, Any]:
         """
-        Read when and how much it may rain, in 3-hour blocks from start to end.
+        Read when and how much it may rain, and the weather in words, in 3-hour blocks from start to end.
 
         Times are timezone aware full hours. Raise CannotAnswerError when they are not, or when
         the forecast does not cover them. A last block that runs past the end of the forecast is
@@ -314,10 +308,11 @@ class ForecastService:
         _check_period_order(start_moment, end_moment)
 
         place, point = await self._find_place_and_point(location, nearby_location)
-        chance_series, median_series, upper_series = await asyncio.gather(
+        chance_series, median_series, upper_series, pictogram_series = await asyncio.gather(
             self._read_series(parameters.PRECIPITATION_PROBABILITY, point),
             self._read_series(parameters.PRECIPITATION_3H, point),
             self._read_series(parameters.PRECIPITATION_Q90, point),
+            self._read_series(parameters.WEATHER_PICTOGRAM, point),
         )
 
         # UTC, because adding hours in Swiss time goes wrong when the clocks change
@@ -333,6 +328,7 @@ class ForecastService:
         last_block_is_published = (
             last_block_end in chance_series.values
             and last_block_end in median_series.values
+            and last_block_end in pictogram_series.values
             and all(stamp in upper_series.values for stamp in last_block_hours)
         )
         if len(block_ends) > 1 and last_block_end > last_stamp and not last_block_is_published:
@@ -343,6 +339,7 @@ class ForecastService:
         for series, stamps in (
             (chance_series, block_ends),
             (median_series, block_ends),
+            (pictogram_series, block_ends),
             (upper_series, hour_stamps),
         ):
             period_is_covered = all(stamp in series.values for stamp in stamps)
@@ -357,12 +354,15 @@ class ForecastService:
             block_start = block_end - RAIN_BLOCK
             block_hour_stamps = _create_stamps(block_start + HOUR, block_end, HOUR)
             heaviest_hour_mm = max(upper_series.values[stamp] for stamp in block_hour_stamps)
+            weather, weather_emoji = _describe_pictogram(int(pictogram_series.values[block_end]))
             blocks.append({
                 "from": format_swiss_time(block_start),
                 "to": format_swiss_time(block_end),
                 "rain_chance_percent": chance_series.values[block_end],
                 "rainfall_median_mm": round(median_series.values[block_end], 1),
                 "heaviest_hour_up_to_mm": round(heaviest_hour_mm, 1),
+                "weather": weather,
+                "weather_emoji": weather_emoji,
             })
 
         return {

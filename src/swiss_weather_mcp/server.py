@@ -182,18 +182,15 @@ class SwissWeatherMCPServer:
 
         @self.mcp.tool(annotations=READS_OPEN_DATA)
         @_handle_tool_call
-        async def forecast_hourly(location: str, start: str, end: Optional[str] = None, near: Near = None) -> dict:
+        async def forecast_temperature(location: str, start: str, end: Optional[str] = None, near: Near = None) -> dict:
             """
-            Get the weather hour by hour for a place: temperature with its likely range, chance
-            of rain and the weather in words.
+            Get the temperature hour by hour at a place, with its likely range.
 
             Use this for one hour, such as "how warm is it at 15:00", or part of a day, such as "how
-            is the afternoon" or "when is the best time for a walk". Without end it returns the one
-            hour starting at start. Each row is one hour, from its from time to its to time. The
-            temperature is the mean of that hour. The rain chance and the weather cover the 3 hours
-            up to the to time, because MeteoSwiss publishes them only per 3 hours. For whole days or
-            periods longer than a day use forecast_daily, which answers in far fewer rows, and for
-            rain amounts forecast_rain.
+            warm is the afternoon". Without end it returns the one hour starting at start. Each row
+            is one hour, from its from time to its to time, with the mean temperature of that hour.
+            For whole days or periods longer than a day use forecast_daily, which answers in far
+            fewer rows, and for rain and the weather in words forecast_rain.
 
             Args:
                 location (str): Place name: a town, village, city district, lake or peak (e.g. "Zurich").
@@ -206,23 +203,25 @@ class SwissWeatherMCPServer:
                     percentile.
 
             Examples:
-                forecast_hourly("Zurich", "2026-09-23T15:00")                        # one hour
-                forecast_hourly("Zurich", "2026-09-23T12:00", "2026-09-23T18:00")    # the afternoon
+                forecast_temperature("Zurich", "2026-09-23T15:00")                        # one hour
+                forecast_temperature("Zurich", "2026-09-23T12:00", "2026-09-23T18:00")    # the afternoon
             """
             start_moment = _parse_swiss_time(start)
             end_moment = _parse_swiss_time(end) if end is not None else None
-            return await self.forecast_service.read_hourly_forecast(location, start_moment, end_moment, near)
+            return await self.forecast_service.read_temperature_forecast(location, start_moment, end_moment, near)
 
         @self.mcp.tool(annotations=READS_OPEN_DATA)
         @_handle_tool_call
         async def forecast_rain(location: str, start: str, end: str, near: Near = None) -> dict:
             """
-            Get when and how much it may rain at a place, in 3-hour blocks over a period.
+            Get when and how much it may rain at a place, and the weather in words, in 3-hour blocks
+            over a period.
 
-            Use this for "will it rain this afternoon", "do I need an umbrella" or "when does the
-            rain stop". Each block gives the chance of rain, the median rainfall of the 3 hours, and
-            how much the wettest hour of the block may bring (its 90th percentile). The median is
-            often 0 when showers are possible, so read the chance and the "up to" amount as well.
+            Use this for "will it rain this afternoon", "do I need an umbrella", "when does the rain
+            stop" or "how is the weather this afternoon". Each block gives the chance of rain, the
+            median rainfall of the 3 hours, how much the wettest hour of the block may bring (its
+            90th percentile), and the weather of the 3 hours in words. The median is often 0 when
+            showers are possible, so read the chance and the "up to" amount as well.
             A period up to the end of the forecast ends with its last full 3-hour block. For the
             total rain of a whole day use forecast_daily.
 
@@ -305,7 +304,7 @@ class SwissWeatherMCPServer:
             total is an estimate that assumes the layers are independent. All three layers are
             returned as well, which tells low fog apart from thin high cloud.
 
-            When a number is not needed, forecast_hourly answers "how cloudy" in plain words.
+            When a number is not needed, the weather words of forecast_rain answer "how cloudy".
 
             Args:
                 location (str): Place name: a town, village, city district, lake or peak (e.g. "Zurich").
@@ -365,7 +364,7 @@ class SwissWeatherMCPServer:
             to it. The temperature and pressure changes compare measured_at with 3 hours before it,
             negative when the value fell. The rain and sunshine of the last hour are the totals of
             its six 10-minute values, and the strongest gust of the last hour is the highest of them.
-            For later today or the coming days use forecast_hourly or forecast_daily.
+            For later today or the coming days use the forecast_* tools.
 
             Args:
                 location (str): Place name: a town, village, city district, lake or peak (e.g. "Zurich").

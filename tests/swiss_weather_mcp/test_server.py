@@ -16,7 +16,7 @@ SWISS_TZ = ZoneInfo("Europe/Zurich")
 EXPECTED_TOOLS = {
     "current_date_and_time": [],
     "forecast_daily": ["location", "start_date", "days", "near"],
-    "forecast_hourly": ["location", "start", "end", "near"],
+    "forecast_temperature": ["location", "start", "end", "near"],
     "forecast_rain": ["location", "start", "end", "near"],
     "forecast_sunshine": ["location", "start", "end", "near"],
     "forecast_wind": ["location", "when", "near"],
