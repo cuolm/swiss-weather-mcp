@@ -212,62 +212,6 @@ class ForecastService:
             "model_run": format_swiss_time(run_time),
         }
 
-    async def read_temperature_forecast(
-        self, location: str, start_moment: datetime, end_moment: Optional[datetime] = None,
-        nearby_location: Optional[str] = None,
-    ) -> Dict[str, Any]:
-        """
-        Read the temperature hour by hour from start to end, or for the one hour from start when end is None.
-
-        Times are timezone aware full hours. Raise CannotAnswerError when they are not, or when the
-        forecast does not cover them.
-        """
-        _check_full_hour(start_moment)
-        # A row covers the hour before its stamp, so the first hour is the row stamped one hour after start.
-        # UTC, because adding hours in Swiss time goes wrong when the clocks change.
-        first_stamp = start_moment.astimezone(timezone.utc) + HOUR
-
-        if end_moment is None:
-            last_stamp = first_stamp
-            period = format_swiss_time(start_moment)
-        else:
-            _check_full_hour(end_moment)
-            _check_period_order(start_moment, end_moment)
-            last_stamp = end_moment.astimezone(timezone.utc)
-            period = f"{format_swiss_time(start_moment)} to {format_swiss_time(end_moment)}"
-
-        place, point = await self._find_place_and_point(location, nearby_location)
-        temperature_series, lower_series, upper_series = await asyncio.gather(
-            self._read_series(parameters.TEMPERATURE, point),
-            self._read_series(parameters.TEMPERATURE_Q10, point),
-            self._read_series(parameters.TEMPERATURE_Q90, point),
-        )
-
-        hour_stamps = _create_stamps(first_stamp, last_stamp, HOUR)
-        for series in (temperature_series, lower_series, upper_series):
-            period_is_covered = all(stamp in series.values for stamp in hour_stamps)
-            if not period_is_covered:
-                raise CannotAnswerError(
-                    f"{period} is not fully covered by the forecast for {point.display_name}. "
-                    f"{_describe_covered_range(temperature_series)}"
-                )
-
-        hours = []
-        for stamp in hour_stamps:
-            hours.append({
-                "from": format_swiss_time(stamp - HOUR),
-                "to": format_swiss_time(stamp),
-                "temperature_c": temperature_series.values[stamp],
-                "temperature_10th_percentile_c": lower_series.values[stamp],
-                "temperature_90th_percentile_c": upper_series.values[stamp],
-            })
-
-        return {
-            **_build_forecast_point_fields(place, point),
-            "hours": hours,
-            "model_run": format_swiss_time(temperature_series.run_time),
-        }
-
     async def read_rain_outlook(
         self, location: str, start_moment: datetime, end_moment: datetime, nearby_location: Optional[str] = None
     ) -> Dict[str, Any]:
@@ -344,6 +288,62 @@ class ForecastService:
             **_build_forecast_point_fields(place, point),
             "blocks": blocks,
             "model_run": format_swiss_time(median_series.run_time),
+        }
+
+    async def read_temperature_forecast(
+        self, location: str, start_moment: datetime, end_moment: Optional[datetime] = None,
+        nearby_location: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Read the temperature hour by hour from start to end, or for the one hour from start when end is None.
+
+        Times are timezone aware full hours. Raise CannotAnswerError when they are not, or when the
+        forecast does not cover them.
+        """
+        _check_full_hour(start_moment)
+        # A row covers the hour before its stamp, so the first hour is the row stamped one hour after start.
+        # UTC, because adding hours in Swiss time goes wrong when the clocks change.
+        first_stamp = start_moment.astimezone(timezone.utc) + HOUR
+
+        if end_moment is None:
+            last_stamp = first_stamp
+            period = format_swiss_time(start_moment)
+        else:
+            _check_full_hour(end_moment)
+            _check_period_order(start_moment, end_moment)
+            last_stamp = end_moment.astimezone(timezone.utc)
+            period = f"{format_swiss_time(start_moment)} to {format_swiss_time(end_moment)}"
+
+        place, point = await self._find_place_and_point(location, nearby_location)
+        temperature_series, lower_series, upper_series = await asyncio.gather(
+            self._read_series(parameters.TEMPERATURE, point),
+            self._read_series(parameters.TEMPERATURE_Q10, point),
+            self._read_series(parameters.TEMPERATURE_Q90, point),
+        )
+
+        hour_stamps = _create_stamps(first_stamp, last_stamp, HOUR)
+        for series in (temperature_series, lower_series, upper_series):
+            period_is_covered = all(stamp in series.values for stamp in hour_stamps)
+            if not period_is_covered:
+                raise CannotAnswerError(
+                    f"{period} is not fully covered by the forecast for {point.display_name}. "
+                    f"{_describe_covered_range(temperature_series)}"
+                )
+
+        hours = []
+        for stamp in hour_stamps:
+            hours.append({
+                "from": format_swiss_time(stamp - HOUR),
+                "to": format_swiss_time(stamp),
+                "temperature_c": temperature_series.values[stamp],
+                "temperature_10th_percentile_c": lower_series.values[stamp],
+                "temperature_90th_percentile_c": upper_series.values[stamp],
+            })
+
+        return {
+            **_build_forecast_point_fields(place, point),
+            "hours": hours,
+            "model_run": format_swiss_time(temperature_series.run_time),
         }
 
     async def read_sunshine_hours(

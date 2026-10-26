@@ -136,8 +136,8 @@ the point is not next to the place (see [Forecast Points](#forecast-points)).
 |------|---------|--------------|
 | `current_date_and_time()` | Today's weekday and the Swiss time now | `current_date_and_time()` |
 | `forecast_daily(location, start_date, days)` | One row per day, 1 to 9 days: lowest and highest temperature, median rainfall with its 10th and 90th percentile, daytime weather in words with an emoji | `forecast_daily("Zürich", "2026-09-26", 2)` |
-| `forecast_temperature(location, start, end)` | Temperature hour by hour over any period within the forecast, or one hour without `end`: mean (°C) with its 10th and 90th percentile | `forecast_temperature("Zürich", "2026-09-23T15:00")` |
 | `forecast_rain(location, start, end)` | Rain and weather in 3-hour blocks over any period within the forecast: chance (%), median (mm), how much the wettest hour may bring (mm) and the weather in words with an emoji | `forecast_rain("Zürich", "2026-09-23T12:00", "2026-09-24T00:00")` |
+| `forecast_temperature(location, start, end)` | Temperature hour by hour over any period within the forecast, or one hour without `end`: mean (°C) with its 10th and 90th percentile | `forecast_temperature("Zürich", "2026-09-23T15:00")` |
 | `forecast_sunshine(location, start, end)` | Sunshine (h) summed over a period, or one hour without `end` | `forecast_sunshine("Zürich", "2026-09-23T06:00", "2026-09-23T18:00")` |
 | `forecast_wind(location, when)` | Mean speed and strongest gust (km/h) in the hour up to that time, how strong that gust may get (its 90th percentile), and the direction as degrees and compass point | `forecast_wind("Zürich", "2026-09-23T14:00")` |
 | `forecast_cloud_cover(location, when)` | Estimated total cloud cover (%) plus the low, medium and high layers | `forecast_cloud_cover("Zürich", "2026-09-23T14:00")` |

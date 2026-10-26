@@ -180,34 +180,6 @@ class SwissWeatherMCPServer:
 
         @self.mcp.tool(annotations=READS_OPEN_DATA)
         @_handle_tool_call
-        async def forecast_temperature(location: str, start: str, end: Optional[str] = None, near: Near = None) -> dict:
-            """
-            Get the temperature hour by hour at a place, with its likely range.
-
-            Use this for "how warm is it at 15:00" or "how warm is it this afternoon". Without end
-            it returns the one hour starting at start. Each row gives the mean temperature of one
-            hour, between its from and to times.
-
-            Args:
-                location (str): Name of a place in Switzerland, e.g. "Zürich".
-                start (str): Start of the period, a full hour, e.g. "2026-09-23T15:00". Today or up to 8 days ahead.
-                end (str): Optional. End of the period, a full hour after start, e.g. "2026-09-23T18:00".
-
-            Returns:
-                dict: data_from when the forecast point is far away or at a significantly different
-                    height, the place, one row per hour and the model run. In 8 of 10 possible outcomes,
-                    the temperature lies between its 10th and 90th percentile.
-
-            Examples:
-                forecast_temperature("Zürich", "2026-09-23T15:00")                        # one hour
-                forecast_temperature("Zürich", "2026-09-23T12:00", "2026-09-23T18:00")    # the afternoon
-            """
-            start_moment = _parse_swiss_time(start)
-            end_moment = _parse_swiss_time(end) if end is not None else None
-            return await self.forecast_service.read_temperature_forecast(location, start_moment, end_moment, near)
-
-        @self.mcp.tool(annotations=READS_OPEN_DATA)
-        @_handle_tool_call
         async def forecast_rain(location: str, start: str, end: str, near: Near = None) -> dict:
             """
             Get when and how much it may rain at a place, and the weather in words, in 3-hour blocks
@@ -237,6 +209,34 @@ class SwissWeatherMCPServer:
             start_moment = _parse_swiss_time(start)
             end_moment = _parse_swiss_time(end)
             return await self.forecast_service.read_rain_outlook(location, start_moment, end_moment, near)
+
+        @self.mcp.tool(annotations=READS_OPEN_DATA)
+        @_handle_tool_call
+        async def forecast_temperature(location: str, start: str, end: Optional[str] = None, near: Near = None) -> dict:
+            """
+            Get the temperature hour by hour at a place, with its likely range.
+
+            Use this for "how warm is it at 15:00" or "how warm is it this afternoon". Without end
+            it returns the one hour starting at start. Each row gives the mean temperature of one
+            hour, between its from and to times.
+
+            Args:
+                location (str): Name of a place in Switzerland, e.g. "Zürich".
+                start (str): Start of the period, a full hour, e.g. "2026-09-23T15:00". Today or up to 8 days ahead.
+                end (str): Optional. End of the period, a full hour after start, e.g. "2026-09-23T18:00".
+
+            Returns:
+                dict: data_from when the forecast point is far away or at a significantly different
+                    height, the place, one row per hour and the model run. In 8 of 10 possible outcomes,
+                    the temperature lies between its 10th and 90th percentile.
+
+            Examples:
+                forecast_temperature("Zürich", "2026-09-23T15:00")                        # one hour
+                forecast_temperature("Zürich", "2026-09-23T12:00", "2026-09-23T18:00")    # the afternoon
+            """
+            start_moment = _parse_swiss_time(start)
+            end_moment = _parse_swiss_time(end) if end is not None else None
+            return await self.forecast_service.read_temperature_forecast(location, start_moment, end_moment, near)
 
         @self.mcp.tool(annotations=READS_OPEN_DATA)
         @_handle_tool_call
