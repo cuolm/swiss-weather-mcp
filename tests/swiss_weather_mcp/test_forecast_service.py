@@ -6,7 +6,9 @@ import pytest
 from fakes import build_swiss_time
 from swiss_weather_mcp.errors import CannotAnswerError
 from swiss_weather_mcp.forecast.parameters import PICTOGRAMS
-from swiss_weather_mcp.forecast.service import _describe_pictogram
+from swiss_weather_mcp.forecast.service import _build_forecast_point_fields, _describe_pictogram
+from swiss_weather_mcp.forecast.source import MeteoSwissPoint
+from swiss_weather_mcp.places import SwisstopoPlace
 
 
 # --- read_sunshine_hours ---
@@ -96,7 +98,7 @@ async def test_read_daily_forecast(service_fixture):
     assert [day["date"] for day in answer["days"]] == ["2026-09-23", "2026-09-24"]
     assert [day["weekday"] for day in answer["days"]] == ["Wednesday", "Thursday"]
     assert [day["temperature_max_c"] for day in answer["days"]] == [20.6, 18.4]
-    assert answer["forecast_point"] == "Zürich 8001 (409 m)"
+    assert answer["place"] == "Zürich"
     assert answer["model_run"] == "2026-09-22T15:00+02:00"
 
 
@@ -163,21 +165,18 @@ async def test_read_wind(service_fixture):
     assert answer["gusts_90th_percentile_kmh"] == 55.0
     assert (answer["direction_degrees"], answer["compass_point"]) == (217.0, "SW")
     assert answer["valid_at"] == "2026-09-23T14:00+02:00"
-    assert answer["forecast_point"] == "Zürich 8001 (409 m)"
+    assert answer["place"] == "Zürich"
 
 
 @pytest.mark.asyncio
 async def test_read_wind_names_the_forecast_point(service_fixture):
-    # The forecast for Lindenhof is the one MeteoSwiss makes for Zürich 8001 next to it
+    # The forecast for Lindenhof is the one MeteoSwiss makes for Zürich 8001 next to it, so close
+    # that the answer does not name it
     answer = await service_fixture.read_wind("Lindenhof", build_swiss_time("2026-09-23T14:00"))
 
-    assert answer["data_from"] == (
-        "The forecast for Lindenhof (428 m) is the one MeteoSwiss makes for its forecast point "
-        "Zürich 8001 (409 m), 0.2 km away and 19 m lower."
-    )
-    assert (answer["place"], answer["altitude_m"]) == ("Lindenhof (428 m)", 428.0)
-    assert answer["forecast_point"] == "Zürich 8001 (409 m)"
-    assert (answer["forecast_point_distance_km"], answer["forecast_point_altitude_difference_m"]) == (0.2, -19)
+    assert "data_from" not in answer
+    assert answer["place"] == "Lindenhof"
+    assert "forecast_point" not in answer
     assert answer["speed_kmh"] == 12.5
 
 
@@ -202,7 +201,7 @@ async def test_read_hourly_forecast(service_fixture):
         ("mostly sunny, some clouds", "🌤️"),
         ("partly sunny, thick passing clouds", "⛅"),
     ]
-    assert answer["forecast_point"] == "Zürich 8001 (409 m)"
+    assert answer["place"] == "Zürich"
     assert answer["model_run"] == "2026-09-22T15:00+02:00"
 
 
@@ -293,7 +292,7 @@ async def test_read_rain_outlook(service_fixture):
     assert [block["rainfall_median_mm"] for block in answer["blocks"]] == [0.0, 2.4]
     # The heaviest hour of each block, not a sum: quantiles do not add up
     assert [block["heaviest_hour_up_to_mm"] for block in answer["blocks"]] == [1.1, 3.5]
-    assert answer["forecast_point"] == "Zürich 8001 (409 m)"
+    assert answer["place"] == "Zürich"
 
 
 @pytest.mark.asyncio
@@ -361,6 +360,43 @@ async def test_read_files_in_parallel(mocker, service_fixture, method_name, argu
     mocker.patch.object(service_fixture.forecast_source, "read_series", side_effect=wait_for_the_other_reads)
     read_forecast = getattr(service_fixture, method_name)
     await read_forecast(*arguments)
+
+
+# --- _build_forecast_point_fields ---
+
+def _build_place(altitude_m: float) -> SwisstopoPlace:
+    return SwisstopoPlace("Lindenhof", ("Quartierteil",), 5, False, altitude_m, 2683200.0, 1247500.0)
+
+
+def _build_point(altitude_m: float, east_m: float) -> MeteoSwissPoint:
+    return MeteoSwissPoint("800100", "2", "Zürich", "8001", altitude_m, east_m, 1247500.0)
+
+
+def test_build_forecast_point_fields_leaves_out_the_point_up_to_the_limits():
+    fields = _build_forecast_point_fields(_build_place(400.0), _build_point(450.0, 2684200.0))
+
+    assert fields == {"place": "Lindenhof"}
+
+
+def test_build_forecast_point_fields_names_a_point_far_away():
+    fields = _build_forecast_point_fields(_build_place(400.0), _build_point(400.0, 2684300.0))
+
+    assert fields == {
+        "data_from": (
+            "The forecast for Lindenhof (400 m) is the one MeteoSwiss makes for its forecast point "
+            "Zürich 8001 (400 m), 1.1 km away and at the same height."
+        ),
+        "place": "Lindenhof",
+    }
+
+
+def test_build_forecast_point_fields_names_a_point_much_higher():
+    fields = _build_forecast_point_fields(_build_place(400.0), _build_point(451.0, 2683200.0))
+
+    assert fields["data_from"] == (
+        "The forecast for Lindenhof (400 m) is the one MeteoSwiss makes for its forecast point "
+        "Zürich 8001 (451 m), 0.0 km away and 51 m higher."
+    )
 
 
 # --- _describe_pictogram ---

@@ -125,7 +125,8 @@ class SwissWeatherMCPServer:
                 "Weather for places in Switzerland from MeteoSwiss: what stations measure now (current_*), "
                 "and forecasts for today and the next 8 days (forecast_*).\n"
                 "- Values for a place come from the MeteoSwiss station or forecast point named in data_from, "
-                "which can be kilometres away and higher or lower. Say which one in the answer.\n"
+                "which can be kilometres away and higher or lower. When an answer has data_from, say which "
+                "one in the answer.\n"
                 "- Forecast values are medians, and medians do not add up: hours with 0 mm can still make a "
                 "wet day. Take the rain of a whole day from forecast_daily.\n"
                 "- If a name matches several places, choose from what the user said, or ask which village it "
@@ -168,10 +169,9 @@ class SwissWeatherMCPServer:
                 days (int): How many days in a row, from 1 to 9. Default 1.
 
             Returns:
-                dict: The place, the forecast point used, one row per day and the model run; the
-                    field names give the units. In 8 of 10 possible outcomes, the day's rain lies
-                    between its 10th and 90th percentile. A value is None when MeteoSwiss does not
-                    publish it for that forecast point.
+                dict: The place, one row per day and the model run; the field names give the units.
+                    In 8 of 10 possible outcomes, the day's rain lies between its 10th and 90th
+                    percentile. A value is None when MeteoSwiss does not publish it for the place.
 
             Examples:
                 forecast_daily("Zurich", "2026-09-23")
@@ -201,9 +201,9 @@ class SwissWeatherMCPServer:
                 end (str): Optional. Swiss local time as a full hour in ISO 8601 without offset, after start.
 
             Returns:
-                dict: The place, the forecast point used, one row per hour and the model run; the
-                    field names give the units. In 8 of 10 possible outcomes, the temperature lies
-                    between its 10th and 90th percentile.
+                dict: The place, one row per hour and the model run; the field names give the units.
+                    In 8 of 10 possible outcomes, the temperature lies between its 10th and 90th
+                    percentile.
 
             Examples:
                 forecast_hourly("Zurich", "2026-09-23T15:00")                        # one hour
@@ -232,8 +232,8 @@ class SwissWeatherMCPServer:
                 end (str): Swiss local time the period ends, as a full hour in ISO 8601 without offset, after start.
 
             Returns:
-                dict: The place, the forecast point used, one row per 3-hour block and the model
-                    run; the field names give the units.
+                dict: The place, one row per 3-hour block and the model run; the field names give
+                    the units.
 
             Examples:
                 forecast_rain("Zurich", "2026-09-23T12:00", "2026-09-24T00:00")
@@ -258,8 +258,7 @@ class SwissWeatherMCPServer:
                 end (str): Swiss local time the period ends, as a full hour in ISO 8601 without offset, e.g. "2026-09-23T18:00".
 
             Returns:
-                dict: The sunshine in hours, the place, the forecast point used, the period and the
-                    model run.
+                dict: The sunshine in hours, the place, the period and the model run.
 
             Examples:
                 forecast_sunshine("Zurich", "2026-09-23T00:00", "2026-09-24T00:00")   # the whole day
@@ -286,8 +285,8 @@ class SwissWeatherMCPServer:
                 when (str): Swiss local time as a full hour in ISO 8601 without offset, e.g. "2026-09-23T14:00". Today or up to 8 days ahead.
 
             Returns:
-                dict: The wind, the place, the forecast point used, the time it is valid for and the
-                    model run; the field names give the units.
+                dict: The wind, the place, the time it is valid for and the model run; the field
+                    names give the units.
 
             Examples:
                 forecast_wind("Zurich", "2026-09-23T14:00")
@@ -314,7 +313,7 @@ class SwissWeatherMCPServer:
 
             Returns:
                 dict: The total cloud cover and its low, medium and high layers in percent, the
-                    place, the forecast point used, the time it is valid for and the model run.
+                    place, the time it is valid for and the model run.
 
             Examples:
                 forecast_cloud_cover("Zurich", "2026-09-23T14:00")
@@ -338,8 +337,8 @@ class SwissWeatherMCPServer:
                 when (str): Swiss local time as a full hour in ISO 8601 without offset, e.g. "2026-09-23T14:00". Today or up to 8 days ahead.
 
             Returns:
-                dict: The freezing level in metres above sea level, the place, the forecast point
-                    used, the time it is valid for and the model run.
+                dict: The freezing level in metres above sea level, the place, the time it is
+                    valid for and the model run.
 
             Examples:
                 forecast_freezing_level("Zermatt", "2026-09-23T14:00")
