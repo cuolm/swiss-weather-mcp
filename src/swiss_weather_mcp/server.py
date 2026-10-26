@@ -329,8 +329,9 @@ class SwissWeatherMCPServer:
             """
             Get the height of the 0 degree line at a place at a specific time.
 
-            This is the height where the air is at 0 degrees. Snow usually reaches somewhat below it,
-            so it answers questions about snow in the mountains, such as how high a ski area has to be.
+            This is the height where the air is at 0 degrees. Falling snow usually reaches somewhat
+            below it, so it tells whether rain or snow falls at a height. It does not tell whether
+            old snow lies on the ground: this server has no snow depth data.
 
             Args:
                 location (str): Place name: a town, village, city district, lake or peak (e.g. "Zurich").
