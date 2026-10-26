@@ -375,9 +375,9 @@ class ForecastService:
         for stamp in hour_stamps:
             sunshine_minutes += series.values[stamp]
         return {
+            **_build_forecast_point_fields(place, point),
             "value": round(sunshine_minutes / 60, 1),
             "unit": "h",
-            **_build_forecast_point_fields(place, point),
             "from": format_swiss_time(start_moment),
             "to": format_swiss_time(end_moment),
             "model_run": format_swiss_time(series.run_time),
@@ -400,12 +400,12 @@ class ForecastService:
         direction_degrees = _get_hourly_value(direction_series, moment, point)
         compass_point = find_compass_point(direction_degrees)
         return {
+            **_build_forecast_point_fields(place, point),
             "speed_kmh": speed_kmh,
             "gusts_kmh": gusts_kmh,
             "gusts_90th_percentile_kmh": upper_gusts_kmh,
             "direction_degrees": direction_degrees,
             "compass_point": compass_point,
-            **_build_forecast_point_fields(place, point),
             "valid_at": format_swiss_time(moment),
             "model_run": format_swiss_time(speed_series.run_time),
         }
@@ -430,13 +430,13 @@ class ForecastService:
         # is clear only where all three are clear, which is the standard random overlap estimate.
         clear_sky = (1 - low_fraction) * (1 - medium_fraction) * (1 - high_fraction)
         return {
+            **_build_forecast_point_fields(place, point),
             "value": round((1 - clear_sky) * 100, 1),
             "unit": "%",
-            **_build_forecast_point_fields(place, point),
-            "valid_at": format_swiss_time(moment),
             "low_percent": round(low_fraction * 100, 1),
             "medium_percent": round(medium_fraction * 100, 1),
             "high_percent": round(high_fraction * 100, 1),
+            "valid_at": format_swiss_time(moment),
             "model_run": format_swiss_time(low_series.run_time),
         }
 
@@ -449,9 +449,9 @@ class ForecastService:
         series = await self._read_series(parameters.FREEZING_LEVEL, point)
         freezing_level_m = _get_hourly_value(series, moment, point)
         return {
+            **_build_forecast_point_fields(place, point),
             "value": freezing_level_m,
             "unit": "m above sea level",
-            **_build_forecast_point_fields(place, point),
             "valid_at": format_swiss_time(moment),
             "model_run": format_swiss_time(series.run_time),
         }

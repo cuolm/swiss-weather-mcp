@@ -345,6 +345,23 @@ async def test_read_cloud_cover_refuses_a_time_inside_an_hour(service_fixture):
         await service_fixture.read_cloud_cover("Zurich", build_swiss_time("2026-09-23T14:20"))
 
 
+# --- answer order ---
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method_name, arguments", [
+    ("read_sunshine", ("Zurich", build_swiss_time("2026-09-23T14:00"))),
+    ("read_wind", ("Zurich", build_swiss_time("2026-09-23T14:00"))),
+    ("read_cloud_cover", ("Zurich", build_swiss_time("2026-09-23T14:00"))),
+    ("read_freezing_level", ("Zurich", build_swiss_time("2026-09-23T14:00"))),
+])
+async def test_answer_starts_with_the_place_and_ends_with_the_model_run(service_fixture, method_name, arguments):
+    # A model reads the answer from the top, so where the values come from comes first
+    answer = await getattr(service_fixture, method_name)(*arguments)
+
+    field_names = list(answer)
+    assert (field_names[0], field_names[-1]) == ("place", "model_run")
+
+
 # --- parallel reads ---
 
 # How long a read waits for the other reads of its tool to start
