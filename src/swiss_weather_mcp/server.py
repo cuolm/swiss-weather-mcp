@@ -127,8 +127,6 @@ class SwissWeatherMCPServer:
                 "- Values for a place come from the MeteoSwiss station or forecast point named in data_from, "
                 "which can be kilometres away and higher or lower. When an answer has data_from, say which "
                 "one in the answer.\n"
-                "- Forecast values are medians, and medians do not add up: hours with 0 mm can still make a "
-                "wet day. Take the rain of a whole day from forecast_daily.\n"
                 "- If a name matches several places, choose from what the user said, or ask which village it "
                 "lies near. Then call again with the same location and that village as near."
             ),
@@ -222,8 +220,8 @@ class SwissWeatherMCPServer:
             median rainfall of the 3 hours, how much the wettest hour of the block may bring (its
             90th percentile), and the weather of the 3 hours in words. The median is often 0 when
             showers are possible, so read the chance and the "up to" amount as well.
-            A period up to the end of the forecast ends with its last full 3-hour block. For the
-            total rain of a whole day use forecast_daily.
+            A period up to the end of the forecast ends with its last full 3-hour block. Medians do
+            not add up, so for the total rain of a whole day use forecast_daily.
 
             Args:
                 location (str): Place name: a town, village, city district, lake or peak (e.g. "Zurich").
