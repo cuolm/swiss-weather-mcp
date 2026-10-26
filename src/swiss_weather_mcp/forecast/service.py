@@ -347,10 +347,13 @@ class ForecastService:
         }
 
     async def read_sunshine_hours(
-        self, location: str, start_moment: datetime, end_moment: datetime, nearby_location: Optional[str] = None
+        self, location: str, start_moment: datetime, end_moment: Optional[datetime] = None,
+        nearby_location: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Add up the sunshine over a period, in hours."""
+        """Add up the sunshine over a period in hours, or over the one hour from start when end is None."""
         _check_full_hour(start_moment)
+        if end_moment is None:
+            end_moment = start_moment.astimezone(timezone.utc) + HOUR
         _check_full_hour(end_moment)
         _check_period_order(start_moment, end_moment)
         # A row covers the hour before its stamp, so the first hour is the row stamped one hour after start.

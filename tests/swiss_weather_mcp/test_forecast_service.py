@@ -37,6 +37,15 @@ async def test_read_sunshine_hours_single_hour(service_fixture):
 
 
 @pytest.mark.asyncio
+async def test_read_sunshine_hours_without_an_end(service_fixture):
+    # Without an end, the one hour starting at start: 14:00 to 15:00 Swiss, the row stamped 13:00 UTC
+    answer = await service_fixture.read_sunshine_hours("Zurich", build_swiss_time("2026-09-23T14:00"))
+
+    assert answer["value"] == 0.8
+    assert (answer["from"], answer["to"]) == ("2026-09-23T14:00+02:00", "2026-09-23T15:00+02:00")
+
+
+@pytest.mark.asyncio
 async def test_read_sunshine_hours_past_the_end(service_fixture):
     # The last row is stamped 13:00 UTC, 15:00 Swiss, so a period to 16:00 would be summed short
     with pytest.raises(CannotAnswerError, match="not fully covered by the forecast"):

@@ -240,26 +240,28 @@ class SwissWeatherMCPServer:
 
         @self.mcp.tool(annotations=READS_OPEN_DATA)
         @_handle_tool_call
-        async def forecast_sunshine(location: str, start: str, end: str, near: Near = None) -> dict:
+        async def forecast_sunshine(location: str, start: str, end: Optional[str] = None, near: Near = None) -> dict:
             """
             Get the sunshine hours at a place over a period.
 
-            Use this for "how sunny is it this afternoon".
+            Use this for "how sunny is it at 15:00" or "how sunny is it this afternoon". Without end
+            it returns the one hour starting at start.
 
             Args:
                 location (str): Name of a place in Switzerland, e.g. "Zürich".
                 start (str): Start of the period, a full hour, e.g. "2026-09-23T06:00". Today or up to 8 days ahead.
-                end (str): End of the period, a full hour after start, e.g. "2026-09-23T18:00".
+                end (str): Optional. End of the period, a full hour after start, e.g. "2026-09-23T18:00".
 
             Returns:
                 dict: data_from when the forecast point is far away or at a significantly different
                     height, the place, the sunshine in hours, the period and the model run.
 
             Examples:
+                forecast_sunshine("Zürich", "2026-09-23T15:00")                        # one hour
                 forecast_sunshine("Zürich", "2026-09-23T12:00", "2026-09-23T18:00")    # the afternoon
             """
             start_moment = _parse_swiss_time(start)
-            end_moment = _parse_swiss_time(end)
+            end_moment = _parse_swiss_time(end) if end is not None else None
             return await self.forecast_service.read_sunshine_hours(location, start_moment, end_moment, near)
 
         @self.mcp.tool(annotations=READS_OPEN_DATA)
