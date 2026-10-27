@@ -1,6 +1,6 @@
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -24,6 +24,7 @@ EXPECTED_TOOLS = {
     "forecast_freezing_level": ["location", "when", "near"],
     "measurements_current": ["location", "near"],
     "measurements_extremes": ["extreme"],
+    "astronomy_moon": ["location", "date", "near"],
 }
 
 FREEZING_LEVEL_CALL = {"location": "Zurich", "when": "2026-09-24T14:00"}
@@ -34,7 +35,8 @@ def server_fixture(mocker):
     """Return the MCP server with mock services, so no tool reaches the network."""
     forecast_service = mocker.AsyncMock()
     measurement_service = mocker.AsyncMock()
-    return SwissWeatherMCPServer(forecast_service, measurement_service, "INFO")
+    astronomy_service = mocker.AsyncMock()
+    return SwissWeatherMCPServer(forecast_service, measurement_service, astronomy_service, "INFO")
 
 
 # --- _parse_swiss_time ---
@@ -115,6 +117,14 @@ async def test_measurements_extremes_refuses_an_unknown_extreme(server_fixture):
     with pytest.raises(ToolError, match="'warmest', 'coldest', 'windiest', 'wettest' or 'sunniest'"):
         await server_fixture.mcp.call_tool("measurements_extremes", {"extreme": "hottest"})
     server_fixture.measurement_service.read_extremes.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_astronomy_moon_passes_the_day_on(server_fixture):
+    server_fixture.astronomy_service.read_moon.return_value = {"place": "Zürich"}
+
+    await server_fixture.mcp.call_tool("astronomy_moon", {"location": "Zürich", "date": "2026-11-01"})
+    server_fixture.astronomy_service.read_moon.assert_awaited_once_with("Zürich", date(2026, 11, 1), None)
 
 
 # --- _handle_tool_call ---

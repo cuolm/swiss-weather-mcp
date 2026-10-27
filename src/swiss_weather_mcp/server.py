@@ -21,6 +21,7 @@ from .forecast.source import ForecastSource
 from .places import PlaceFinder
 from .measurements.service import ExtremeName, MeasurementService
 from .measurements.source import MeasurementSource
+from .astronomy.service import AstronomyService
 from .formatting import SWISS_TZ
 
 logger = logging.getLogger(__name__)
@@ -115,15 +116,21 @@ class SwissWeatherMCPServer:
     """The MCP server: registers the weather tools and runs them over stdio or streamable HTTP."""
 
     def __init__(
-        self, forecast_service: ForecastService, measurement_service: MeasurementService, log_level: LogLevel
+        self,
+        forecast_service: ForecastService,
+        measurement_service: MeasurementService,
+        astronomy_service: AstronomyService,
+        log_level: LogLevel,
     ) -> None:
         self.forecast_service = forecast_service
         self.measurement_service = measurement_service
+        self.astronomy_service = astronomy_service
         self.mcp = MCPServer(
             name="swiss_weather_mcp_server",
             instructions=(
                 "Weather for places in Switzerland from MeteoSwiss: what stations measure now (measurements_*), "
-                "and forecasts for today and the next 8 days (forecast_*).\n"
+                "forecasts for today and the next 8 days (forecast_*), and when the Moon rises and sets "
+                "(astronomy_*).\n"
                 "- Times are Swiss local time in ISO 8601 without offset, such as \"2026-09-23T14:00\".\n"
                 "- When a tool result has data_from, include it in your answer.\n"
                 "- If a name matches several places, choose from what the user said, or ask which village it "
@@ -385,6 +392,31 @@ class SwissWeatherMCPServer:
             """
             return await self.measurement_service.read_extremes(extreme)
 
+        @self.mcp.tool(annotations=READS_OPEN_DATA)
+        @_handle_tool_call
+        async def astronomy_moon(location: str, date: str, near: Near = None) -> dict:
+            """
+            Get when the Moon rises and sets at a place on a day, its phase and how much of it is lit.
+
+            Use this for "when does the moon rise tonight" or "how full is the moon tonight". The
+            times are for a level horizon, so in a valley the Moon appears later behind the
+            mountains. The day has a moon_phase_time when New Moon, First Quarter, Full Moon or Last
+            Quarter happens on it. The lit percent is the one at 12:00.
+
+            Args:
+                location (str): Name of a place in Switzerland, e.g. "Zürich".
+                date (str): The day, e.g. "2026-09-23".
+
+            Returns:
+                dict: The place, the date, the moonrise and moonset, None when the Moon does not rise
+                    or set that day, the phase with its emoji and time, and the lit percent.
+
+            Examples:
+                astronomy_moon("Zürich", "2026-09-23")
+            """
+            day = _parse_swiss_time(date).astimezone(SWISS_TZ).date()
+            return await self.astronomy_service.read_moon(location, day, near)
+
     def run(self, transport: str, host: str, port: int) -> None:
         """Serve the tools over stdio, or over streamable HTTP on host and port, until the process stops."""
         if transport == "stdio":
@@ -403,7 +435,8 @@ def _build_server(args: argparse.Namespace) -> SwissWeatherMCPServer:
     forecast_service = ForecastService(place_finder, forecast_source)
     measurement_source = MeasurementSource(CACHE_DIR)
     measurement_service = MeasurementService(place_finder, measurement_source)
-    return SwissWeatherMCPServer(forecast_service, measurement_service, args.log_level)
+    astronomy_service = AstronomyService(place_finder)
+    return SwissWeatherMCPServer(forecast_service, measurement_service, astronomy_service, args.log_level)
 
 
 def main():
