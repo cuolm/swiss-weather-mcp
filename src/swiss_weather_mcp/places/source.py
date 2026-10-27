@@ -94,6 +94,16 @@ POPULATION_BAND_NAMES = {
 }
 EXONYM = "Exonym"
 
+# The swisstopo approximate formulas from LV95 to WGS84, section 2 of "Approximate formulas for the
+# transformation between Swiss projection coordinates and WGS84" (December 2016),
+# https://www.swisstopo.admin.ch/dam/en/sd-web/KLRCX9XIdXDu/ch1903wgs84-EN.pdf
+# They are better than 0.12" in longitude and 0.08" in latitude everywhere in Switzerland.
+BERN_EAST_M = 2600000
+BERN_NORTH_M = 1200000
+METRES_PER_1000_KM = 1000000
+# The formulas give the angles in units of 10000"; one degree is 3600"
+DEGREES_PER_10000_ARCSECONDS = 100 / 36
+
 
 def _join_with_and(words: List[str]) -> str:
     """Join words the way a sentence lists them, such as "peak, viewpoint and cable car station"."""
@@ -121,6 +131,35 @@ class SwisstopoPlace(NamedTuple):
     def display_name(self) -> str:
         """The name shown to a reader, with the altitude, such as "Oerlikon (444 m)"."""
         return f"{self.name} ({self.altitude_m:.0f} m)"
+
+    @property
+    def latitude_deg(self) -> float:
+        """The WGS84 latitude in degrees, north positive, by the swisstopo approximate formulas."""
+        east = (self.east_m - BERN_EAST_M) / METRES_PER_1000_KM
+        north = (self.north_m - BERN_NORTH_M) / METRES_PER_1000_KM
+        latitude = (
+            16.9023892
+            + 3.238272 * north
+            - 0.270978 * east**2
+            - 0.002528 * north**2
+            - 0.0447 * east**2 * north
+            - 0.0140 * north**3
+        )
+        return latitude * DEGREES_PER_10000_ARCSECONDS
+
+    @property
+    def longitude_deg(self) -> float:
+        """The WGS84 longitude in degrees, east positive, by the swisstopo approximate formulas."""
+        east = (self.east_m - BERN_EAST_M) / METRES_PER_1000_KM
+        north = (self.north_m - BERN_NORTH_M) / METRES_PER_1000_KM
+        longitude = (
+            2.6779094
+            + 4.728982 * east
+            + 0.791484 * east * north
+            + 0.1306 * east * north**2
+            - 0.0436 * east**3
+        )
+        return longitude * DEGREES_PER_10000_ARCSECONDS
 
     @property
     def description(self) -> str:

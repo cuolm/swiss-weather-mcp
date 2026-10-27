@@ -1,6 +1,8 @@
 import os
 import time
 
+import pytest
+
 from fakes import build_place_names_archive
 from swiss_weather_mcp.places.source import SwisstopoPlace, SwisstopoPlaceSource
 
@@ -50,6 +52,14 @@ def test_place_description_without_people():
         altitude_m=2502.0,
     )
     assert peak.description == "peak, cable car station and viewpoint, 2502 m"
+
+
+def test_place_latitude_and_longitude():
+    # The numerical example of the swisstopo approximate formulas, section 2: E 2700000 m, N 1100000 m
+    # is λ 8° 43' 49.80", φ 46° 02' 38.86"
+    place = BLAUSEE._replace(east_m=2700000.0, north_m=1100000.0)
+    assert place.longitude_deg == pytest.approx(8 + 43 / 60 + 49.80 / 3600, abs=0.01 / 3600)
+    assert place.latitude_deg == pytest.approx(46 + 2 / 60 + 38.86 / 3600, abs=0.01 / 3600)
 
 
 # --- read_rows ---
