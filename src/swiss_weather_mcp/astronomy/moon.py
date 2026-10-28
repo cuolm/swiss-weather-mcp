@@ -1,19 +1,15 @@
 """
 Calculate when the Moon rises and sets at a place, its phase, and how much of it is lit.
 
-Sources:
-- The positions of the Moon and the Sun: T. C. Van Flandern and K. F. Pulkkinen, "Low-precision
-  formulae for planetary positions", ApJS 41, 391 (1979), equation (17) and Table 4 (see series.py),
-  https://ui.adsabs.harvard.edu/abs/1979ApJS...41..391V/abstract
+Sources, linked in the package docstring:
+- The positions of the Moon and the Sun: Van Flandern and Pulkkinen (1979), equation (17) and
+  Table 4 (see series.py)
 - Sidereal time, hour angle and altitude: see sky.py
-- When the Moon rises and sets: USNO, "Rise, Set, and Twilight Definitions",
-  https://aa.usno.navy.mil/faq/RST_defs
-- The phases: USNO, "Phases of the Moon and Percent of the Moon Illuminated",
-  https://aa.usno.navy.mil/faq/moon_phases, and the glossary of The Astronomical Almanac,
-  https://aa.usno.navy.mil/faq/asa_glossary
-- The lit fraction and the radius of the Moon: P. K. Seidelmann (ed.), Explanatory Supplement to the
-  Astronomical Almanac (1992), equations 7.12-32 and 7.3-10,
-  https://archive.org/details/131123ExplanatorySupplementAstronomicalAlmanac
+- When the Moon rises and sets: USNO, "Rise, Set, and Twilight Definitions"
+- The phases: USNO, "Phases of the Moon and Percent of the Moon Illuminated", and the glossary of
+  The Astronomical Almanac
+- The lit fraction and the radius of the Moon: Explanatory Supplement to the Astronomical Almanac
+  (1992), equations 7.12-32 and 7.3-10
 
 Like USNO, the times are for a level horizon at sea level.
 """

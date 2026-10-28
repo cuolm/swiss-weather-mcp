@@ -1,12 +1,11 @@
 """
 Find where a body is on the sky, how high it is above the horizon, and when it crosses a height.
 
-Sources:
-- Time, fundamental arguments and series: T. C. Van Flandern and K. F. Pulkkinen, "Low-precision
-  formulae for planetary positions", ApJS 41, 391 (1979), section III and Table 4 (see series.py),
-  https://ui.adsabs.harvard.edu/abs/1979ApJS...41..391V/abstract
-- Sidereal time: USNO, "Computing Approximate Sidereal Time", https://aa.usno.navy.mil/faq/GAST
-- Hour angle and altitude: USNO, "Computing Altitude and Azimuth", https://aa.usno.navy.mil/faq/alt_az
+Sources, linked in the package docstring:
+- Time, fundamental arguments and series: Van Flandern and Pulkkinen (1979), section III and
+  Table 4 (see series.py)
+- Sidereal time: USNO, "Computing Approximate Sidereal Time"
+- Hour angle and altitude: USNO, "Computing Altitude and Azimuth"
 """
 import math
 from datetime import date, datetime, time, timedelta, timezone

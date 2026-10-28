@@ -1,13 +1,9 @@
 """
-The series of Table 4 of Van Flandern and Pulkkinen (1979) that the Moon tool needs.
+The series of Table 4 of Van Flandern and Pulkkinen (1979) that the Moon and Sun tools need.
 
-T. C. Van Flandern and K. F. Pulkkinen, "Low-precision formulae for planetary positions",
-The Astrophysical Journal Supplement Series 41, 391-411 (1979),
-https://ui.adsabs.harvard.edu/abs/1979ApJS...41..391V/abstract
-
-A series is a list of terms, and its value is their sum (see moon._sum_series). Each Term is one row
-of Table 4. PLON and BETA are in arcseconds and RP in astronomical units for the Sun; V, U and W are
-dimensionless (section VI).
+The sources are linked in the package docstring. A series is a list of terms, and its value is
+their sum (see sky.sum_series). Each Term is one row of Table 4. PLON and BETA are in arcseconds
+and RP in astronomical units for the Sun; V, U and W are dimensionless (section VI).
 """
 from typing import NamedTuple, Tuple
 

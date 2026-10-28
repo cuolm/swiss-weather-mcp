@@ -1,13 +1,11 @@
 """
 Calculate when the Sun rises and sets at a place, and when civil twilight begins and ends.
 
-Sources:
-- The position of the Sun: T. C. Van Flandern and K. F. Pulkkinen, "Low-precision formulae for
-  planetary positions", ApJS 41, 391 (1979), sections IV and V, equations (5) and (6) and Table 4
-  (see series.py), https://ui.adsabs.harvard.edu/abs/1979ApJS...41..391V/abstract
+Sources, linked in the package docstring:
+- The position of the Sun: Van Flandern and Pulkkinen (1979), sections IV and V, equations (5)
+  and (6) and Table 4 (see series.py)
 - Sidereal time, hour angle and altitude: see sky.py
-- Sunrise, sunset and civil twilight: USNO, "Rise, Set, and Twilight Definitions",
-  https://aa.usno.navy.mil/faq/RST_defs
+- Sunrise, sunset and civil twilight: USNO, "Rise, Set, and Twilight Definitions"
 
 Like USNO, the times are for a level horizon at sea level.
 """
