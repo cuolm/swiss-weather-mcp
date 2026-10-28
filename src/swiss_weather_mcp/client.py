@@ -32,6 +32,10 @@ from .log import LOG_LEVELS, setup_logging
 
 logger = logging.getLogger(__name__)
 
+# The server writes its log to the same terminal, so only its warnings and errors are shown, not its
+# INFO lines, which would come in between the question and the answer
+SERVER_LOG_LEVEL = "WARNING"
+
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run MCP Client")
@@ -64,7 +68,7 @@ class MCPClient:
         # Launch the server module with the same interpreter running this client
         server_params = StdioServerParameters(
             command=sys.executable,
-            args=["-m", "swiss_weather_mcp.server"],
+            args=["-m", "swiss_weather_mcp.server", "--log-level", SERVER_LOG_LEVEL],
         )
 
         read_stream, write_stream = await self.exit_stack.enter_async_context(
@@ -187,11 +191,11 @@ async def _run():
                 query = "/bye"
             query = query.strip()
             if query.lower() == "/bye":
-                logger.info("Goodbye!")
+                print("Goodbye!")
                 break
 
             if not query:
-                logger.info("Please enter a non-empty query.")
+                print("Please enter a non-empty query.")
                 continue
 
             logger.info(f"Query: {query}")
@@ -206,7 +210,7 @@ async def _run():
                 logger.error(f"The model server returned an error: {error}")
                 del client.messages[messages_before:]
                 continue
-            logger.info(f"Answer: {answer}")
+            print(f"\n{answer}")
 
     finally:
         await client.close()
