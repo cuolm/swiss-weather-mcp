@@ -1,4 +1,4 @@
-"""Print what the astronomy tool answers for a place today, such as: uv run scripts/print_astronomy.py Zürich"""
+"""Print what the astronomy tools answer for a place today, such as: uv run scripts/print_astronomy.py Zürich"""
 import asyncio
 import json
 import sys
@@ -13,13 +13,17 @@ DEFAULT_LOCATION = "Zürich"
 
 
 async def print_astronomy(location: str) -> None:
-    """Call the astronomy service method for today and print its answer."""
+    """Call each astronomy service method for today and print its answer."""
     service = AstronomyService(PlaceFinder(CACHE_DIR))
     today = datetime.now(SWISS_TZ).date()
 
-    answer = await service.read_moon(location, today)
-    print(f'=== astronomy_moon("{location}", "{today.isoformat()}")')
-    print(json.dumps(answer, indent=2, ensure_ascii=False))
+    answers = {
+        "astronomy_moon": await service.read_moon(location, today),
+        "astronomy_sun": await service.read_sun(location, today),
+    }
+    for tool_name, answer in answers.items():
+        print(f'=== {tool_name}("{location}", "{today.isoformat()}")')
+        print(json.dumps(answer, indent=2, ensure_ascii=False))
 
 
 if __name__ == "__main__":
