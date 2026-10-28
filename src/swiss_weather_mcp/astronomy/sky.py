@@ -1,5 +1,5 @@
 """
-Find where a body is on the sky, how high it is above the horizon, and when it crosses a height.
+Find where a body is on the sky, its angle above the horizon, and when that angle passes a value.
 
 Sources, linked in the package docstring:
 - Time, fundamental arguments and series: Van Flandern and Pulkkinen (1979), section III and
@@ -14,8 +14,9 @@ from typing import Callable, Dict, Optional, Sequence, Tuple
 from ..formatting import SWISS_TZ
 from .series import COS, Term
 
-# The paper's epoch, 2000 January 1.5, Julian date 2451545.0. Its time is ephemeris time, but the
-# paper uses universal time instead, as no object moves 1' in the up to 90 s between them.
+# The paper's epoch, 1 January 2000 at 12:00 (2000 January 1.5 in the paper), Julian date 2451545.0.
+# The paper's time is ephemeris time, but it says universal time can be used instead, as no object
+# moves 1' in the less than 90 s between them.
 J2000 = datetime(2000, 1, 1, 12, tzinfo=timezone.utc)
 DAY = timedelta(days=1)
 DAYS_PER_JULIAN_CENTURY = 36525
@@ -36,13 +37,14 @@ FUNDAMENTAL_ARGUMENTS = {
     "jupiter_mean_anomaly": (0.056531, 0.00023080893),
 }
 
-# GMST in hours, from the USNO page, with D the days since J2000
+# Greenwich mean sidereal time, how far the Earth has turned, in hours:
+# 18.697375 + 24.065709824279 D, with D the days since J2000 (USNO)
 GMST_AT_J2000_HOURS = 18.697375
 GMST_HOURS_PER_DAY = 24.065709824279
 DEGREES_PER_HOUR = 15
 
-# The Moon moves about 0.5° an hour against the stars and the Sun less, so the height of either
-# crosses a value at most once an hour
+# Seen from Switzerland, the Sun and the Moon rise and set hours apart, so within one hour their
+# angle above the horizon passes a value at most once
 SEARCH_STEP = timedelta(hours=1)
 SEARCH_PRECISION = timedelta(seconds=1)
 
@@ -75,7 +77,7 @@ def sum_series(
     n_j   the integers of the term (Term.multipliers)
     a_j   the fundamental arguments of section III in radians, such as the mean longitude of the Moon
           L_M = 0.606434 + 0.03660110129 t in revolutions
-    t     JD - 2451545.0, the days from 2000 January 1.5 (equation 1)
+    t     JD - 2451545.0, the days from 1 January 2000 at 12:00 (equation 1)
     T     t / 36525 + 1, the Julian centuries from 1900.0 (equation 2)
     """
     total = 0.0
@@ -91,7 +93,12 @@ def sum_series(
 def find_altitude_deg(
     moment: datetime, right_ascension_deg: float, declination_deg: float, latitude_deg: float, longitude_deg: float
 ) -> float:
-    """Return how high a body at a right ascension and declination is above the horizon of a place."""
+    """
+    Return the altitude of a body at a right ascension and declination, seen from a place.
+
+    The altitude is the angle above the horizon in degrees: 0 on the horizon, 90 straight overhead,
+    negative below the horizon.
+    """
     days = (moment - J2000) / DAY
     sidereal_time_hours = (GMST_AT_J2000_HOURS + GMST_HOURS_PER_DAY * days) % 24
     hour_angle = math.radians(sidereal_time_hours * DEGREES_PER_HOUR + longitude_deg - right_ascension_deg)
@@ -127,10 +134,10 @@ def find_rise_and_set(
     find_height: Callable[[datetime], float], start: datetime, end: datetime
 ) -> Tuple[Optional[datetime], Optional[datetime]]:
     """
-    Find the first moment a height turns positive and the first it turns negative between two moments.
+    Find the first moment find_height turns positive and the first it turns negative between two moments.
 
-    find_height returns how far a body is above the height at which it rises or sets, negative below.
-    Each moment is None when there is none.
+    find_height returns how many degrees a body is above the angle at which it rises or sets, negative
+    below. Each moment is None when there is none.
     """
     rising: Optional[datetime] = None
     setting: Optional[datetime] = None

@@ -26,7 +26,7 @@ from .sky import (
 
 # The scaling factor Δ of the Moon, section V, which gives its distance in Earth radii from U
 MOON_DISTANCE_SCALE_EARTH_RADII = 60.40974
-# Section IV
+# 1 astronomical unit is 23454.8 Earth radii (section IV)
 EARTH_RADII_PER_ASTRONOMICAL_UNIT = 23454.8
 
 # The Moon rises or sets when its centre is 90.5666° + its apparent radius - its horizontal
@@ -96,7 +96,7 @@ def find_moon_position(moment: datetime) -> MoonPosition:
 
 
 def _find_height_above_horizon_deg(moment: datetime, latitude_deg: float, longitude_deg: float) -> float:
-    """Return how far the Moon's centre is above the height at which it rises or sets; negative below."""
+    """Return how many degrees the Moon's centre is above the angle at which it rises or sets; negative below."""
     position = find_moon_position(moment)
     altitude_deg = find_altitude_deg(
         moment, position.right_ascension_deg, position.declination_deg, latitude_deg, longitude_deg

@@ -16,14 +16,15 @@ from typing import NamedTuple, Optional
 from .series import SUN_ARGUMENTS, SUN_PLON
 from .sky import ARCSECONDS_PER_DEGREE, find_altitude_deg, find_arguments, find_rise_and_set, find_swiss_day, sum_series
 
-# Equation (5), the obliquity of the ecliptic, and the nutation in longitude after it, in arcseconds
+# Equation (5), the obliquity of the ecliptic (the tilt of the Earth's axis), and the nutation in
+# longitude after it, in arcseconds
 OBLIQUITY_AT_1900_ARCSEC = 84428
 OBLIQUITY_PER_CENTURY_ARCSEC = -47
 OBLIQUITY_NUTATION_ARCSEC = 9
 LONGITUDE_NUTATION_ARCSEC = -17
 
 # Sunrise and sunset happen when the geometric zenith distance of the centre of the Sun is 90.8333°,
-# and civil twilight begins and ends at 96°
+# and civil twilight begins and ends at 96°, that is 0.8333° and 6° below the horizon
 SUNRISE_ZENITH_DISTANCE_DEG = 90.8333
 CIVIL_TWILIGHT_ZENITH_DISTANCE_DEG = 96
 ZENITH_ALTITUDE_DEG = 90
