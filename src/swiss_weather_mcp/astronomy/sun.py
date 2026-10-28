@@ -15,7 +15,7 @@ from typing import NamedTuple, Optional
 
 from .series import SUN_ARGUMENTS, SUN_PLON
 from .sky import (
-    ARCSECONDS_PER_DEGREE, calculate_altitude_deg, calculate_arguments, find_rise_and_set, find_swiss_day, sum_series,
+    ARCSECONDS_PER_DEGREE, calculate_altitude_deg, calculate_arguments, find_crossings, list_minutes_of_day, sum_series,
 )
 
 # Equation (5), the obliquity of the ecliptic (the tilt of the Earth's axis), and the nutation in
@@ -26,10 +26,9 @@ OBLIQUITY_NUTATION_ARCSEC = 9
 LONGITUDE_NUTATION_ARCSEC = -17
 
 # Sunrise and sunset happen when the geometric zenith distance of the centre of the Sun is 90.8333°,
-# and civil twilight begins and ends at 96°, that is 0.8333° and 6° below the horizon
-SUNRISE_ZENITH_DISTANCE_DEG = 90.8333
-CIVIL_TWILIGHT_ZENITH_DISTANCE_DEG = 96
-ZENITH_ALTITUDE_DEG = 90
+# and civil twilight begins and ends at 96°, so when its altitude is -0.8333° and -6°
+SUNRISE_ALTITUDE_DEG = -0.8333
+CIVIL_TWILIGHT_ALTITUDE_DEG = -6
 
 
 class SunPosition(NamedTuple):
@@ -84,26 +83,24 @@ def calculate_sun_position(moment: datetime) -> SunPosition:
     )
 
 
+def _calculate_sun_altitude_deg(moment: datetime, latitude_deg: float, longitude_deg: float) -> float:
+    """Calculate the altitude of the centre of the Sun at a moment, seen from a place, in degrees."""
+    position = calculate_sun_position(moment)
+    return calculate_altitude_deg(
+        moment, position.right_ascension_deg, position.declination_deg, latitude_deg, longitude_deg
+    )
+
+
 def calculate_sun_day(day: date, latitude_deg: float, longitude_deg: float) -> SunDay:
     """Calculate the begin of civil twilight, sunrise, sunset and the end of civil twilight on a Swiss calendar day."""
-    day_start, day_end = find_swiss_day(day)
+    minute_moments = list_minutes_of_day(day)
+    altitudes_deg = [_calculate_sun_altitude_deg(moment, latitude_deg, longitude_deg) for moment in minute_moments]
 
-    def calculate_altitude(moment: datetime) -> float:
-        position = calculate_sun_position(moment)
-        return calculate_altitude_deg(
-            moment, position.right_ascension_deg, position.declination_deg, latitude_deg, longitude_deg
-        )
-
-    def calculate_height_above_sunrise(moment: datetime) -> float:
-        return calculate_altitude(moment) - (ZENITH_ALTITUDE_DEG - SUNRISE_ZENITH_DISTANCE_DEG)
-
-    def calculate_height_above_civil_twilight(moment: datetime) -> float:
-        return calculate_altitude(moment) - (ZENITH_ALTITUDE_DEG - CIVIL_TWILIGHT_ZENITH_DISTANCE_DEG)
-
-    sunrise, sunset = find_rise_and_set(calculate_height_above_sunrise, day_start, day_end)
-    civil_twilight_begin, civil_twilight_end = find_rise_and_set(
-        calculate_height_above_civil_twilight, day_start, day_end
+    sunrise, sunset = find_crossings(minute_moments, altitudes_deg, SUNRISE_ALTITUDE_DEG)
+    civil_twilight_begin, civil_twilight_end = find_crossings(
+        minute_moments, altitudes_deg, CIVIL_TWILIGHT_ALTITUDE_DEG
     )
+
     return SunDay(
         civil_twilight_begin=civil_twilight_begin,
         sunrise=sunrise,

@@ -39,8 +39,9 @@ From the Explanatory Supplement to the Astronomical Almanac
    Earth. Also the radius of the Moon, 1738 km, and of the Earth, 6378.140 km, for the Moon's
    size in step 6.
 
-Our own choices: the day is checked hour by hour and then narrowed down to the second, the times
-are rounded to the minute, and the lit percent is the one at 12:00.
+Our own choices: the angles are calculated for every minute of the day, the moment between two
+minutes is placed by proportion, the times are rounded to the minute, and the lit percent is the
+one at 12:00.
 
 Like USNO, the times are for a level horizon at sea level, so in a valley the Sun and the Moon
 appear later.

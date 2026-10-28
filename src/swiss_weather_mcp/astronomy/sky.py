@@ -1,5 +1,5 @@
 """
-Find where a body is on the sky, its angle above the horizon, and when that angle passes a value.
+Calculate where a body is on the sky and its angle above the horizon, and find when an angle passes a value.
 
 Sources, linked in the package docstring:
 - Time, fundamental arguments and series: Van Flandern and Pulkkinen (1979), section III and
@@ -9,7 +9,7 @@ Sources, linked in the package docstring:
 """
 import math
 from datetime import date, datetime, time, timedelta, timezone
-from typing import Callable, Dict, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 from ..formatting import SWISS_TZ
 from .series import COS, Term
@@ -43,10 +43,9 @@ GMST_AT_J2000_HOURS = 18.697375
 GMST_HOURS_PER_DAY = 24.065709824279
 DEGREES_PER_HOUR = 15
 
-# Seen from Switzerland, the Sun and the Moon rise and set hours apart, so within one hour their
-# angle above the horizon passes a value at most once
-SEARCH_STEP = timedelta(hours=1)
-SEARCH_PRECISION = timedelta(seconds=1)
+# The angles are calculated for every minute of a day. Within a minute they change almost evenly,
+# so the moment between two minutes is placed by proportion.
+MINUTE = timedelta(minutes=1)
 
 
 def calculate_arguments(moment: datetime) -> Tuple[Dict[str, float], float]:
@@ -111,44 +110,48 @@ def calculate_altitude_deg(
     return math.degrees(math.asin(sin_altitude))
 
 
-def find_swiss_day(day: date) -> Tuple[datetime, datetime]:
-    """Return the start and end of a Swiss calendar day in UTC, 23, 24 or 25 hours apart."""
-    day_start = datetime.combine(day, time(0), SWISS_TZ).astimezone(timezone.utc)
+def list_minutes_of_day(day: date) -> List[datetime]:
+    """List every minute of a Swiss calendar day in UTC, from its 00:00 to the next day's 00:00 included."""
+    moment = datetime.combine(day, time(0), SWISS_TZ).astimezone(timezone.utc)
     day_end = datetime.combine(day + DAY, time(0), SWISS_TZ).astimezone(timezone.utc)
-    return day_start, day_end
+
+    # A day has 23, 24 or 25 hours, as summer time starts or ends
+    minute_moments = []
+    while moment <= day_end:
+        minute_moments.append(moment)
+        moment += MINUTE
+    return minute_moments
 
 
-def find_sign_change(function: Callable[[datetime], float], start: datetime, end: datetime) -> datetime:
-    """Narrow down the moment a function changes sign between start and end, to SEARCH_PRECISION."""
-    start_is_positive = function(start) > 0
-    while end - start > SEARCH_PRECISION:
-        middle = start + (end - start) / 2
-        if (function(middle) > 0) == start_is_positive:
-            start = middle
-        else:
-            end = middle
-    return start + (end - start) / 2
+def _find_moment_within_minute(
+    moment: datetime, angle_deg: float, next_angle_deg: float, target_deg: float
+) -> datetime:
+    """
+    Find when target_deg is passed within the minute from moment, assuming the angle changes evenly in it.
+
+    The angle goes from angle_deg at moment to next_angle_deg a minute later, so target_deg is passed
+    after the share of the minute that it lies along the way.
+    """
+    share = (target_deg - angle_deg) / (next_angle_deg - angle_deg)
+    return moment + share * MINUTE
 
 
-def find_rise_and_set(
-    calculate_height: Callable[[datetime], float], start: datetime, end: datetime
+def find_crossings(
+    minute_moments: Sequence[datetime], angles_deg: Sequence[float], target_deg: float
 ) -> Tuple[Optional[datetime], Optional[datetime]]:
     """
-    Find the first moment calculate_height turns positive and the first it turns negative between two moments.
+    Find the first moment an angle rises past target_deg and the first moment it falls past it.
 
-    calculate_height returns how many degrees a body is above the angle at which it rises or sets, negative
-    below. Each moment is None when there is none.
+    minute_moments are one minute apart, and angles_deg holds the angle at each of them, in degrees. Each moment
+    is None when it does not happen.
     """
     rising: Optional[datetime] = None
-    setting: Optional[datetime] = None
-    step_start = start
-    step_start_height = calculate_height(step_start)
-    while step_start < end:
-        step_end = min(step_start + SEARCH_STEP, end)
-        step_end_height = calculate_height(step_end)
-        if rising is None and step_start_height <= 0 < step_end_height:
-            rising = find_sign_change(calculate_height, step_start, step_end)
-        if setting is None and step_start_height > 0 >= step_end_height:
-            setting = find_sign_change(calculate_height, step_start, step_end)
-        step_start, step_start_height = step_end, step_end_height
-    return rising, setting
+    falling: Optional[datetime] = None
+    for index in range(len(minute_moments) - 1):
+        angle_deg = angles_deg[index]
+        next_angle_deg = angles_deg[index + 1]
+        if rising is None and angle_deg < target_deg <= next_angle_deg:
+            rising = _find_moment_within_minute(minute_moments[index], angle_deg, next_angle_deg, target_deg)
+        if falling is None and angle_deg >= target_deg > next_angle_deg:
+            falling = _find_moment_within_minute(minute_moments[index], angle_deg, next_angle_deg, target_deg)
+    return rising, falling
