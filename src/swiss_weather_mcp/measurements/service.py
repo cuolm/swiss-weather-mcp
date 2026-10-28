@@ -50,10 +50,27 @@ EXTREMES: Dict[ExtremeName, Extreme] = {
 }
 # How many stations a ranking lists
 STATION_COUNT = 5
-# A station is sunny when the sun shone for at least half of the last 10 minutes
-SUNNY_MIN_SUNSHINE_MIN = 5.0
-# The smallest amount a rain gauge reports
+# The smallest rain MeteoSwiss publishes, as the 10-minute rain has one decimal
 RAINY_MIN_RAIN_MM = 0.1
+
+
+class SunshineClass(NamedTuple):
+    """One class of MeteoSwiss's sunshine terms."""
+    name: str
+    min_sunshine_min: int  # the least sun in the last 10 minutes for the class
+
+
+# MeteoSwiss's sunshine terms by the share of sun, 80-100 %, 50-80 %, 20-50 %, 5-20 % and 0-5 %,
+# https://www.meteoswiss.admin.ch/weather/weather-and-climate-from-a-to-z/sunshine.html
+# They are applied to the sun in the last 10 minutes, which MeteoSwiss publishes in whole minutes, so
+# 1 minute is 10 %. A share on the boundary of two classes, such as 50 %, belongs to the sunnier one.
+SUNSHINE_CLASSES = (
+    SunshineClass("mostly_sunny", 8),
+    SunshineClass("rather_sunny", 5),
+    SunshineClass("partly_sunny", 2),
+    SunshineClass("only_a_little_sunshine", 1),
+    SunshineClass("hardly_any_sunshine", 0),
+)
 
 
 class StationValue(NamedTuple):
@@ -180,7 +197,7 @@ def _build_canton_rows(station_values: List[StationValue], matching_values: List
     """
     Build one answer row for each canton with a measuring station.
 
-    Each row says how many of its measuring stations match, such as the sunny ones. The canton with
+    Each row says how many of its measuring stations match, such as the rainy ones. The canton with
     the highest share comes first.
     """
     measuring_counts = _count_stations_by_canton(station_values)
@@ -196,6 +213,55 @@ def _build_canton_rows(station_values: List[StationValue], matching_values: List
         })
     # Among equal shares the canton with more stations comes first, because its share is better supported
     rows.sort(key=lambda row: (-row[f"{label}_percent"], -row["measuring_stations"], row["canton"]))
+    return rows
+
+
+def _find_sunshine_class(sunshine_min: float) -> str:
+    """Find the class of MeteoSwiss's sunshine terms for the sun of the last 10 minutes."""
+    for sunshine_class in SUNSHINE_CLASSES[:-1]:
+        if sunshine_min >= sunshine_class.min_sunshine_min:
+            return sunshine_class.name
+    # The last class takes the rest, down to 0 minutes
+    return SUNSHINE_CLASSES[-1].name
+
+
+def _count_stations_by_sunshine_class(station_values: List[StationValue]) -> Dict[str, int]:
+    """Count the stations in each class of MeteoSwiss's sunshine terms, sunniest first."""
+    counts = {}
+    for sunshine_class in SUNSHINE_CLASSES:
+        counts[sunshine_class.name] = 0
+    for station_value in station_values:
+        sunshine_class_name = _find_sunshine_class(station_value.value)
+        counts[sunshine_class_name] += 1
+    return counts
+
+
+def _build_sunshine_canton_rows(station_values: List[StationValue]) -> List[Dict[str, Any]]:
+    """
+    Build one answer row for each canton with a measuring station, with its stations in each sunshine class.
+
+    The canton whose stations had the most sun on average comes first.
+    """
+    station_values_by_canton: Dict[str, List[StationValue]] = {}
+    for station_value in station_values:
+        canton = station_value.station.canton
+        station_values_by_canton.setdefault(canton, []).append(station_value)
+
+    rows: List[Dict[str, Any]] = []
+    average_sunshine_min_by_canton: Dict[str, float] = {}
+    for canton, canton_values in station_values_by_canton.items():
+        rows.append({
+            "canton": canton,
+            "measuring_stations": len(canton_values),
+            **_count_stations_by_sunshine_class(canton_values),
+        })
+        total_sunshine_min = sum(station_value.value for station_value in canton_values)
+        average_sunshine_min_by_canton[canton] = total_sunshine_min / len(canton_values)
+
+    # Among equal averages the canton with more stations comes first, because its average is better supported
+    rows.sort(key=lambda row: (
+        -average_sunshine_min_by_canton[row["canton"]], -row["measuring_stations"], row["canton"]
+    ))
     return rows
 
 
@@ -271,10 +337,9 @@ class MeasurementService:
             "measured_at": format_swiss_time(all_measurements[0].measured_at),
         }
         if extreme == "sunniest":
-            sunny_values = _find_station_values_from(station_values, SUNNY_MIN_SUNSHINE_MIN)
-            answer["sunny_stations"] = len(sunny_values)
             answer["measuring_stations"] = len(station_values)
-            answer["cantons"] = _build_canton_rows(station_values, sunny_values, "sunny")
+            answer["stations_by_sunshine"] = _count_stations_by_sunshine_class(station_values)
+            answer["cantons"] = _build_sunshine_canton_rows(station_values)
         elif extreme == "wettest":
             rainy_values = _find_station_values_from(station_values, RAINY_MIN_RAIN_MM)
             answer["rainy_stations"] = len(rainy_values)

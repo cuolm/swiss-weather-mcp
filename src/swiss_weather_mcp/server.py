@@ -375,17 +375,21 @@ class SwissWeatherMCPServer:
             Get where in Switzerland it is warmest, coldest, windiest, wettest or sunniest now.
 
             Use this for "where is it warmest now" or "where is it sunny now". The values are those
-            of about 160 MeteoSwiss stations, so give the altitude with each station. A station is
-            sunny when it had sun for at least 5 of the last 10 minutes, and rainy when it had rain
-            in the last 10 minutes.
+            of about 160 MeteoSwiss stations, so give the altitude with each station. For the
+            sunniest, the stations are grouped by their sun in the last 10 minutes with MeteoSwiss's
+            sunshine terms: mostly sunny (8 to 10 minutes), rather sunny (5 to 7), partly sunny (2 to
+            4), only a little sunshine (1) and hardly any sunshine (0). The cantons come in order of
+            their stations' average sun, sunniest first. A station is rainy when it had rain in the
+            last 10 minutes.
 
             Args:
                 extreme (str): One of "warmest", "coldest", "windiest", "wettest" or "sunniest".
 
             Returns:
-                dict: The time of the measurements and the first 5 stations, or for the sunniest and the
-                    wettest the number of sunny or rainy stations out of those that measure it, in
-                    Switzerland and in each canton.
+                dict: The time of the measurements and the first 5 stations. For the sunniest instead
+                    the number of stations in each sunshine group, in Switzerland and in each canton,
+                    the sunniest canton first. For the wettest also the number of rainy stations out of
+                    those that measure rain, in Switzerland and in each canton.
 
             Examples:
                 measurements_extremes("warmest")

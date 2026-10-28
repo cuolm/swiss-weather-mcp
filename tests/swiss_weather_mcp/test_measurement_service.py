@@ -5,12 +5,16 @@ import pytest
 from swiss_weather_mcp.errors import CannotAnswerError
 from swiss_weather_mcp.measurements import parameters
 from swiss_weather_mcp.measurements.service import (
-    StationValue, _build_canton_rows, _calculate_change, _find_highest_last_hour, _sum_last_hour,
+    StationValue, _build_canton_rows, _build_sunshine_canton_rows, _calculate_change, _find_highest_last_hour,
+    _find_sunshine_class, _sum_last_hour,
 )
 from swiss_weather_mcp.measurements.source import Station, StationMeasurements
 
 FLUNTERN = Station(
     abbr="SMA", name="Zürich / Fluntern", canton="Zurich", altitude_m=604.0, east_m=2685223.0, north_m=1248410.0,
+)
+APPENZELL = Station(
+    abbr="APP", name="Appenzell", canton="Appenzell Innerrhoden", altitude_m=769.0, east_m=0.0, north_m=0.0,
 )
 
 
@@ -172,17 +176,19 @@ async def test_read_extremes_windiest(measurement_service_fixture):
 
 @pytest.mark.asyncio
 async def test_read_extremes_sunniest(measurement_service_fixture):
-    # Kloten had only 4 minutes of sun, so 2 of the 3 stations in Zürich are sunny
+    # Kloten had only 4 minutes of sun and the other three stations 10, so Graubünden, with Davos at
+    # 10 minutes, comes before Zürich, with 8 minutes on average
     answer = await measurement_service_fixture.read_extremes("sunniest")
 
+    no_station = {"rather_sunny": 0, "only_a_little_sunshine": 0, "hardly_any_sunshine": 0}
     assert answer == {
         "extreme": "sunniest",
         "measured_at": "2026-09-25T16:00+02:00",
-        "sunny_stations": 3,
         "measuring_stations": 4,
+        "stations_by_sunshine": {"mostly_sunny": 3, "partly_sunny": 1, **no_station},
         "cantons": [
-            {"canton": "Graubünden", "sunny_stations": 1, "measuring_stations": 1, "sunny_percent": 100},
-            {"canton": "Zurich", "sunny_stations": 2, "measuring_stations": 3, "sunny_percent": 67},
+            {"canton": "Graubünden", "measuring_stations": 1, "mostly_sunny": 1, "partly_sunny": 0, **no_station},
+            {"canton": "Zurich", "measuring_stations": 3, "mostly_sunny": 2, "partly_sunny": 1, **no_station},
         ],
     }
 
@@ -238,9 +244,44 @@ async def test_read_extremes_without_measurements(mocker, measurement_service_fi
 # --- _build_canton_rows ---
 
 def test_build_canton_rows_puts_the_canton_with_more_stations_first():
-    # Both cantons are fully sunny, but the share of Zürich rests on two stations
-    appenzell = Station(abbr="APP", name="Appenzell", canton="Appenzell Innerrhoden", altitude_m=769.0, east_m=0.0, north_m=0.0)
-    station_values = [StationValue(appenzell, 10.0), StationValue(FLUNTERN, 10.0), StationValue(FLUNTERN, 10.0)]
+    # Both cantons are fully rainy, but the share of Zürich rests on two stations
+    station_values = [StationValue(APPENZELL, 0.4), StationValue(FLUNTERN, 0.2), StationValue(FLUNTERN, 0.3)]
 
-    rows = _build_canton_rows(station_values, station_values, "sunny")
+    rows = _build_canton_rows(station_values, station_values, "rainy")
+    assert [(row["canton"], row["measuring_stations"]) for row in rows] == [("Zurich", 2), ("Appenzell Innerrhoden", 1)]
+
+
+# --- _find_sunshine_class ---
+
+@pytest.mark.parametrize("sunshine_min, sunshine_class_name", (
+    (10, "mostly_sunny"),
+    (8, "mostly_sunny"),
+    (7, "rather_sunny"),
+    (5, "rather_sunny"),
+    (4, "partly_sunny"),
+    (2, "partly_sunny"),
+    (1, "only_a_little_sunshine"),
+    (0, "hardly_any_sunshine"),
+))
+def test_find_sunshine_class(sunshine_min, sunshine_class_name):
+    assert _find_sunshine_class(sunshine_min) == sunshine_class_name
+
+
+# --- _build_sunshine_canton_rows ---
+
+def test_build_sunshine_canton_rows_puts_the_sunnier_canton_first():
+    # Appenzell had 6 minutes of sun, Zürich 10 and 0, so 5 on average
+    station_values = [StationValue(FLUNTERN, 10.0), StationValue(FLUNTERN, 0.0), StationValue(APPENZELL, 6.0)]
+
+    rows = _build_sunshine_canton_rows(station_values)
+    assert [row["canton"] for row in rows] == ["Appenzell Innerrhoden", "Zurich"]
+    assert rows[1]["mostly_sunny"] == 1
+    assert rows[1]["hardly_any_sunshine"] == 1
+
+
+def test_build_sunshine_canton_rows_puts_the_canton_with_more_stations_first():
+    # Both cantons had 10 minutes of sun on average, but the average of Zürich rests on two stations
+    station_values = [StationValue(APPENZELL, 10.0), StationValue(FLUNTERN, 10.0), StationValue(FLUNTERN, 10.0)]
+
+    rows = _build_sunshine_canton_rows(station_values)
     assert [(row["canton"], row["measuring_stations"]) for row in rows] == [("Zurich", 2), ("Appenzell Innerrhoden", 1)]

@@ -146,7 +146,7 @@ the point is not next to the place (see [Forecast Points](#forecast-points)).
 | `forecast_cloud_cover(location, when)` | Estimated total cloud cover (%) plus the low, medium and high layers | `forecast_cloud_cover("Zürich", "2026-09-23T14:00")` |
 | `forecast_freezing_level(location, when)` | Height of the 0 °C line (m above sea level) | `forecast_freezing_level("Zürich", "2026-09-23T14:00")` |
 | `measurements_current(location)` | Measured now at a MeteoSwiss station near the place: temperature, humidity, dew point, rain and sunshine in the last 10 minutes, wind, gust, direction and sea-level pressure, plus the temperature and pressure change over the last 3 hours and the rain, sunshine and strongest gust of the last hour | `measurements_current("Zürich")` |
-| `measurements_extremes(extreme)` | Where in Switzerland it is `warmest`, `coldest`, `windiest`, `wettest` or `sunniest` now, from the measurements of all weather stations: the first 5 stations by temperature or gust, or how many stations are sunny or rainy in Switzerland and in each canton | `measurements_extremes("sunniest")` |
+| `measurements_extremes(extreme)` | Where in Switzerland it is `warmest`, `coldest`, `windiest`, `wettest` or `sunniest` now, from the measurements of all weather stations: the first 5 stations by temperature, gust or rain, how many stations are rainy, or how many stations are in each of MeteoSwiss's sunshine terms, in Switzerland and in each canton | `measurements_extremes("sunniest")` |
 | `astronomy_moon(location, date)` | Moonrise and moonset for a level horizon, the phase with its emoji, the time of a New Moon, First Quarter, Full Moon or Last Quarter on that day, and the lit percent at 12:00 | `astronomy_moon("Zürich", "2026-11-01")` |
 | `astronomy_sun(location, date)` | Sunrise and sunset for a level horizon, and the begin and end of civil twilight, when it is light enough outside without artificial light | `astronomy_sun("Zürich", "2026-10-28")` |
 
@@ -193,8 +193,13 @@ the point is not next to the place (see [Forecast Points](#forecast-points)).
   far fewer than forecast points, so the station can still be far from the place and higher or lower.
 - Every answer starts with a sentence that says so, such as "The measurements for Braunwald (1290 m)
   are those of the MeteoSwiss station Elm (958 m), 13.5 km away and 332 m lower."
-- `measurements_extremes` lists the first 5 stations by temperature or gust, and for the sunniest and the
-  wettest counts the sunny or rainy stations in Switzerland and in each canton.
+- `measurements_extremes` lists the first 5 stations by temperature, gust or rain, and counts the rainy
+  stations in Switzerland and in each canton.
+- For the sunniest it groups the stations by their sun in the last 10 minutes with the sunshine terms of
+  [MeteoSwiss](https://www.meteoswiss.admin.ch/weather/weather-and-climate-from-a-to-z/sunshine.html):
+  mostly sunny (8 to 10 minutes, 80 to 100 %), rather sunny (5 to 7), partly sunny (2 to 4), only a little
+  sunshine (1) and hardly any sunshine (0). A share on the boundary of two of its terms counts for the
+  sunnier one. The cantons come in the order of their stations' average sun.
 
 ### Forecast Values Are Medians
 - Temperature and rain are the median of the many possible outcomes MeteoSwiss calculates, not the
