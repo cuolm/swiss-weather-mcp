@@ -5,6 +5,7 @@ from typing import Any, Dict, Optional
 from ..formatting import format_swiss_time
 from ..places import PlaceFinder, SwisstopoPlace
 from .moon import find_moon_day
+from .sun import find_sun_day
 
 HALF_A_MINUTE = timedelta(seconds=30)
 
@@ -30,7 +31,7 @@ def _format_to_the_minute(moment: Optional[datetime]) -> Optional[str]:
 
 
 class AstronomyService:
-    """Answer when the Moon rises and sets at a place, and its phase."""
+    """Answer when the Moon and the Sun rise and set at a place, the Moon's phase and the civil twilight."""
 
     def __init__(self, place_finder: PlaceFinder):
         self.place_finder = place_finder
@@ -60,3 +61,20 @@ class AstronomyService:
             answer["moon_phase_time"] = _format_to_the_minute(moon_day.phase_time)
         answer["illuminated_percent"] = round(moon_day.illuminated_percent)
         return answer
+
+    async def read_sun(self, location: str, day: date, nearby_location: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Read when civil twilight begins, the Sun rises and sets, and civil twilight ends on a Swiss calendar day.
+
+        Raise CannotAnswerError for an unknown location.
+        """
+        place = await self._find_place(location, nearby_location)
+        sun_day = find_sun_day(day, place.latitude_deg, place.longitude_deg)
+        return {
+            "place": place.name,
+            "date": day.isoformat(),
+            "civil_twilight_begin": _format_to_the_minute(sun_day.civil_twilight_begin),
+            "sunrise": _format_to_the_minute(sun_day.sunrise),
+            "sunset": _format_to_the_minute(sun_day.sunset),
+            "civil_twilight_end": _format_to_the_minute(sun_day.civil_twilight_end),
+        }

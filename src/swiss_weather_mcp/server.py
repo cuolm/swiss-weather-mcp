@@ -129,8 +129,8 @@ class SwissWeatherMCPServer:
             name="swiss_weather_mcp_server",
             instructions=(
                 "Weather for places in Switzerland from MeteoSwiss: what stations measure now (measurements_*), "
-                "forecasts for today and the next 8 days (forecast_*), and when the Moon rises and sets "
-                "(astronomy_*).\n"
+                "forecasts for today and the next 8 days (forecast_*), and when the Sun and the Moon rise "
+                "and set (astronomy_*).\n"
                 "- Times are Swiss local time in ISO 8601 without offset, such as \"2026-09-23T14:00\".\n"
                 "- When a tool result has data_from, include it in your answer.\n"
                 "- If a name matches several places, choose from what the user said, or ask which village it "
@@ -416,6 +416,31 @@ class SwissWeatherMCPServer:
             """
             day = _parse_swiss_time(date).astimezone(SWISS_TZ).date()
             return await self.astronomy_service.read_moon(location, day, near)
+
+        @self.mcp.tool(annotations=READS_OPEN_DATA)
+        @_handle_tool_call
+        async def astronomy_sun(location: str, date: str, near: Near = None) -> dict:
+            """
+            Get when the Sun rises and sets at a place on a day, and when civil twilight begins and ends.
+
+            Use this for "when does the sun rise tomorrow" or "until when is it light tonight". Civil
+            twilight is the light before sunrise and after sunset; outside it, artificial light is
+            normally needed outdoors. The times are for a level horizon, so in a valley the Sun
+            appears later behind the mountains.
+
+            Args:
+                location (str): Name of a place in Switzerland, e.g. "Zürich".
+                date (str): The day, e.g. "2026-09-23".
+
+            Returns:
+                dict: The place, the date, the begin of civil twilight, sunrise, sunset and the end of
+                    civil twilight.
+
+            Examples:
+                astronomy_sun("Zürich", "2026-09-23")
+            """
+            day = _parse_swiss_time(date).astimezone(SWISS_TZ).date()
+            return await self.astronomy_service.read_sun(location, day, near)
 
     def run(self, transport: str, host: str, port: int) -> None:
         """Serve the tools over stdio, or over streamable HTTP on host and port, until the process stops."""

@@ -25,6 +25,7 @@ EXPECTED_TOOLS = {
     "measurements_current": ["location", "near"],
     "measurements_extremes": ["extreme"],
     "astronomy_moon": ["location", "date", "near"],
+    "astronomy_sun": ["location", "date", "near"],
 }
 
 FREEZING_LEVEL_CALL = {"location": "Zurich", "when": "2026-09-24T14:00"}
@@ -125,6 +126,14 @@ async def test_astronomy_moon_passes_the_day_on(server_fixture):
 
     await server_fixture.mcp.call_tool("astronomy_moon", {"location": "Zürich", "date": "2026-11-01"})
     server_fixture.astronomy_service.read_moon.assert_awaited_once_with("Zürich", date(2026, 11, 1), None)
+
+
+@pytest.mark.asyncio
+async def test_astronomy_sun_passes_the_day_on(server_fixture):
+    server_fixture.astronomy_service.read_sun.return_value = {"place": "Zürich"}
+
+    await server_fixture.mcp.call_tool("astronomy_sun", {"location": "Zürich", "date": "2026-10-28"})
+    server_fixture.astronomy_service.read_sun.assert_awaited_once_with("Zürich", date(2026, 10, 28), None)
 
 
 # --- _handle_tool_call ---

@@ -10,13 +10,13 @@ A **Model Context Protocol ([MCP](https://modelcontextprotocol.io/))** server th
 - Forecasts for today and the next 8 days from the [MeteoSwiss local forecasts](https://opendatadocs.meteoswiss.ch/e-forecast-data/e4-local-forecast-data), updated every hour
 - Measurements from about 160 [SwissMetNet weather stations](https://opendatadocs.meteoswiss.ch/a-data-groundbased/a1-automatic-weather-stations), updated every 10 minutes
 - Any place on the Swiss national map, such as towns, districts, lakes and peaks, from [swissNAMES3D](https://www.swisstopo.admin.ch/en/landscape-model-swissnames3d)
-- When the Moon rises and sets at a place, its phase and how much of it is lit, calculated for any day
+- When the Sun and the Moon rise and set at a place, the civil twilight, the Moon's phase and how much of it is lit, calculated for any day
 - A bundled MCP client for testing
 
 > **Data sources.** This project is not an official MeteoSwiss product.
 > - Weather forecasts and measurements: [MeteoSwiss Open Data](https://opendata.swiss/en/organization/bundesamt-fur-meteorologie-und-klimatologie-meteoschweiz). Source: MeteoSwiss
 > - Place names: [swissNAMES3D](https://www.swisstopo.admin.ch/en/landscape-model-swissnames3d). Source: Federal Office of Topography swisstopo
-> - The Moon: calculated with the formulae of [Van Flandern and Pulkkinen (1979)](https://ui.adsabs.harvard.edu/abs/1979ApJS...41..391V/abstract) and the definitions of the [US Naval Observatory](https://aa.usno.navy.mil/faq/RST_defs)
+> - The Sun and the Moon: calculated with the formulae of [Van Flandern and Pulkkinen (1979)](https://ui.adsabs.harvard.edu/abs/1979ApJS...41..391V/abstract) and the definitions of the [US Naval Observatory](https://aa.usno.navy.mil/faq/RST_defs)
 
 ## Table of Contents
 - [Project Structure](#project-structure)
@@ -36,7 +36,7 @@ swiss-weather-mcp/
 │   ├── places/             # swisstopo place lookup
 │   ├── forecast/           # MeteoSwiss local forecasts
 │   ├── measurements/       # MeteoSwiss SwissMetNet measurements
-│   ├── astronomy/          # Moonrise, moonset and phase
+│   ├── astronomy/          # Sunrise, sunset, moonrise, moonset and phase
 │   └── client.py           # MCP client
 ├── tests/swiss_weather_mcp/  # Tests
 └── .github/workflows/      # CI and release pipelines
@@ -148,6 +148,7 @@ the point is not next to the place (see [Forecast Points](#forecast-points)).
 | `measurements_current(location)` | Measured now at a MeteoSwiss station near the place: temperature, humidity, dew point, rain and sunshine in the last 10 minutes, wind, gust, direction and sea-level pressure, plus the temperature and pressure change over the last 3 hours and the rain, sunshine and strongest gust of the last hour | `measurements_current("Zürich")` |
 | `measurements_extremes(extreme)` | Where in Switzerland it is `warmest`, `coldest`, `windiest`, `wettest` or `sunniest` now, from the measurements of all weather stations: the first 5 stations by temperature or gust, or how many stations are sunny or rainy in Switzerland and in each canton | `measurements_extremes("sunniest")` |
 | `astronomy_moon(location, date)` | Moonrise and moonset for a level horizon, the phase with its emoji, the time of a New Moon, First Quarter, Full Moon or Last Quarter on that day, and the lit percent at 12:00 | `astronomy_moon("Zürich", "2026-11-01")` |
+| `astronomy_sun(location, date)` | Sunrise and sunset for a level horizon, and the begin and end of civil twilight, when it is light enough outside without artificial light | `astronomy_sun("Zürich", "2026-10-28")` |
 
 ## Good to Know
 

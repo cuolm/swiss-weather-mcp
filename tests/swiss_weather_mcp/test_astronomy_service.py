@@ -58,3 +58,31 @@ async def test_read_moon_uses_near(astronomy_service_fixture):
 async def test_read_moon_unknown_location(astronomy_service_fixture):
     with pytest.raises(CannotAnswerError):
         await astronomy_service_fixture.read_moon("Atlantis", date(2026, 11, 1))
+
+
+# --- read_sun ---
+
+@pytest.mark.asyncio
+async def test_read_sun(astronomy_service_fixture):
+    # USNO: civil twilight 06:31 to 17:47, sunrise 07:03, sunset 17:15
+    answer = await astronomy_service_fixture.read_sun("Zürich", date(2026, 10, 28))
+    assert answer == {
+        "place": "Zürich",
+        "date": "2026-10-28",
+        "civil_twilight_begin": "2026-10-28T06:31+01:00",
+        "sunrise": "2026-10-28T07:03+01:00",
+        "sunset": "2026-10-28T17:15+01:00",
+        "civil_twilight_end": "2026-10-28T17:47+01:00",
+    }
+
+
+@pytest.mark.asyncio
+async def test_read_sun_uses_near(astronomy_service_fixture):
+    answer = await astronomy_service_fixture.read_sun("Blausee", date(2026, 10, 28), "Oerlikon")
+    assert answer["place"] == "Blausee"
+
+
+@pytest.mark.asyncio
+async def test_read_sun_unknown_location(astronomy_service_fixture):
+    with pytest.raises(CannotAnswerError):
+        await astronomy_service_fixture.read_sun("Atlantis", date(2026, 10, 28))
