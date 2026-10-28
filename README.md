@@ -16,6 +16,7 @@ A **Model Context Protocol ([MCP](https://modelcontextprotocol.io/))** server th
 > **Data sources.** This project is not an official MeteoSwiss product.
 > - Weather forecasts and measurements: [MeteoSwiss Open Data](https://opendata.swiss/en/organization/bundesamt-fur-meteorologie-und-klimatologie-meteoschweiz). Source: MeteoSwiss
 > - Place names: [swissNAMES3D](https://www.swisstopo.admin.ch/en/landscape-model-swissnames3d). Source: Federal Office of Topography swisstopo
+> - Municipalities and cantons: [swissBOUNDARIES3D](https://www.swisstopo.admin.ch/en/landscape-model-swissboundaries3d). Source: Federal Office of Topography swisstopo
 > - The Sun and the Moon: calculated with the formulae of [Van Flandern and Pulkkinen (1979)](https://ui.adsabs.harvard.edu/abs/1979ApJS...41..391V/abstract) and the definitions of the [US Naval Observatory](https://aa.usno.navy.mil/faq/RST_defs)
 
 ## Table of Contents
@@ -76,7 +77,8 @@ From a source checkout, put `uv run` in front. `--help` lists all flags.
 
 > **Note:** The cache lives in your OS cache directory, such as `~/Library/Caches/swiss-weather-mcp` on
 > macOS or `~/.cache/swiss-weather-mcp` on Linux. Set `SWISS_WEATHER_MCP_CACHE_DIR` to move it. The
-> first start downloads the swissNAMES3D archive (about 33 MB).
+> first start downloads the swissNAMES3D archive (about 33 MB) and the swissBOUNDARIES3D GeoPackage
+> (about 37 MB, kept unpacked at about 74 MB).
 >
 > MeteoSwiss publishes a new forecast run every hour, each hourly parameter as one file of about 30 to
 > 34 MB for all forecast points. By default the server downloads such a file for every new forecast
@@ -167,13 +169,17 @@ the point is not next to the place (see [Forecast Points](#forecast-points)).
 - Case and accents are ignored, and English names such as `Geneva` work too.
 - A name of several places, such as `Blausee`, needs `near`: a village next to the one the user means,
   such as `near="Riederalp"`. Without it, the tool lists every place, each with a village to pass as
-  `near`:
+  `near` and the municipality and canton it lies in. A lake that belongs to a canton itself, such
+  as the Thunersee, gets only its canton:
   ```
   'Blausee' is the name of 6 places. [...] The biggest first:
-    near="Blausee-Mitholz": district and lake, fewer than 20 people, 887 m
-    near="Ramiswil": settlement, fewer than 20 people, 683 m
+    near="Blausee-Mitholz": district and lake, fewer than 20 people, 887 m, municipality Kandergrund, canton Bern
+    near="Ramiswil": settlement, fewer than 20 people, 683 m, municipality Mümliswil-Ramiswil, canton Solothurn
     ...
   ```
+- The municipalities and cantons carry swisstopo's names, in the local language, such as `Genève`
+  or `Graubünden`. They appear once the swissBOUNDARIES3D GeoPackage is downloaded in the
+  background at start.
 - An unknown name gets suggestions, such as `Davos Dorf` and `Davos Platz` for `Davos`.
 
 ### Forecast Points
@@ -246,6 +252,7 @@ Configure the mcp.json file in LMStudio. Replace `<path-to>` so the command is t
 - [Local Forecast Notebook Examples](https://github.com/MeteoSwiss/opendata-localforecast-demos)
 - [Automatic Weather Stations (SwissMetNet)](https://opendatadocs.meteoswiss.ch/a-data-groundbased/a1-automatic-weather-stations)
 - [swissNAMES3D (swisstopo)](https://www.swisstopo.admin.ch/en/landscape-model-swissnames3d)
+- [swissBOUNDARIES3D (swisstopo)](https://www.swisstopo.admin.ch/en/landscape-model-swissboundaries3d)
 - [Model Context Protocol](https://github.com/modelcontextprotocol/python-sdk)
 - [MCP Server Quickstart](https://modelcontextprotocol.io/docs/develop/build-server)
 

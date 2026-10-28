@@ -7,7 +7,9 @@ The location is looked up among the places of swissNAMES3D, see lookup.py:
 - Several places have the name: nearby_location chooses the one closest to it, within 10 km.
   Without it, or when no place lies near it, we refuse and list every place, biggest first,
   so the model can choose with the user. Each comes with a settlement to give as near: the
-  nearest settlement of 100 or more people whose name leads back to that place.
+  nearest settlement of 100 or more people whose name leads back to that place. Each also
+  names the municipality and canton it lies in, from swissBOUNDARIES3D, see boundary_source.py,
+  so a user who answers with a canton can be matched to its line.
 - No place has the name: we refuse and suggest the names that start with it or are spelled
   alike, so the model can call again with one of them.
 
@@ -27,8 +29,10 @@ The location is looked up among the places of swissNAMES3D, see lookup.py:
                            'Blausee' is the name of 6 places. Call again with location
                            'Blausee' and near set to the village next to the place the user
                            means, or ask the user which one they mean. The biggest first:
-                             near="Blausee-Mitholz": district and lake, fewer than 20 people, 887 m
-                             near="Ramiswil": settlement, fewer than 20 people, 683 m
+                             near="Blausee-Mitholz": district and lake, fewer than 20 people, 887 m,
+                               municipality Kandergrund, canton Bern
+                             near="Ramiswil": settlement, fewer than 20 people, 683 m,
+                               municipality Mümliswil-Ramiswil, canton Solothurn
                              ...
                          (starting with "No 'Blausee' lies near 'Kandertal'." when one was given)
 
@@ -46,6 +50,7 @@ from typing import List, Optional
 import requests
 
 from ..errors import CannotAnswerError
+from .boundary_source import SwisstopoBoundarySource
 from .lookup import SwisstopoPlaceLookup, calculate_distance_m
 from .place_source import SwisstopoPlace, SwisstopoPlaceSource
 
@@ -67,16 +72,28 @@ class PlaceFinder:
 
     def __init__(self, cache_dir: Path):
         self.place_lookup = SwisstopoPlaceLookup(SwisstopoPlaceSource(cache_dir))
+        self.boundary_source = SwisstopoBoundarySource(cache_dir)
 
     def _load_places(self) -> None:
-        """Load the places, or log why not, so the first question tries again."""
+        """Load the places and then the boundaries, or log why not."""
         try:
             self.place_lookup.load_places()
         except requests.RequestException as error:
             logger.warning(f"Could not load the swisstopo places at start, the first question tries again: {error}")
 
+        try:
+            self.boundary_source.load_geopackage()
+        except requests.RequestException as error:
+            logger.warning(
+                f"Could not load the swisstopo boundaries, the lists of places leave out the municipalities: {error}"
+            )
+
     def start_loading_places(self) -> threading.Thread:
-        """Load the places in a background thread and return it, so the first question need not wait."""
+        """
+        Load the places and boundaries in a background thread and return it, so the first question need not wait.
+
+        Until the boundaries are loaded, the lists of places leave out the municipality and canton.
+        """
         thread = threading.Thread(target=self._load_places, name="load-places", daemon=True)
         thread.start()
         return thread
@@ -122,6 +139,9 @@ class PlaceFinder:
         for place in places:
             near_settlement = self._find_near_settlement(place, places)
             option_line = f'  near="{near_settlement}": {place.description}'
+            area = self.boundary_source.find_area(place.east_m, place.north_m)
+            if area is not None:
+                option_line += f", {area.description}"
             option_lines.append(option_line)
         listed_options = "\n".join(option_lines)
 

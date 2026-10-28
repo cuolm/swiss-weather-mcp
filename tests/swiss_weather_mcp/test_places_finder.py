@@ -41,6 +41,19 @@ def test_find_place_refuses_a_name_of_several_places(place_finder_fixture):
     )
 
 
+def test_find_place_names_the_area_of_each_place(place_finder_fixture):
+    loading_thread = place_finder_fixture.start_loading_places()
+    loading_thread.join()
+    with pytest.raises(CannotAnswerError) as raised:
+        place_finder_fixture.find_place("Blausee")
+    error_text = str(raised.value)
+    option_lines = error_text.splitlines()[1:]
+    assert option_lines == [
+        '  near="Lindenhof": settlement and district, 20 to 49 people, 425 m, municipality Zürich, canton Zürich',
+        '  near="Oerlikon": lake, 445 m, canton Zürich',
+    ]
+
+
 def test_find_place_lists_every_place(place_finder_fixture):
     # The town first, and Wil SG names itself, as its full name belongs to it alone
     with pytest.raises(CannotAnswerError) as raised:
@@ -128,3 +141,4 @@ def test_start_loading_places_without_a_connection(caplog, source_fixture, place
     with caplog.at_level(logging.WARNING):
         place_finder_fixture.start_loading_places().join()
     assert "Could not load the swisstopo places at start" in caplog.text
+    assert "Could not load the swisstopo boundaries" in caplog.text
