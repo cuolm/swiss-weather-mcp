@@ -1,9 +1,16 @@
 """
-The series of Table 4 of Van Flandern and Pulkkinen (1979) that the Moon and Sun tools need.
+The trigonometric series of Table 4 of Van Flandern and Pulkkinen (1979) that the Moon and Sun tools need.
 
-The sources are linked in the package docstring. A series is a list of terms, and its value is
-their sum (see sky.sum_series). Each Term is one row of Table 4. PLON and BETA are in arcseconds
-and RP in astronomical units for the Sun; V, U and W are dimensionless (section VI).
+The sources are linked in the package docstring. A series is a list of terms, and its value is their
+sum (see sky.calculate_trigonometric_series). Each Term is one row of Table 4. PLON and BETA are in
+arcseconds and RP in astronomical units for the Sun; V, U and W are dimensionless (section VI).
+
+What each series is used for:
+- MOON_PLON and SUN_PLON, the corrections to the mean longitudes: the Moon's phase and lit part, and
+  the Sun's position for sunrise, sunset and civil twilight
+- MOON_BETA, the Moon's ecliptic latitude, and SUN_RP, the Sun's distance: the Moon's lit part
+- MOON_V, MOON_U and MOON_W: the Moon's position and distance by equation (17), for moonrise and
+  moonset
 """
 from typing import NamedTuple, Tuple
 

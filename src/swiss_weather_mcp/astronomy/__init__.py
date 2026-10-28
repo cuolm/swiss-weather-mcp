@@ -9,9 +9,9 @@ From the paper of Van Flandern and Pulkkinen: where the Sun and the Moon are on 
    number of centuries since 1900. Just counts of time.
 2. Average motion (sky.py): angles that grow at a steady speed, such as the average position of
    the Moon along its path. Not yet the real position.
-3. Corrections (series.py): the real position differs from the average one by a small part that
-   swings back and forth. The paper gives it as long sums of sine and cosine terms, added up for
-   the moment.
+3. Sums of terms (series.py): long sums of sine and cosine terms from the paper's Table 4, added
+   up for the moment: the correction to the average longitude (PLON), and the latitude, the
+   distance and three helper values (BETA, RP, V, U and W).
 4. Position (moon.py, sun.py): where the Sun or the Moon stands among the stars, seen from the
    centre of the Earth, as right ascension and declination, the sky's version of longitude and
    latitude. Also the distance of the Moon, which moonrise needs, and of the Sun, which only the

@@ -20,8 +20,8 @@ from typing import List, NamedTuple, Optional, Tuple
 from ..formatting import SWISS_TZ
 from .series import MOON_ARGUMENTS, MOON_BETA, MOON_PLON, MOON_U, MOON_V, MOON_W, SUN_ARGUMENTS, SUN_PLON, SUN_RP
 from .sky import (
-    ARCSECONDS_PER_DEGREE, calculate_altitude_deg, calculate_arguments, find_crossings, list_minutes_of_day,
-    sum_series,
+    ARCSECONDS_PER_DEGREE, calculate_altitude_deg, calculate_centuries_since_1900, calculate_ecliptic_longitude_deg,
+    calculate_fundamental_arguments_rad, calculate_trigonometric_series, find_crossings, list_minutes_of_day,
 )
 
 # The scaling factor Δ of the Moon, section V, which gives its distance in Earth radii from U
@@ -84,15 +84,18 @@ def calculate_moon_position(moment: datetime) -> MoonPosition:
     Δ         "a scaling factor (constant for each body) which has been removed from the series in
               order to make them uniform in precision", 60.40974 for the Moon (section V)
     """
-    arguments, centuries_since_1900 = calculate_arguments(moment)
-    v = sum_series(MOON_V, MOON_ARGUMENTS, arguments, centuries_since_1900)
-    u = sum_series(MOON_U, MOON_ARGUMENTS, arguments, centuries_since_1900)
-    w = sum_series(MOON_W, MOON_ARGUMENTS, arguments, centuries_since_1900)
-    right_ascension = arguments["moon_mean_longitude"] + math.asin(w / math.sqrt(u - v**2))
-    declination = math.asin(v / math.sqrt(u))
+    fundamental_arguments_rad = calculate_fundamental_arguments_rad(moment)
+    centuries_since_1900 = calculate_centuries_since_1900(moment)
+
+    v = calculate_trigonometric_series(MOON_V, MOON_ARGUMENTS, fundamental_arguments_rad, centuries_since_1900)
+    u = calculate_trigonometric_series(MOON_U, MOON_ARGUMENTS, fundamental_arguments_rad, centuries_since_1900)
+    w = calculate_trigonometric_series(MOON_W, MOON_ARGUMENTS, fundamental_arguments_rad, centuries_since_1900)
+
+    right_ascension_rad = fundamental_arguments_rad["moon_mean_longitude"] + math.asin(w / math.sqrt(u - v**2))
+    declination_rad = math.asin(v / math.sqrt(u))
     return MoonPosition(
-        right_ascension_deg=math.degrees(right_ascension) % 360,
-        declination_deg=math.degrees(declination),
+        right_ascension_deg=math.degrees(right_ascension_rad) % 360,
+        declination_deg=math.degrees(declination_rad),
         distance_earth_radii=MOON_DISTANCE_SCALE_EARTH_RADII * math.sqrt(u),
     )
 
@@ -107,48 +110,83 @@ def _calculate_upper_edge_altitude_deg(moment: datetime, latitude_deg: float, lo
     altitude_deg = calculate_altitude_deg(
         moment, position.right_ascension_deg, position.declination_deg, latitude_deg, longitude_deg
     )
+
     parallax_deg = math.degrees(math.asin(1 / position.distance_earth_radii))
     radius_deg = math.degrees(math.atan(MOON_RADIUS_KM / (position.distance_earth_radii * EARTH_RADIUS_KM)))
     return altitude_deg - parallax_deg + radius_deg
 
 
 def _calculate_moon_ahead_of_sun_deg(moment: datetime) -> float:
-    """Return how far the Moon's ecliptic longitude is ahead of the Sun's, from 0° to 360°."""
-    arguments, centuries_since_1900 = calculate_arguments(moment)
-    moon_plon = sum_series(MOON_PLON, MOON_ARGUMENTS, arguments, centuries_since_1900)
-    sun_plon = sum_series(SUN_PLON, SUN_ARGUMENTS, arguments, centuries_since_1900)
-    moon_longitude_deg = math.degrees(arguments["moon_mean_longitude"]) + moon_plon / ARCSECONDS_PER_DEGREE
-    sun_longitude_deg = math.degrees(arguments["sun_mean_longitude"]) + sun_plon / ARCSECONDS_PER_DEGREE
+    """Calculate how far the Moon's ecliptic longitude is ahead of the Sun's, from 0° to 360°."""
+    fundamental_arguments_rad = calculate_fundamental_arguments_rad(moment)
+    centuries_since_1900 = calculate_centuries_since_1900(moment)
+
+    moon_longitude_correction_arcsec = calculate_trigonometric_series(
+        MOON_PLON, MOON_ARGUMENTS, fundamental_arguments_rad, centuries_since_1900
+    )
+    sun_longitude_correction_arcsec = calculate_trigonometric_series(
+        SUN_PLON, SUN_ARGUMENTS, fundamental_arguments_rad, centuries_since_1900
+    )
+
+    moon_longitude_deg = calculate_ecliptic_longitude_deg(
+        fundamental_arguments_rad["moon_mean_longitude"], moon_longitude_correction_arcsec
+    )
+    sun_longitude_deg = calculate_ecliptic_longitude_deg(
+        fundamental_arguments_rad["sun_mean_longitude"], sun_longitude_correction_arcsec
+    )
     return (moon_longitude_deg - sun_longitude_deg) % 360
 
 
 def _calculate_illuminated_percent(moment: datetime) -> float:
     """Return how much of the Moon's disk is lit, 100 (1 + cos i) / 2 with i the phase angle at the Moon."""
-    arguments, centuries_since_1900 = calculate_arguments(moment)
-    moon_plon = sum_series(MOON_PLON, MOON_ARGUMENTS, arguments, centuries_since_1900)
-    moon_beta = sum_series(MOON_BETA, MOON_ARGUMENTS, arguments, centuries_since_1900)
-    sun_plon = sum_series(SUN_PLON, SUN_ARGUMENTS, arguments, centuries_since_1900)
-    sun_distance_au = sum_series(SUN_RP, SUN_ARGUMENTS, arguments, centuries_since_1900)
-    moon_u = sum_series(MOON_U, MOON_ARGUMENTS, arguments, centuries_since_1900)
+    fundamental_arguments_rad = calculate_fundamental_arguments_rad(moment)
+    centuries_since_1900 = calculate_centuries_since_1900(moment)
 
-    moon_longitude = arguments["moon_mean_longitude"] + math.radians(moon_plon / ARCSECONDS_PER_DEGREE)
-    moon_latitude = math.radians(moon_beta / ARCSECONDS_PER_DEGREE)
-    moon_distance = MOON_DISTANCE_SCALE_EARTH_RADII * math.sqrt(moon_u)
-    # The Sun's ecliptic latitude is 0 in Table 4
-    sun_longitude = arguments["sun_mean_longitude"] + math.radians(sun_plon / ARCSECONDS_PER_DEGREE)
-    sun_distance = sun_distance_au * EARTH_RADII_PER_ASTRONOMICAL_UNIT
-
-    # Positions from the centre of the Earth, in Earth radii, in ecliptic coordinates
-    moon = (
-        moon_distance * math.cos(moon_latitude) * math.cos(moon_longitude),
-        moon_distance * math.cos(moon_latitude) * math.sin(moon_longitude),
-        moon_distance * math.sin(moon_latitude),
+    moon_longitude_correction_arcsec = calculate_trigonometric_series(
+        MOON_PLON, MOON_ARGUMENTS, fundamental_arguments_rad, centuries_since_1900
     )
-    sun = (sun_distance * math.cos(sun_longitude), sun_distance * math.sin(sun_longitude), 0.0)
-    moon_to_sun = [sun_axis - moon_axis for sun_axis, moon_axis in zip(sun, moon)]
-    moon_to_earth = [-moon_axis for moon_axis in moon]
-    dot_product = sum(first * second for first, second in zip(moon_to_sun, moon_to_earth))
-    cos_phase_angle = dot_product / (math.dist(sun, moon) * moon_distance)
+    moon_latitude_arcsec = calculate_trigonometric_series(
+        MOON_BETA, MOON_ARGUMENTS, fundamental_arguments_rad, centuries_since_1900
+    )
+    sun_longitude_correction_arcsec = calculate_trigonometric_series(
+        SUN_PLON, SUN_ARGUMENTS, fundamental_arguments_rad, centuries_since_1900
+    )
+    sun_distance_au = calculate_trigonometric_series(
+        SUN_RP, SUN_ARGUMENTS, fundamental_arguments_rad, centuries_since_1900
+    )
+
+    moon_longitude_deg = calculate_ecliptic_longitude_deg(
+        fundamental_arguments_rad["moon_mean_longitude"], moon_longitude_correction_arcsec
+    )
+    moon_longitude_rad = math.radians(moon_longitude_deg)
+    moon_latitude_rad = math.radians(moon_latitude_arcsec / ARCSECONDS_PER_DEGREE)
+    moon_distance_earth_radii = calculate_moon_position(moment).distance_earth_radii
+    # The Sun's ecliptic latitude is 0 in Table 4
+    sun_longitude_deg = calculate_ecliptic_longitude_deg(
+        fundamental_arguments_rad["sun_mean_longitude"], sun_longitude_correction_arcsec
+    )
+    sun_longitude_rad = math.radians(sun_longitude_deg)
+    sun_distance_earth_radii = sun_distance_au * EARTH_RADII_PER_ASTRONOMICAL_UNIT
+
+    # Positions from the centre of the Earth, in ecliptic coordinates
+    moon_position_earth_radii = (
+        moon_distance_earth_radii * math.cos(moon_latitude_rad) * math.cos(moon_longitude_rad),
+        moon_distance_earth_radii * math.cos(moon_latitude_rad) * math.sin(moon_longitude_rad),
+        moon_distance_earth_radii * math.sin(moon_latitude_rad),
+    )
+    sun_position_earth_radii = (
+        sun_distance_earth_radii * math.cos(sun_longitude_rad),
+        sun_distance_earth_radii * math.sin(sun_longitude_rad),
+        0.0,
+    )
+    moon_to_sun_distance_earth_radii = math.dist(moon_position_earth_radii, sun_position_earth_radii)
+
+    # The phase angle i is the angle at the Moon in the triangle of the Earth, the Moon and the Sun.
+    # The law of cosines gives it from the lengths of the three sides.
+    cos_phase_angle = (
+        moon_to_sun_distance_earth_radii**2 + moon_distance_earth_radii**2 - sun_distance_earth_radii**2
+    ) / (2 * moon_to_sun_distance_earth_radii * moon_distance_earth_radii)
+
     # Equation 7.12-32
     return 100 * (1 + cos_phase_angle) / 2
 

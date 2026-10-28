@@ -23,7 +23,7 @@ DAYS_PER_JULIAN_CENTURY = 36525
 ARCSECONDS_PER_DEGREE = 3600
 
 # The fundamental arguments of section III, in revolutions at J2000 and per day
-FUNDAMENTAL_ARGUMENTS = {
+FUNDAMENTAL_ARGUMENTS_REVOLUTIONS = {
     "moon_mean_longitude": (0.606434, 0.03660110129),
     "moon_mean_anomaly": (0.374897, 0.03629164709),
     "moon_argument_of_latitude": (0.259091, 0.03674819520),
@@ -48,23 +48,31 @@ DEGREES_PER_HOUR = 15
 MINUTE = timedelta(minutes=1)
 
 
-def calculate_arguments(moment: datetime) -> Tuple[Dict[str, float], float]:
-    """Return the fundamental arguments in radians at a moment, and T, the Julian centuries since 1900."""
+def calculate_fundamental_arguments_rad(moment: datetime) -> Dict[str, float]:
+    """Calculate the fundamental arguments of section III at a moment, in radians, by their names."""
     days = (moment - J2000) / DAY
-    arguments = {}
-    for name, (revolutions_at_j2000, revolutions_per_day) in FUNDAMENTAL_ARGUMENTS.items():
+    fundamental_arguments_rad = {}
+    for name, (revolutions_at_j2000, revolutions_per_day) in FUNDAMENTAL_ARGUMENTS_REVOLUTIONS.items():
         revolutions = revolutions_at_j2000 + revolutions_per_day * days
         # Whole revolutions are dropped, as the paper advises, to keep the sines precise
-        arguments[name] = (revolutions % 1) * 2 * math.pi
-    centuries_since_1900 = days / DAYS_PER_JULIAN_CENTURY + 1
-    return arguments, centuries_since_1900
+        fundamental_arguments_rad[name] = (revolutions % 1) * 2 * math.pi
+    return fundamental_arguments_rad
 
 
-def sum_series(
-    terms: Sequence[Term], argument_names: Sequence[str], arguments: Dict[str, float], centuries_since_1900: float
+def calculate_centuries_since_1900(moment: datetime) -> float:
+    """Calculate T, the Julian centuries since 1900.0 at a moment (equation 2)."""
+    days = (moment - J2000) / DAY
+    return days / DAYS_PER_JULIAN_CENTURY + 1
+
+
+def calculate_trigonometric_series(
+    terms: Sequence[Term],
+    argument_names: Sequence[str],
+    fundamental_arguments_rad: Dict[str, float],
+    centuries_since_1900: float,
 ) -> float:
     """
-    Add up the terms of a series of Table 4.
+    Calculate the value of a trigonometric series of Table 4, the sum of its terms.
 
     "A term consists of the product of a coefficient, a polynomial function, and a trigonometric
     function" (section II), T is "the only polynomial variable" (section III), and "The trigonometric
@@ -81,12 +89,22 @@ def sum_series(
     """
     total = 0.0
     for term in terms:
-        angle = 0.0
+        angle_rad = 0.0
         for multiplier, name in zip(term.multipliers, argument_names):
-            angle += multiplier * arguments[name]
-        wave = math.cos(angle) if term.function == COS else math.sin(angle)
+            angle_rad += multiplier * fundamental_arguments_rad[name]
+        wave = math.cos(angle_rad) if term.function == COS else math.sin(angle_rad)
         total += term.coefficient * centuries_since_1900**term.t_power * wave
     return total
+
+
+def calculate_ecliptic_longitude_deg(mean_longitude_rad: float, longitude_correction_arcsec: float) -> float:
+    """
+    Calculate an ecliptic longitude λ = L + PLON (section IV), in degrees.
+
+    mean_longitude_rad is L in radians, and longitude_correction_arcsec the value of a PLON series in
+    arcseconds.
+    """
+    return math.degrees(mean_longitude_rad) + longitude_correction_arcsec / ARCSECONDS_PER_DEGREE
 
 
 def calculate_altitude_deg(
@@ -100,12 +118,13 @@ def calculate_altitude_deg(
     """
     days = (moment - J2000) / DAY
     sidereal_time_hours = (GMST_AT_J2000_HOURS + GMST_HOURS_PER_DAY * days) % 24
-    hour_angle = math.radians(sidereal_time_hours * DEGREES_PER_HOUR + longitude_deg - right_ascension_deg)
-    latitude = math.radians(latitude_deg)
-    declination = math.radians(declination_deg)
+    hour_angle_rad = math.radians(sidereal_time_hours * DEGREES_PER_HOUR + longitude_deg - right_ascension_deg)
+
+    latitude_rad = math.radians(latitude_deg)
+    declination_rad = math.radians(declination_deg)
     sin_altitude = (
-        math.cos(hour_angle) * math.cos(declination) * math.cos(latitude)
-        + math.sin(declination) * math.sin(latitude)
+        math.cos(hour_angle_rad) * math.cos(declination_rad) * math.cos(latitude_rad)
+        + math.sin(declination_rad) * math.sin(latitude_rad)
     )
     return math.degrees(math.asin(sin_altitude))
 

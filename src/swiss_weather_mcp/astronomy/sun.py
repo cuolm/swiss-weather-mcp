@@ -15,7 +15,8 @@ from typing import NamedTuple, Optional
 
 from .series import SUN_ARGUMENTS, SUN_PLON
 from .sky import (
-    ARCSECONDS_PER_DEGREE, calculate_altitude_deg, calculate_arguments, find_crossings, list_minutes_of_day, sum_series,
+    ARCSECONDS_PER_DEGREE, calculate_altitude_deg, calculate_centuries_since_1900, calculate_ecliptic_longitude_deg,
+    calculate_fundamental_arguments_rad, calculate_trigonometric_series, find_crossings, list_minutes_of_day,
 )
 
 # Equation (5), the obliquity of the ecliptic (the tilt of the Earth's axis), and the nutation in
@@ -64,22 +65,32 @@ def calculate_sun_position(moment: datetime) -> SunPosition:
 
     α and δ are the right ascension and declination. The ecliptic latitude β of the Sun is 0 in Table 4.
     """
-    arguments, centuries_since_1900 = calculate_arguments(moment)
-    sun_plon = sum_series(SUN_PLON, SUN_ARGUMENTS, arguments, centuries_since_1900)
-    moon_node = arguments["moon_node"]
-    nutation_arcsec = LONGITUDE_NUTATION_ARCSEC * math.sin(moon_node)
-    longitude = arguments["sun_mean_longitude"] + math.radians((sun_plon + nutation_arcsec) / ARCSECONDS_PER_DEGREE)
+    fundamental_arguments_rad = calculate_fundamental_arguments_rad(moment)
+    centuries_since_1900 = calculate_centuries_since_1900(moment)
+    sun_longitude_correction_arcsec = calculate_trigonometric_series(
+        SUN_PLON, SUN_ARGUMENTS, fundamental_arguments_rad, centuries_since_1900
+    )
+
+    moon_node_rad = fundamental_arguments_rad["moon_node"]
+    nutation_arcsec = LONGITUDE_NUTATION_ARCSEC * math.sin(moon_node_rad)
+    # λ + δλ of equation (6)
+    longitude_deg = calculate_ecliptic_longitude_deg(
+        fundamental_arguments_rad["sun_mean_longitude"], sun_longitude_correction_arcsec + nutation_arcsec
+    )
+    longitude_rad = math.radians(longitude_deg)
+
     obliquity_arcsec = (
         OBLIQUITY_AT_1900_ARCSEC
         + OBLIQUITY_PER_CENTURY_ARCSEC * centuries_since_1900
-        + OBLIQUITY_NUTATION_ARCSEC * math.cos(moon_node)
+        + OBLIQUITY_NUTATION_ARCSEC * math.cos(moon_node_rad)
     )
-    obliquity = math.radians(obliquity_arcsec / ARCSECONDS_PER_DEGREE)
-    right_ascension = math.atan2(math.sin(longitude) * math.cos(obliquity), math.cos(longitude))
-    declination = math.asin(math.sin(longitude) * math.sin(obliquity))
+    obliquity_rad = math.radians(obliquity_arcsec / ARCSECONDS_PER_DEGREE)
+
+    right_ascension_rad = math.atan2(math.sin(longitude_rad) * math.cos(obliquity_rad), math.cos(longitude_rad))
+    declination_rad = math.asin(math.sin(longitude_rad) * math.sin(obliquity_rad))
     return SunPosition(
-        right_ascension_deg=math.degrees(right_ascension) % 360,
-        declination_deg=math.degrees(declination),
+        right_ascension_deg=math.degrees(right_ascension_rad) % 360,
+        declination_deg=math.degrees(declination_rad),
     )
 
 
