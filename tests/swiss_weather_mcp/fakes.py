@@ -1,5 +1,7 @@
 """Fake MeteoSwiss and swisstopo data and responses shared by the tests."""
 import io
+import sqlite3
+import struct
 import zipfile
 from datetime import datetime, timezone
 from typing import Optional
@@ -217,6 +219,99 @@ def build_place_names_editions() -> dict:
         edition_id = f"swissnames3d_{year}"
         assets = {}
         for suffix in ("_2056.csv.zip", "_2056.shp.zip"):
+            assets[f"{edition_id}{suffix}"] = {"href": f"https://example.test/{edition_id}/{edition_id}{suffix}"}
+        editions.append({"id": edition_id, "assets": assets})
+    return {"features": editions}
+
+
+# Areas as squares in LV95, the corners east from, east to, north from, north to, around the places
+# above: Zürich holds Lindenhof and the Blausee place and district, the Greifensee, an area of the canton
+# itself, the Blausee lake, and Vaduz, in Liechtenstein, has no canton number. The real tables have the
+# same columns, and more.
+BOUNDARY_AREAS = (
+    ("Zürich", "Gemeindegebiet", 1, (2676000.0, 2690000.0, 1241000.0, 1250000.0)),
+    ("Greifensee", "Kantonsgebiet", 1, (2685000.0, 2695000.0, 1250000.0, 1256000.0)),
+    ("Vaduz", "Gemeindegebiet", None, (2756000.0, 2760000.0, 1220000.0, 1225000.0)),
+)
+BOUNDARY_CANTONS = ((1, "Zürich"),)
+BOUNDARY_EDITION_IDS = ("swissboundaries3d_2025-04", "swissboundaries3d_2026-01")
+# The member name of the real archives
+BOUNDARY_GEOPACKAGE_NAME = "swissBOUNDARIES3D_1_5_LV95_LN02.gpkg"
+# The parts of a GeoPackage geometry the fake one uses: the header flags for little-endian without an
+# envelope, the spatial reference of LV95, and the WKB types of a polygon and a multipolygon with heights
+GEOPACKAGE_FLAGS_LITTLE_ENDIAN = 0b00000001
+LV95_SPATIAL_REFERENCE = 2056
+WKB_LITTLE_ENDIAN = 1
+WKB_POLYGON_WITH_HEIGHTS = 1003
+WKB_MULTIPOLYGON_WITH_HEIGHTS = 1006
+# The server skips the heights, so every corner has the same
+FAKE_HEIGHT_M = 500.0
+
+
+def build_square_geometry(east_from_m: float, east_to_m: float, north_from_m: float, north_to_m: float) -> bytes:
+    """Build a GeoPackage geometry of one square, a multipolygon with heights like the real areas."""
+    corners = [
+        (east_from_m, north_from_m),
+        (east_to_m, north_from_m),
+        (east_to_m, north_to_m),
+        (east_from_m, north_to_m),
+        (east_from_m, north_from_m),
+    ]
+    # The magic "GP", version 0, the flags and the spatial reference
+    magic_version_and_flags = b"GP" + bytes([0, GEOPACKAGE_FLAGS_LITTLE_ENDIAN])
+    spatial_reference = struct.pack("<i", LV95_SPATIAL_REFERENCE)
+    header = magic_version_and_flags + spatial_reference
+
+    packed_corners = [struct.pack("<3d", east, north, FAKE_HEIGHT_M) for east, north in corners]
+    corner_count = len(corners)
+    packed_corner_count = struct.pack("<I", corner_count)
+    ring = packed_corner_count + b"".join(packed_corners)
+    # One ring in the polygon, and one polygon in the multipolygon
+    polygon = struct.pack("<BII", WKB_LITTLE_ENDIAN, WKB_POLYGON_WITH_HEIGHTS, 1) + ring
+    multipolygon = struct.pack("<BII", WKB_LITTLE_ENDIAN, WKB_MULTIPOLYGON_WITH_HEIGHTS, 1) + polygon
+    return header + multipolygon
+
+
+def build_boundaries_geopackage(path) -> None:
+    """Write a GeoPackage with the tables, spatial index and columns the server reads."""
+    connection = sqlite3.connect(path)
+    connection.execute("CREATE TABLE tlm_kantonsgebiet (id INTEGER PRIMARY KEY, kantonsnummer INTEGER, name TEXT)")
+    connection.execute(
+        "CREATE TABLE tlm_hoheitsgebiet (id INTEGER PRIMARY KEY, geom BLOB, kantonsnummer INTEGER, name TEXT, "
+        "objektart TEXT)"
+    )
+    connection.execute("CREATE VIRTUAL TABLE rtree_tlm_hoheitsgebiet_geom USING rtree(id, minx, maxx, miny, maxy)")
+
+    for number, name in BOUNDARY_CANTONS:
+        connection.execute("INSERT INTO tlm_kantonsgebiet (kantonsnummer, name) VALUES (?, ?)", (number, name))
+    for row_id, (name, kind, canton_number, corners) in enumerate(BOUNDARY_AREAS, start=1):
+        geometry = build_square_geometry(*corners)
+        connection.execute(
+            "INSERT INTO tlm_hoheitsgebiet VALUES (?, ?, ?, ?, ?)",
+            (row_id, geometry, canton_number, name, kind),
+        )
+        connection.execute("INSERT INTO rtree_tlm_hoheitsgebiet_geom VALUES (?, ?, ?, ?, ?)", (row_id, *corners))
+    connection.commit()
+    connection.close()
+
+
+def build_boundaries_archive(directory) -> bytes:
+    """Build the zip archive of an edition's GeoPackage the way swisstopo publishes it."""
+    geopackage_file = directory / BOUNDARY_GEOPACKAGE_NAME
+    if not geopackage_file.exists():
+        build_boundaries_geopackage(geopackage_file)
+    archive_bytes = io.BytesIO()
+    with zipfile.ZipFile(archive_bytes, "w") as archive:
+        archive.write(geopackage_file, BOUNDARY_GEOPACKAGE_NAME)
+    return archive_bytes.getvalue()
+
+
+def build_boundaries_editions() -> dict:
+    """Build the catalogue answer that lists the editions, each with its archives in several formats."""
+    editions = []
+    for edition_id in BOUNDARY_EDITION_IDS:
+        assets = {}
+        for suffix in ("_2056_5728.gpkg.zip", "_2056_5728.shp.zip"):
             assets[f"{edition_id}{suffix}"] = {"href": f"https://example.test/{edition_id}/{edition_id}{suffix}"}
         editions.append({"id": edition_id, "assets": assets})
     return {"features": editions}

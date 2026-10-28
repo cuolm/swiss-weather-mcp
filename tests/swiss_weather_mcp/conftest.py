@@ -3,12 +3,13 @@ from datetime import datetime
 import pytest
 
 from fakes import (
-    ALL_STATIONS_LATEST_VALUES_CSV, MEASUREMENTS_NOW, RUN_ID, FakeResponse, build_parameter_csv,
-    build_place_names_archive, build_place_names_editions, build_point_table_csv, build_stac_item,
-    build_station_now_values_csv, build_station_table_csv,
+    ALL_STATIONS_LATEST_VALUES_CSV, MEASUREMENTS_NOW, RUN_ID, FakeResponse, build_boundaries_archive,
+    build_boundaries_editions, build_parameter_csv, build_place_names_archive, build_place_names_editions,
+    build_point_table_csv, build_stac_item, build_station_now_values_csv, build_station_table_csv,
 )
 from swiss_weather_mcp.forecast.service import ForecastService
 from swiss_weather_mcp.forecast.source import ForecastSource
+from swiss_weather_mcp.places.boundary_source import SwisstopoBoundarySource
 from swiss_weather_mcp.places.finder import PlaceFinder
 from swiss_weather_mcp.measurements.service import MeasurementService
 from swiss_weather_mcp.measurements.source import MeasurementSource
@@ -17,7 +18,7 @@ from swiss_weather_mcp.places.place_source import SwisstopoPlaceSource
 
 
 @pytest.fixture
-def source_fixture(mocker, tmp_path):
+def source_fixture(mocker, tmp_path, tmp_path_factory):
     """
     Return a ForecastSource backed by fake HTTP responses, plus the mock, so tests can count
     downloads and swap in different published data.
@@ -47,6 +48,9 @@ def source_fixture(mocker, tmp_path):
                      "202609231600": "0.9", "202609231700": "3.5", "202609231800": "2.0"},
     }
 
+    # The fake GeoPackage is built once, outside the cache directories the tests look at
+    fake_files_dir = tmp_path_factory.mktemp("fake_files")
+
     def fake_get(url, **kwargs):
         if url.endswith("meta_point.csv"):
             return FakeResponse(body=build_point_table_csv())
@@ -61,6 +65,10 @@ def source_fixture(mocker, tmp_path):
             return FakeResponse(payload=build_place_names_editions())
         if url.endswith(".csv.zip"):
             return FakeResponse(body=build_place_names_archive())
+        if url.endswith("swissboundaries3d/items"):
+            return FakeResponse(payload=build_boundaries_editions())
+        if url.endswith(".gpkg.zip"):
+            return FakeResponse(body=build_boundaries_archive(fake_files_dir))
         if "/items/" in url:
             return FakeResponse(payload=build_stac_item(RUN_ID, published))
         parameter = url.rsplit("/", 1)[-1].removesuffix(".csv")
@@ -106,6 +114,12 @@ def place_source_fixture(source_fixture, tmp_path):
 def place_lookup_fixture(place_source_fixture):
     """Return a SwisstopoPlaceLookup building its places from the fake swissNAMES3D archive."""
     return SwisstopoPlaceLookup(place_source_fixture)
+
+
+@pytest.fixture
+def boundary_source_fixture(source_fixture, tmp_path):
+    """Return a SwisstopoBoundarySource reading the fake swissBOUNDARIES3D GeoPackage."""
+    return SwisstopoBoundarySource(tmp_path)
 
 
 @pytest.fixture
