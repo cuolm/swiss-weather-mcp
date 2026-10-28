@@ -14,7 +14,9 @@ from datetime import date, datetime
 from typing import NamedTuple, Optional
 
 from .series import SUN_ARGUMENTS, SUN_PLON
-from .sky import ARCSECONDS_PER_DEGREE, find_altitude_deg, find_arguments, find_rise_and_set, find_swiss_day, sum_series
+from .sky import (
+    ARCSECONDS_PER_DEGREE, calculate_altitude_deg, calculate_arguments, find_rise_and_set, find_swiss_day, sum_series,
+)
 
 # Equation (5), the obliquity of the ecliptic (the tilt of the Earth's axis), and the nutation in
 # longitude after it, in arcseconds
@@ -44,9 +46,9 @@ class SunDay(NamedTuple):
     civil_twilight_end: Optional[datetime]
 
 
-def find_sun_position(moment: datetime) -> SunPosition:
+def calculate_sun_position(moment: datetime) -> SunPosition:
     """
-    Find the right ascension and declination of the Sun at a timezone aware moment.
+    Calculate the right ascension and declination of the Sun at a timezone aware moment.
 
     By section IV of Van Flandern and Pulkkinen, "Low-precision formulae for planetary positions"
     (1979), the ecliptic longitude of the Sun is λ = L_S + PLON. Section V turns it into equatorial
@@ -63,7 +65,7 @@ def find_sun_position(moment: datetime) -> SunPosition:
 
     α and δ are the right ascension and declination. The ecliptic latitude β of the Sun is 0 in Table 4.
     """
-    arguments, centuries_since_1900 = find_arguments(moment)
+    arguments, centuries_since_1900 = calculate_arguments(moment)
     sun_plon = sum_series(SUN_PLON, SUN_ARGUMENTS, arguments, centuries_since_1900)
     moon_node = arguments["moon_node"]
     nutation_arcsec = LONGITUDE_NUTATION_ARCSEC * math.sin(moon_node)
@@ -82,24 +84,26 @@ def find_sun_position(moment: datetime) -> SunPosition:
     )
 
 
-def find_sun_day(day: date, latitude_deg: float, longitude_deg: float) -> SunDay:
-    """Find the begin of civil twilight, sunrise, sunset and the end of civil twilight on a Swiss calendar day."""
+def calculate_sun_day(day: date, latitude_deg: float, longitude_deg: float) -> SunDay:
+    """Calculate the begin of civil twilight, sunrise, sunset and the end of civil twilight on a Swiss calendar day."""
     day_start, day_end = find_swiss_day(day)
 
-    def find_altitude(moment: datetime) -> float:
-        position = find_sun_position(moment)
-        return find_altitude_deg(
+    def calculate_altitude(moment: datetime) -> float:
+        position = calculate_sun_position(moment)
+        return calculate_altitude_deg(
             moment, position.right_ascension_deg, position.declination_deg, latitude_deg, longitude_deg
         )
 
-    def find_height_above_sunrise(moment: datetime) -> float:
-        return find_altitude(moment) - (ZENITH_ALTITUDE_DEG - SUNRISE_ZENITH_DISTANCE_DEG)
+    def calculate_height_above_sunrise(moment: datetime) -> float:
+        return calculate_altitude(moment) - (ZENITH_ALTITUDE_DEG - SUNRISE_ZENITH_DISTANCE_DEG)
 
-    def find_height_above_civil_twilight(moment: datetime) -> float:
-        return find_altitude(moment) - (ZENITH_ALTITUDE_DEG - CIVIL_TWILIGHT_ZENITH_DISTANCE_DEG)
+    def calculate_height_above_civil_twilight(moment: datetime) -> float:
+        return calculate_altitude(moment) - (ZENITH_ALTITUDE_DEG - CIVIL_TWILIGHT_ZENITH_DISTANCE_DEG)
 
-    sunrise, sunset = find_rise_and_set(find_height_above_sunrise, day_start, day_end)
-    civil_twilight_begin, civil_twilight_end = find_rise_and_set(find_height_above_civil_twilight, day_start, day_end)
+    sunrise, sunset = find_rise_and_set(calculate_height_above_sunrise, day_start, day_end)
+    civil_twilight_begin, civil_twilight_end = find_rise_and_set(
+        calculate_height_above_civil_twilight, day_start, day_end
+    )
     return SunDay(
         civil_twilight_begin=civil_twilight_begin,
         sunrise=sunrise,

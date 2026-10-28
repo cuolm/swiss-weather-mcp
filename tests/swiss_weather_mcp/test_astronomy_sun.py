@@ -2,7 +2,7 @@ from datetime import date, datetime, timezone
 
 import pytest
 
-from swiss_weather_mcp.astronomy.sun import find_sun_day, find_sun_position
+from swiss_weather_mcp.astronomy.sun import calculate_sun_day, calculate_sun_position
 from swiss_weather_mcp.formatting import SWISS_TZ
 
 ZURICH_LATITUDE_DEG = 47.37
@@ -58,31 +58,31 @@ TOLERANCE_MIN = 1
 
 
 def assert_matches_usno(latitude_deg, longitude_deg, day, *usno_times):
-    sun_day = find_sun_day(date.fromisoformat(day), latitude_deg, longitude_deg)
+    sun_day = calculate_sun_day(date.fromisoformat(day), latitude_deg, longitude_deg)
     found_times = (sun_day.civil_twilight_begin, sun_day.sunrise, sun_day.sunset, sun_day.civil_twilight_end)
     for found, usno_time in zip(found_times, usno_times):
         usno_moment = datetime.fromisoformat(f"{day}T{usno_time}").replace(tzinfo=SWISS_TZ)
         assert abs((found - usno_moment).total_seconds()) / 60 <= TOLERANCE_MIN
 
 
-# --- find_sun_position ---
+# --- calculate_sun_position ---
 
-def test_find_sun_position_on_the_paper_test_date():
+def test_calculate_sun_position_on_the_paper_test_date():
     # Table 3 of the paper, 1969 June 28 at 0h: α 6h26m41s, δ +23°18'11"
-    position = find_sun_position(datetime(1969, 6, 28, tzinfo=timezone.utc))
+    position = calculate_sun_position(datetime(1969, 6, 28, tzinfo=timezone.utc))
     assert position.right_ascension_deg == pytest.approx((6 + 26 / 60 + 41 / 3600) * 15, abs=1 / 60)
     assert position.declination_deg == pytest.approx(23 + 18 / 60 + 11 / 3600, abs=1 / 60)
 
 
-# --- find_sun_day ---
+# --- calculate_sun_day ---
 
 @pytest.mark.parametrize("day, twilight_begin, sunrise, sunset, twilight_end", USNO_ZURICH_DAYS)
-def test_find_sun_day_matches_usno_in_zurich(day, twilight_begin, sunrise, sunset, twilight_end):
+def test_calculate_sun_day_matches_usno_in_zurich(day, twilight_begin, sunrise, sunset, twilight_end):
     assert_matches_usno(ZURICH_LATITUDE_DEG, ZURICH_LONGITUDE_DEG, day, twilight_begin, sunrise, sunset, twilight_end)
 
 
 @pytest.mark.parametrize("latitude_deg, longitude_deg, day, twilight_begin, sunrise, sunset, twilight_end", USNO_OTHER_DAYS)
-def test_find_sun_day_matches_usno_on_other_days(
+def test_calculate_sun_day_matches_usno_on_other_days(
     latitude_deg, longitude_deg, day, twilight_begin, sunrise, sunset, twilight_end
 ):
     assert_matches_usno(latitude_deg, longitude_deg, day, twilight_begin, sunrise, sunset, twilight_end)

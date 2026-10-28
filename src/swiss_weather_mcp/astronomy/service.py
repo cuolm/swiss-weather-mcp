@@ -4,8 +4,8 @@ from typing import Any, Dict, Optional
 
 from ..formatting import format_swiss_time
 from ..places import PlaceFinder, SwisstopoPlace
-from .moon import find_moon_day
-from .sun import find_sun_day
+from .moon import calculate_moon_day
+from .sun import calculate_sun_day
 
 HALF_A_MINUTE = timedelta(seconds=30)
 
@@ -47,7 +47,7 @@ class AstronomyService:
         Raise CannotAnswerError for an unknown location.
         """
         place = await self._find_place(location, nearby_location)
-        moon_day = find_moon_day(day, place.latitude_deg, place.longitude_deg)
+        moon_day = calculate_moon_day(day, place.latitude_deg, place.longitude_deg)
 
         answer: Dict[str, Any] = {
             "place": place.name,
@@ -69,7 +69,7 @@ class AstronomyService:
         Raise CannotAnswerError for an unknown location.
         """
         place = await self._find_place(location, nearby_location)
-        sun_day = find_sun_day(day, place.latitude_deg, place.longitude_deg)
+        sun_day = calculate_sun_day(day, place.latitude_deg, place.longitude_deg)
         return {
             "place": place.name,
             "date": day.isoformat(),

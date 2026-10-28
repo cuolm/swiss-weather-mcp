@@ -2,7 +2,7 @@ from datetime import date, datetime, timezone
 
 import pytest
 
-from swiss_weather_mcp.astronomy.moon import find_moon_day, find_moon_position
+from swiss_weather_mcp.astronomy.moon import calculate_moon_day, calculate_moon_position
 from swiss_weather_mcp.formatting import SWISS_TZ
 
 ZURICH_LATITUDE_DEG = 47.37
@@ -62,21 +62,21 @@ def minutes_between(first: datetime, second: datetime) -> float:
     return abs((first - second).total_seconds()) / 60
 
 
-# --- find_moon_position ---
+# --- calculate_moon_position ---
 
-def test_find_moon_position_on_the_paper_test_date():
+def test_calculate_moon_position_on_the_paper_test_date():
     # Table 3 of the paper, 1969 June 28 at 0h: α 16h29m54s, δ -26°44'16"; the distance is Δ √U with U of Table 2
-    position = find_moon_position(datetime(1969, 6, 28, tzinfo=timezone.utc))
+    position = calculate_moon_position(datetime(1969, 6, 28, tzinfo=timezone.utc))
     assert position.right_ascension_deg == pytest.approx((16 + 29 / 60 + 54 / 3600) * 15, abs=1 / 60)
     assert position.declination_deg == pytest.approx(-(26 + 44 / 60 + 16 / 3600), abs=1 / 60)
     assert position.distance_earth_radii == pytest.approx(60.40974 * 0.87647**0.5, abs=0.001)
 
 
-# --- find_moon_day ---
+# --- calculate_moon_day ---
 
 @pytest.mark.parametrize("day, usno_moonrise, usno_moonset, usno_percent", USNO_ZURICH_DAYS)
-def test_find_moon_day_matches_usno(day, usno_moonrise, usno_moonset, usno_percent):
-    moon_day = find_moon_day(date.fromisoformat(day), ZURICH_LATITUDE_DEG, ZURICH_LONGITUDE_DEG)
+def test_calculate_moon_day_matches_usno(day, usno_moonrise, usno_moonset, usno_percent):
+    moon_day = calculate_moon_day(date.fromisoformat(day), ZURICH_LATITUDE_DEG, ZURICH_LONGITUDE_DEG)
 
     for found, usno_time in ((moon_day.moonrise, usno_moonrise), (moon_day.moonset, usno_moonset)):
         if usno_time is None:
@@ -88,9 +88,9 @@ def test_find_moon_day_matches_usno(day, usno_moonrise, usno_moonset, usno_perce
 
 
 @pytest.mark.parametrize("phase, usno_time", USNO_PRINCIPAL_PHASES)
-def test_find_moon_day_finds_the_principal_phase(phase, usno_time):
+def test_calculate_moon_day_finds_the_principal_phase(phase, usno_time):
     usno_moment = datetime.fromisoformat(usno_time).replace(tzinfo=SWISS_TZ)
-    moon_day = find_moon_day(usno_moment.date(), ZURICH_LATITUDE_DEG, ZURICH_LONGITUDE_DEG)
+    moon_day = calculate_moon_day(usno_moment.date(), ZURICH_LATITUDE_DEG, ZURICH_LONGITUDE_DEG)
     assert moon_day.phase == phase
     assert minutes_between(moon_day.phase_time, usno_moment) <= PHASE_TOLERANCE_MIN
 
@@ -101,7 +101,7 @@ def test_find_moon_day_finds_the_principal_phase(phase, usno_time):
     ("2026-11-12", "Waxing Crescent"),
     ("2026-11-20", "Waxing Gibbous"),
 ))
-def test_find_moon_day_names_the_intermediate_phase(day, phase):
-    moon_day = find_moon_day(date.fromisoformat(day), ZURICH_LATITUDE_DEG, ZURICH_LONGITUDE_DEG)
+def test_calculate_moon_day_names_the_intermediate_phase(day, phase):
+    moon_day = calculate_moon_day(date.fromisoformat(day), ZURICH_LATITUDE_DEG, ZURICH_LONGITUDE_DEG)
     assert moon_day.phase == phase
     assert moon_day.phase_time is None

@@ -20,8 +20,8 @@ from typing import NamedTuple, Optional, Tuple
 from ..formatting import SWISS_TZ
 from .series import MOON_ARGUMENTS, MOON_BETA, MOON_PLON, MOON_U, MOON_V, MOON_W, SUN_ARGUMENTS, SUN_PLON, SUN_RP
 from .sky import (
-    ARCSECONDS_PER_DEGREE, find_altitude_deg, find_arguments, find_rise_and_set, find_sign_change, find_swiss_day,
-    sum_series,
+    ARCSECONDS_PER_DEGREE, calculate_altitude_deg, calculate_arguments, find_rise_and_set, find_sign_change,
+    find_swiss_day, sum_series,
 )
 
 # The scaling factor Δ of the Moon, section V, which gives its distance in Earth radii from U
@@ -63,9 +63,9 @@ class MoonDay(NamedTuple):
     illuminated_percent: float    # at ILLUMINATED_PERCENT_TIME
 
 
-def find_moon_position(moment: datetime) -> MoonPosition:
+def calculate_moon_position(moment: datetime) -> MoonPosition:
     """
-    Find the right ascension, declination and distance of the Moon at a timezone aware moment.
+    Calculate the right ascension, declination and distance of the Moon at a timezone aware moment.
 
     The series V, U and W are defined by equation (16) of Van Flandern and Pulkkinen, "Low-precision
     formulae for planetary positions" (1979),
@@ -82,7 +82,7 @@ def find_moon_position(moment: datetime) -> MoonPosition:
     Δ         "a scaling factor (constant for each body) which has been removed from the series in
               order to make them uniform in precision", 60.40974 for the Moon (section V)
     """
-    arguments, centuries_since_1900 = find_arguments(moment)
+    arguments, centuries_since_1900 = calculate_arguments(moment)
     v = sum_series(MOON_V, MOON_ARGUMENTS, arguments, centuries_since_1900)
     u = sum_series(MOON_U, MOON_ARGUMENTS, arguments, centuries_since_1900)
     w = sum_series(MOON_W, MOON_ARGUMENTS, arguments, centuries_since_1900)
@@ -95,10 +95,10 @@ def find_moon_position(moment: datetime) -> MoonPosition:
     )
 
 
-def _find_height_above_horizon_deg(moment: datetime, latitude_deg: float, longitude_deg: float) -> float:
+def _calculate_height_above_horizon_deg(moment: datetime, latitude_deg: float, longitude_deg: float) -> float:
     """Return how many degrees the Moon's centre is above the angle at which it rises or sets; negative below."""
-    position = find_moon_position(moment)
-    altitude_deg = find_altitude_deg(
+    position = calculate_moon_position(moment)
+    altitude_deg = calculate_altitude_deg(
         moment, position.right_ascension_deg, position.declination_deg, latitude_deg, longitude_deg
     )
     parallax_deg = math.degrees(math.asin(1 / position.distance_earth_radii))
@@ -107,9 +107,9 @@ def _find_height_above_horizon_deg(moment: datetime, latitude_deg: float, longit
     return altitude_deg - horizon_altitude_deg
 
 
-def _find_moon_ahead_of_sun_deg(moment: datetime) -> float:
+def _calculate_moon_ahead_of_sun_deg(moment: datetime) -> float:
     """Return how far the Moon's ecliptic longitude is ahead of the Sun's, from 0° to 360°."""
-    arguments, centuries_since_1900 = find_arguments(moment)
+    arguments, centuries_since_1900 = calculate_arguments(moment)
     moon_plon = sum_series(MOON_PLON, MOON_ARGUMENTS, arguments, centuries_since_1900)
     sun_plon = sum_series(SUN_PLON, SUN_ARGUMENTS, arguments, centuries_since_1900)
     moon_longitude_deg = math.degrees(arguments["moon_mean_longitude"]) + moon_plon / ARCSECONDS_PER_DEGREE
@@ -117,9 +117,9 @@ def _find_moon_ahead_of_sun_deg(moment: datetime) -> float:
     return (moon_longitude_deg - sun_longitude_deg) % 360
 
 
-def _find_illuminated_percent(moment: datetime) -> float:
+def _calculate_illuminated_percent(moment: datetime) -> float:
     """Return how much of the Moon's disk is lit, 100 (1 + cos i) / 2 with i the phase angle at the Moon."""
-    arguments, centuries_since_1900 = find_arguments(moment)
+    arguments, centuries_since_1900 = calculate_arguments(moment)
     moon_plon = sum_series(MOON_PLON, MOON_ARGUMENTS, arguments, centuries_since_1900)
     moon_beta = sum_series(MOON_BETA, MOON_ARGUMENTS, arguments, centuries_since_1900)
     sun_plon = sum_series(SUN_PLON, SUN_ARGUMENTS, arguments, centuries_since_1900)
@@ -150,36 +150,36 @@ def _find_illuminated_percent(moment: datetime) -> float:
 
 def _find_principal_phase(day_start: datetime, day_end: datetime) -> Optional[Tuple[str, datetime]]:
     """Find the principal phase between two moments less than a quarter month apart, and when it happens."""
-    start_ahead_deg = _find_moon_ahead_of_sun_deg(day_start)
-    advance_deg = (_find_moon_ahead_of_sun_deg(day_end) - start_ahead_deg) % 360
+    start_ahead_deg = _calculate_moon_ahead_of_sun_deg(day_start)
+    advance_deg = (_calculate_moon_ahead_of_sun_deg(day_end) - start_ahead_deg) % 360
     phase_index = int(start_ahead_deg // DEGREES_BETWEEN_PRINCIPAL_PHASES) + 1
     phase_deg = phase_index * DEGREES_BETWEEN_PRINCIPAL_PHASES
     if phase_deg - start_ahead_deg > advance_deg:
         return None
 
-    def find_past_phase_deg(moment: datetime) -> float:
+    def calculate_past_phase_deg(moment: datetime) -> float:
         # Negative before the phase and positive after it, also where 360° turns back into 0°
-        return (_find_moon_ahead_of_sun_deg(moment) - phase_deg + 180) % 360 - 180
+        return (_calculate_moon_ahead_of_sun_deg(moment) - phase_deg + 180) % 360 - 180
 
-    phase_time = find_sign_change(find_past_phase_deg, day_start, day_end)
+    phase_time = find_sign_change(calculate_past_phase_deg, day_start, day_end)
     return PRINCIPAL_PHASES[phase_index % len(PRINCIPAL_PHASES)], phase_time
 
 
-def find_moon_day(day: date, latitude_deg: float, longitude_deg: float) -> MoonDay:
-    """Find the moonrise, moonset, phase and lit percent on a Swiss calendar day at a place."""
+def calculate_moon_day(day: date, latitude_deg: float, longitude_deg: float) -> MoonDay:
+    """Calculate the moonrise, moonset, phase and lit percent on a Swiss calendar day at a place."""
     day_start, day_end = find_swiss_day(day)
     percent_time = datetime.combine(day, ILLUMINATED_PERCENT_TIME, SWISS_TZ)
 
-    def find_height(moment: datetime) -> float:
-        return _find_height_above_horizon_deg(moment, latitude_deg, longitude_deg)
+    def calculate_height(moment: datetime) -> float:
+        return _calculate_height_above_horizon_deg(moment, latitude_deg, longitude_deg)
 
-    moonrise, moonset = find_rise_and_set(find_height, day_start, day_end)
+    moonrise, moonset = find_rise_and_set(calculate_height, day_start, day_end)
     principal_phase = _find_principal_phase(day_start, day_end)
     if principal_phase is not None:
         phase, phase_time = principal_phase
     else:
         # Without a principal phase the Moon stays in one intermediate phase all day
-        ahead_deg = _find_moon_ahead_of_sun_deg(percent_time)
+        ahead_deg = _calculate_moon_ahead_of_sun_deg(percent_time)
         phase = INTERMEDIATE_PHASES[int(ahead_deg // DEGREES_BETWEEN_PRINCIPAL_PHASES)]
         phase_time = None
     return MoonDay(
@@ -187,5 +187,5 @@ def find_moon_day(day: date, latitude_deg: float, longitude_deg: float) -> MoonD
         moonset=moonset,
         phase=phase,
         phase_time=phase_time,
-        illuminated_percent=_find_illuminated_percent(percent_time),
+        illuminated_percent=_calculate_illuminated_percent(percent_time),
     )

@@ -49,7 +49,7 @@ SEARCH_STEP = timedelta(hours=1)
 SEARCH_PRECISION = timedelta(seconds=1)
 
 
-def find_arguments(moment: datetime) -> Tuple[Dict[str, float], float]:
+def calculate_arguments(moment: datetime) -> Tuple[Dict[str, float], float]:
     """Return the fundamental arguments in radians at a moment, and T, the Julian centuries since 1900."""
     days = (moment - J2000) / DAY
     arguments = {}
@@ -90,7 +90,7 @@ def sum_series(
     return total
 
 
-def find_altitude_deg(
+def calculate_altitude_deg(
     moment: datetime, right_ascension_deg: float, declination_deg: float, latitude_deg: float, longitude_deg: float
 ) -> float:
     """
@@ -131,24 +131,24 @@ def find_sign_change(function: Callable[[datetime], float], start: datetime, end
 
 
 def find_rise_and_set(
-    find_height: Callable[[datetime], float], start: datetime, end: datetime
+    calculate_height: Callable[[datetime], float], start: datetime, end: datetime
 ) -> Tuple[Optional[datetime], Optional[datetime]]:
     """
-    Find the first moment find_height turns positive and the first it turns negative between two moments.
+    Find the first moment calculate_height turns positive and the first it turns negative between two moments.
 
-    find_height returns how many degrees a body is above the angle at which it rises or sets, negative
+    calculate_height returns how many degrees a body is above the angle at which it rises or sets, negative
     below. Each moment is None when there is none.
     """
     rising: Optional[datetime] = None
     setting: Optional[datetime] = None
     step_start = start
-    step_start_height = find_height(step_start)
+    step_start_height = calculate_height(step_start)
     while step_start < end:
         step_end = min(step_start + SEARCH_STEP, end)
-        step_end_height = find_height(step_end)
+        step_end_height = calculate_height(step_end)
         if rising is None and step_start_height <= 0 < step_end_height:
-            rising = find_sign_change(find_height, step_start, step_end)
+            rising = find_sign_change(calculate_height, step_start, step_end)
         if setting is None and step_start_height > 0 >= step_end_height:
-            setting = find_sign_change(find_height, step_start, step_end)
+            setting = find_sign_change(calculate_height, step_start, step_end)
         step_start, step_start_height = step_end, step_end_height
     return rising, setting
