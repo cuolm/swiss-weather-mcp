@@ -11,7 +11,7 @@ def setup_logging(log_level: str = "INFO") -> None:
     """
     Send the log records of the whole program to stderr through one handler on the root logger.
 
-    Libraries that log every request, such as httpx, keep the level WARNING, so a lower log_level
+    Libraries that log every request, such as httpx2, keep the level WARNING, so a lower log_level
     such as DEBUG does not flood the output with them.
     """
     logger_config = {
@@ -36,7 +36,7 @@ def setup_logging(log_level: str = "INFO") -> None:
                 "level": log_level,
                 "propagate": False,
             },
-            "httpx": {  # silence httpx HTTP request logs
+            "httpx2": {  # silence the HTTP request logs of httpx2, which the OpenAI SDK uses
                 "level": "WARNING",
             },
             "urllib3": {  # connection retries
