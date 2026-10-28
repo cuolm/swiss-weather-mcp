@@ -4,7 +4,7 @@ import time
 import pytest
 
 from fakes import build_place_names_archive
-from swiss_weather_mcp.places.source import SwisstopoPlace, SwisstopoPlaceSource
+from swiss_weather_mcp.places.place_source import SwisstopoPlace, SwisstopoPlaceSource
 
 # How far back a cached archive is dated to make the last look for a newer edition older than 30 days
 OLD_CHECK_AGE_SECONDS = 31 * 24 * 60 * 60

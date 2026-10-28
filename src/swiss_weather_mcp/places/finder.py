@@ -47,7 +47,7 @@ import requests
 
 from ..errors import CannotAnswerError
 from .lookup import SwisstopoPlaceLookup, calculate_distance_m
-from .source import SwisstopoPlace, SwisstopoPlaceSource
+from .place_source import SwisstopoPlace, SwisstopoPlaceSource
 
 logger = logging.getLogger(__name__)
 

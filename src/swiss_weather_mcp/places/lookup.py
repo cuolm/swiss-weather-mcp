@@ -33,7 +33,7 @@ from collections import defaultdict
 from importlib import resources
 from typing import Dict, List, Tuple
 
-from .source import OBJECT_TYPE_NAMES, SETTLEMENT_TYPES, SwisstopoPlace, SwisstopoPlaceSource
+from .place_source import OBJECT_TYPE_NAMES, SETTLEMENT_TYPES, SwisstopoPlace, SwisstopoPlaceSource
 
 logger = logging.getLogger(__name__)
 

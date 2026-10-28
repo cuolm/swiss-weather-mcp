@@ -7,6 +7,6 @@ Find the place a user means.
                station or valley. Close rows of the same name are one place.
 """
 from .finder import PlaceFinder
-from .source import SwisstopoPlace
+from .place_source import SwisstopoPlace
 
 __all__ = ["PlaceFinder", "SwisstopoPlace"]

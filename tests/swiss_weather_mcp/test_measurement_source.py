@@ -10,7 +10,7 @@ from swiss_weather_mcp.measurements import parameters
 from swiss_weather_mcp.measurements.source import (
     MAX_STATIONS_TRIED, Station, _calculate_weighted_distance_m, _find_canton_name, _parse_reference_timestamp,
 )
-from swiss_weather_mcp.places.source import SwisstopoPlace
+from swiss_weather_mcp.places.place_source import SwisstopoPlace
 
 # How far back a cached file is dated to make it older than the 5 minutes it is kept
 OLD_FILE_AGE_SECONDS = 10 * 60

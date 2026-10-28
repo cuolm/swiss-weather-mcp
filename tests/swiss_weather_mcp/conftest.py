@@ -13,7 +13,7 @@ from swiss_weather_mcp.places.finder import PlaceFinder
 from swiss_weather_mcp.measurements.service import MeasurementService
 from swiss_weather_mcp.measurements.source import MeasurementSource
 from swiss_weather_mcp.places.lookup import SwisstopoPlaceLookup
-from swiss_weather_mcp.places.source import SwisstopoPlaceSource
+from swiss_weather_mcp.places.place_source import SwisstopoPlaceSource
 
 
 @pytest.fixture

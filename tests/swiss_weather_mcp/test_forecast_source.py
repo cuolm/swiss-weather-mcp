@@ -8,7 +8,7 @@ from fakes import EARLIER_RUN_ID, RUN_ID, FakeResponse, build_stac_item
 from swiss_weather_mcp.errors import CannotAnswerError
 from swiss_weather_mcp.forecast import parameters
 from swiss_weather_mcp.forecast.source import ForecastSource, MeteoSwissPoint
-from swiss_weather_mcp.places.source import SwisstopoPlace
+from swiss_weather_mcp.places.place_source import SwisstopoPlace
 
 # Points of the fake point table
 ZURICH_8001 = MeteoSwissPoint("800100", "2", "Zürich", "8001", 409.0, 2683348.0, 1247414.0)
