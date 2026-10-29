@@ -119,6 +119,27 @@ def test_find_places_named_alike_starting_with_the_name_first(place_lookup_fixtu
     assert [place.name for place in place_lookup_fixture.find_places_named_alike("Flims")] == ["Flims Dorf", "Flums"]
 
 
+def test_find_places_named_alike_by_a_word_inside_the_name(place_lookup_fixture):
+    suggestions = place_lookup_fixture.find_places_named_alike("Holletsmoos")
+    assert [place.name for place in suggestions] == ["Küsnacht Im Holletsmoos 300/50/25m"]
+
+
+def test_find_places_named_alike_by_the_start_of_each_word(place_lookup_fixture):
+    # "Küsnacht" and "Holl" each start a word of the name, though the name has "Im" between them
+    suggestions = place_lookup_fixture.find_places_named_alike("Küsnacht Holl")
+    assert [place.name for place in suggestions] == ["Küsnacht Im Holletsmoos 300/50/25m"]
+
+
+def test_find_places_named_alike_by_a_word_biggest_first(place_lookup_fixture):
+    # Davos Dorf has 2,000 to 9,999 people, Flims Dorf 1,000 to 1,999
+    suggestions = place_lookup_fixture.find_places_named_alike("Dorf")
+    assert [place.name for place in suggestions] == ["Davos Dorf", "Flims Dorf"]
+
+
+def test_find_places_named_alike_not_by_the_middle_of_a_word(place_lookup_fixture):
+    assert place_lookup_fixture.find_places_named_alike("letsmoos") == []
+
+
 def test_find_places_named_alike_without_any(place_lookup_fixture):
     assert place_lookup_fixture.find_places_named_alike("Tessin") == []
 

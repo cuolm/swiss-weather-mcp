@@ -10,8 +10,8 @@ The location is looked up among the places of swissNAMES3D, see lookup.py:
   nearest settlement of 100 or more people whose name leads back to that place. Each also
   names the municipality and canton it lies in, from swissBOUNDARIES3D, see boundary_source.py,
   so a user who answers with a canton can be matched to its line.
-- No place has the name: we refuse and suggest the names that start with it or are spelled
-  alike, see suggestions.py, so the model can call again with one of them.
+- No place has the name: we refuse and suggest up to 10 similar names, see suggestions.py, so the
+  model can call again with one of them.
 
     location
        │
