@@ -140,6 +140,30 @@ def test_find_places_named_alike_not_by_the_middle_of_a_word(place_lookup_fixtur
     assert place_lookup_fixture.find_places_named_alike("letsmoos") == []
 
 
+def test_find_places_named_alike_by_some_query_words(place_lookup_fixture):
+    # No name has a word starting with "glacier", so "Holletsmoos" alone decides
+    suggestions = place_lookup_fixture.find_places_named_alike("Holletsmoos glacier")
+    assert [place.name for place in suggestions] == ["Küsnacht Im Holletsmoos 300/50/25m"]
+
+
+def test_find_places_named_alike_by_some_query_words_most_then_rarest(place_lookup_fixture):
+    # Davos Dorf has two query words in it. Of the rest, "holletsmoos" is in one name, "davos" and
+    # "dorf" in two each, and Davos Platz is bigger than Flims Dorf.
+    suggestions = place_lookup_fixture.find_places_named_alike("Davos Dorf Holletsmoos")
+    assert [place.name for place in suggestions] == [
+        "Davos Dorf",
+        "Küsnacht Im Holletsmoos 300/50/25m",
+        "Davos Platz",
+        "Flims Dorf",
+    ]
+
+
+def test_find_places_named_alike_by_some_query_words_last(place_lookup_fixture):
+    # Davos Platz is spelled alike; Davos Dorf only shares the word "davos"
+    suggestions = place_lookup_fixture.find_places_named_alike("Davos Pltz")
+    assert [place.name for place in suggestions] == ["Davos Platz", "Davos Dorf"]
+
+
 def test_find_places_named_alike_without_any(place_lookup_fixture):
     assert place_lookup_fixture.find_places_named_alike("Tessin") == []
 

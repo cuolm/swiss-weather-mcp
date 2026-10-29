@@ -11,8 +11,13 @@ https://github.com/geoadmin/service-search:
 2. The names with all query words in them, such as Piano della Greina for "Greina" and Piz Ault
    for "piz aul".
 3. The names spelled like the query, such as Zürich for "Zuerich".
+4. Our own addition, which swisstopo's search does not have: when places are still free, the
+   names with some query words in them, such as Piz Greina for "Greina plateau". Those with
+   more query words come first, then those with the rarer query word, the idea of the
+   inverse document frequency in BM25 (https://en.wikipedia.org/wiki/Okapi_BM25): "greina" is
+   in 8 names, "plateau" in 13.
 
-Each step comes biggest first. Each place is suggested once, and at most MAX_SIMILAR_NAMES.
+Steps 1 to 3 each come biggest first. Each place is suggested once, and at most MAX_SIMILAR_NAMES.
 """
 import difflib
 import re
@@ -122,6 +127,40 @@ def _find_places_spelled_like_query(
     return _list_biggest_places(places_by_name, names)
 
 
+def _find_places_with_some_query_words(
+    places_by_name: Dict[str, List[SwisstopoPlace]], query: str
+) -> List[SwisstopoPlace]:
+    """
+    Find the places with at least one query word in their name, such as Piz Greina for "greina plateau".
+
+    Those with more query words come first, then those with the query word that is in fewer names,
+    then the biggest. Empty for one query word, which _find_places_with_all_query_words covers.
+    """
+    query_words = _split_words(query)
+    if len(query_words) <= 1:
+        return []
+
+    query_words_by_name = _find_names_with_query_words(places_by_name, query_words)
+
+    name_count_by_query_word = dict.fromkeys(query_words, 0)
+    for query_words_in_name in query_words_by_name.values():
+        for query_word in query_words_in_name:
+            name_count_by_query_word[query_word] += 1
+
+    ranked_places = []
+    for name in sorted(query_words_by_name):
+        query_words_in_name = query_words_by_name[name]
+        name_counts = []
+        for query_word in query_words_in_name:
+            name_counts.append(name_count_by_query_word[query_word])
+        smallest_name_count = min(name_counts)
+        place = places_by_name[name][0]
+        rank = (-len(query_words_in_name), smallest_name_count, -place.population_band)
+        ranked_places.append((rank, place))
+    ranked_places.sort(key=lambda ranked_place: ranked_place[0])
+    return [place for _, place in ranked_places]
+
+
 def find_similar_places(
     places_by_name: Dict[str, List[SwisstopoPlace]], query: str
 ) -> List[SwisstopoPlace]:
@@ -131,12 +170,14 @@ def find_similar_places(
     places_starting_with_query = _find_places_starting_with_query(places_by_name, query)
     places_with_all_query_words = _find_places_with_all_query_words(places_by_name, query)
     places_spelled_like_query = _find_places_spelled_like_query(places_by_name, query)
+    places_with_some_query_words = _find_places_with_some_query_words(places_by_name, query)
 
     suggestions: List[SwisstopoPlace] = []
     for place in (
         places_starting_with_query
         + places_with_all_query_words
         + places_spelled_like_query
+        + places_with_some_query_words
     ):
         if len(suggestions) == MAX_SIMILAR_NAMES:
             break
