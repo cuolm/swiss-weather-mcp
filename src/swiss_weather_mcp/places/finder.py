@@ -11,7 +11,7 @@ The location is looked up among the places of swissNAMES3D, see lookup.py:
   names the municipality and canton it lies in, from swissBOUNDARIES3D, see boundary_source.py,
   so a user who answers with a canton can be matched to its line.
 - No place has the name: we refuse and suggest the names that start with it or are spelled
-  alike, so the model can call again with one of them.
+  alike, see suggestions.py, so the model can call again with one of them.
 
     location
        │
@@ -67,7 +67,7 @@ class PlaceFinder:
     Find the swisstopo place a user means.
 
     A name of several places needs near, a settlement next to the one the user means. For an unknown
-    name, suggest the names that start with it or are spelled alike.
+    name, suggest similar names, see SwisstopoPlaceLookup.find_places_named_alike.
     """
 
     def __init__(self, cache_dir: Path):
@@ -103,16 +103,17 @@ class PlaceFinder:
         closest_place = None
         closest_distance_m = math.inf
         # nearby_location can itself be the name of several places, so every pair counts
-        for near_place in self.place_lookup.find_places_named(nearby_location):
+        for nearby_place in self.place_lookup.find_places_named(nearby_location):
             for place in places:
-                distance_m = calculate_distance_m(place, near_place)
+                distance_m = calculate_distance_m(place, nearby_place)
                 if distance_m < closest_distance_m:
-                    closest_place, closest_distance_m = place, distance_m
+                    closest_place = place
+                    closest_distance_m = distance_m
         if closest_distance_m > MAX_NEAR_DISTANCE_M:
             return None
         return closest_place
 
-    def _find_near_settlement(self, place: SwisstopoPlace, places: List[SwisstopoPlace]) -> str:
+    def _find_near_settlement_name(self, place: SwisstopoPlace, places: List[SwisstopoPlace]) -> str:
         """
         Name the settlement to give as near for one of several places.
 
@@ -137,33 +138,33 @@ class PlaceFinder:
         """Build the refusal of a name of several places, listing every place with a settlement to give as near."""
         option_lines = []
         for place in places:
-            near_settlement = self._find_near_settlement(place, places)
-            option_line = f'  near="{near_settlement}": {place.description}'
+            near_settlement_name = self._find_near_settlement_name(place, places)
+            option_line = f'  near="{near_settlement_name}": {place.description}'
             area = self.boundary_source.find_area(place.east_m, place.north_m)
             if area is not None:
                 option_line += f", {area.description}"
             option_lines.append(option_line)
         listed_options = "\n".join(option_lines)
 
-        no_place_near = ""
+        no_place_near_sentence = ""
         if nearby_location is not None:
-            no_place_near = f"No '{location}' lies near '{nearby_location}'. "
+            no_place_near_sentence = f"No '{location}' lies near '{nearby_location}'. "
         return CannotAnswerError(
-            f"{no_place_near}'{location}' is the name of {len(places)} places. Call again with location "
+            f"{no_place_near_sentence}'{location}' is the name of {len(places)} places. Call again with location "
             f"'{location}' and near set to the village next to the place the user means, or ask the user "
             f"which one they mean. The biggest first:\n{listed_options}"
         )
 
     def _build_unknown_name_error(self, location: str) -> CannotAnswerError:
-        """Build the refusal of a name no place has, suggesting names that start with it or are spelled alike."""
+        """Build the refusal of a name no place has, suggesting similar names to call again with."""
         similar_places = self.place_lookup.find_places_named_alike(location)
         if not similar_places:
             return CannotAnswerError(
                 f"Location '{location}' was not found. Check the spelling, or try a nearby town or village."
             )
-        listed_names = ", ".join(f'"{place.name}" ({place.description})' for place in similar_places)
+        listed_suggestions = ", ".join(f'"{place.name}" ({place.description})' for place in similar_places)
         return CannotAnswerError(
-            f"Location '{location}' was not found. Similar names: {listed_names}. Call again with one of these "
+            f"Location '{location}' was not found. Similar names: {listed_suggestions}. Call again with one of these "
             f"names as location, or ask the user."
         )
 
