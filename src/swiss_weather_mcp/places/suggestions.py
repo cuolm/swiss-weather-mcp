@@ -2,18 +2,18 @@
 Find the places to suggest for a query that is no lookup name, such as "Greina".
 
 The query is the name the user typed, normalised. A name here is a lookup name, see lookup.py, such
-as "piz ault". A query word is in a name when it is a prefix of one of the name's words, such as
-"aul" in "piz ault".
+as "piz ault". A name contains a query word when one of its words starts with it, such as "piz ault"
+containing "aul".
 
 The suggestions come in the order swisstopo's own search uses, from
 https://github.com/geoadmin/service-search:
 1. The names that start with the query, such as Davos Dorf and Davos Platz for "Davos".
-2. The names with all query words in them, such as Piano della Greina for "Greina" and Piz Ault
+2. The names containing all query words, such as Piano della Greina for "Greina" and Piz Ault
    for "piz aul".
 3. The names spelled like the query, such as Zürich for "Zuerich".
 4. Our own addition, which swisstopo's search does not have: when places are still free, the
-   names with some query words in them, such as Piz Greina for "Greina plateau". Those with
-   more query words come first, then those with the rarer query word, the idea of the
+   names containing some query words, such as Piz Greina for "Greina plateau". Those containing
+   more query words come first, then those containing the rarer query word, the idea of the
    inverse document frequency in BM25 (https://en.wikipedia.org/wiki/Okapi_BM25): "greina" is
    in 8 names, "plateau" in 13.
 
@@ -40,27 +40,21 @@ def _split_words(name: str) -> List[str]:
     return [word for word in words if word]
 
 
-def _find_query_words_in_name(name_words: List[str], query_words: List[str]) -> List[str]:
-    """Find the query words in a name, those that are a prefix of one of its words, such as "aul" in "piz ault"."""
-    query_words_in_name = []
-    for query_word in query_words:
-        is_in_name = any(name_word.startswith(query_word) for name_word in name_words)
-        if is_in_name:
-            query_words_in_name.append(query_word)
-    return query_words_in_name
-
-
-def _find_names_with_query_words(
+def _find_names_containing_query_words(
     places_by_name: Dict[str, List[SwisstopoPlace]], query_words: List[str]
 ) -> Dict[str, List[str]]:
-    """Map each name that has at least one query word in it to the query words it has."""
-    query_words_by_name = {}
+    """Map each name containing at least one query word to the query words it contains."""
+    contained_query_words_by_name = {}
     for name in places_by_name:
         name_words = _split_words(name)
-        query_words_in_name = _find_query_words_in_name(name_words, query_words)
-        if query_words_in_name:
-            query_words_by_name[name] = query_words_in_name
-    return query_words_by_name
+        query_words_contained_in_name = []
+        for query_word in query_words:
+            is_contained_in_name = any(name_word.startswith(query_word) for name_word in name_words)
+            if is_contained_in_name:
+                query_words_contained_in_name.append(query_word)
+        if query_words_contained_in_name:
+            contained_query_words_by_name[name] = query_words_contained_in_name
+    return contained_query_words_by_name
 
 
 def _list_biggest_places(
@@ -83,79 +77,71 @@ def _find_places_starting_with_query(
     places_by_name: Dict[str, List[SwisstopoPlace]], query: str
 ) -> List[SwisstopoPlace]:
     """Find the places whose name starts with the query as a whole word, such as Davos Dorf for "davos"."""
-    names = []
+    names_starting_with_query = []
     for name in places_by_name:
-        is_longer = len(name) > len(query)
-        # A name as short as the query has no character after it to check
-        if not is_longer:
-            continue
-
-        starts_with_query = name.startswith(query)
-        character_after_query = name[len(query)]
-        is_whole_word = character_after_query in NAME_SEPARATORS
-        if starts_with_query and is_whole_word:
-            names.append(name)
-    # Places of the same size then come in alphabetical order
-    names.sort()
-    return _list_biggest_places(places_by_name, names)
+        is_whole_word_start = any(name.startswith(query + separator) for separator in NAME_SEPARATORS)
+        if is_whole_word_start:
+            names_starting_with_query.append(name)
+    names_starting_with_query.sort()
+    return _list_biggest_places(places_by_name, names_starting_with_query)
 
 
-def _find_places_with_all_query_words(
+def _find_places_containing_all_query_words(
     places_by_name: Dict[str, List[SwisstopoPlace]], query: str
 ) -> List[SwisstopoPlace]:
-    """Find the places whose name has a word starting with each query word, such as Piz Ault for "piz aul"."""
+    """Find the places whose name contains all query words, such as Piz Ault for "piz aul"."""
     query_words = _split_words(query)
-    query_words_by_name = _find_names_with_query_words(places_by_name, query_words)
+    contained_query_words_by_name = _find_names_containing_query_words(places_by_name, query_words)
 
-    names = []
-    for name, query_words_in_name in query_words_by_name.items():
-        has_all_query_words = len(query_words_in_name) == len(query_words)
-        if has_all_query_words:
-            names.append(name)
-    # Places of the same size then come in alphabetical order
-    names.sort()
-    return _list_biggest_places(places_by_name, names)
+    names_containing_all_query_words = []
+    for name, query_words_contained_in_name in contained_query_words_by_name.items():
+        contains_all_query_words = len(query_words_contained_in_name) == len(query_words)
+        if contains_all_query_words:
+            names_containing_all_query_words.append(name)
+    names_containing_all_query_words.sort()
+    return _list_biggest_places(places_by_name, names_containing_all_query_words)
 
 
 def _find_places_spelled_like_query(
     places_by_name: Dict[str, List[SwisstopoPlace]], query: str
 ) -> List[SwisstopoPlace]:
     """Find the places whose name is spelled like the query, such as Zürich for "zuerich"."""
-    names = difflib.get_close_matches(
+    names_spelled_like_query = difflib.get_close_matches(
         query, places_by_name.keys(), n=MAX_SIMILAR_NAMES, cutoff=SIMILAR_NAME_MIN_RATIO,
     )
-    return _list_biggest_places(places_by_name, names)
+    return _list_biggest_places(places_by_name, names_spelled_like_query)
 
 
-def _find_places_with_some_query_words(
+def _find_places_containing_some_query_words(
     places_by_name: Dict[str, List[SwisstopoPlace]], query: str
 ) -> List[SwisstopoPlace]:
     """
-    Find the places with at least one query word in their name, such as Piz Greina for "greina plateau".
+    Find the places whose name contains at least one query word, such as Piz Greina for "greina plateau".
 
-    Those with more query words come first, then those with the query word that is in fewer names,
-    then the biggest. Empty for one query word, which _find_places_with_all_query_words covers.
+    Those containing more query words come first, then those containing the rarer query word, the one
+    fewer names contain, then the biggest. Empty for one query word, which
+    _find_places_containing_all_query_words covers.
     """
     query_words = _split_words(query)
     if len(query_words) <= 1:
         return []
 
-    query_words_by_name = _find_names_with_query_words(places_by_name, query_words)
+    contained_query_words_by_name = _find_names_containing_query_words(places_by_name, query_words)
 
     name_count_by_query_word = dict.fromkeys(query_words, 0)
-    for query_words_in_name in query_words_by_name.values():
-        for query_word in query_words_in_name:
+    for query_words_contained_in_name in contained_query_words_by_name.values():
+        for query_word in query_words_contained_in_name:
             name_count_by_query_word[query_word] += 1
 
     ranked_places = []
-    for name in sorted(query_words_by_name):
-        query_words_in_name = query_words_by_name[name]
+    for name in sorted(contained_query_words_by_name):
+        query_words_contained_in_name = contained_query_words_by_name[name]
         name_counts = []
-        for query_word in query_words_in_name:
+        for query_word in query_words_contained_in_name:
             name_counts.append(name_count_by_query_word[query_word])
         smallest_name_count = min(name_counts)
         place = places_by_name[name][0]
-        rank = (-len(query_words_in_name), smallest_name_count, -place.population_band)
+        rank = (-len(query_words_contained_in_name), smallest_name_count, -place.population_band)
         ranked_places.append((rank, place))
     ranked_places.sort(key=lambda ranked_place: ranked_place[0])
     return [place for _, place in ranked_places]
@@ -168,16 +154,16 @@ def find_similar_places(
     Find the places to suggest for a query that is no lookup name, at most MAX_SIMILAR_NAMES.
     """
     places_starting_with_query = _find_places_starting_with_query(places_by_name, query)
-    places_with_all_query_words = _find_places_with_all_query_words(places_by_name, query)
+    places_containing_all_query_words = _find_places_containing_all_query_words(places_by_name, query)
     places_spelled_like_query = _find_places_spelled_like_query(places_by_name, query)
-    places_with_some_query_words = _find_places_with_some_query_words(places_by_name, query)
+    places_containing_some_query_words = _find_places_containing_some_query_words(places_by_name, query)
 
     suggestions: List[SwisstopoPlace] = []
     for place in (
         places_starting_with_query
-        + places_with_all_query_words
+        + places_containing_all_query_words
         + places_spelled_like_query
-        + places_with_some_query_words
+        + places_containing_some_query_words
     ):
         if len(suggestions) == MAX_SIMILAR_NAMES:
             break
