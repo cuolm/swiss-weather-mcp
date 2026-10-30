@@ -73,13 +73,13 @@ def test_read_station_measurements_oldest_first(measurement_source_fixture):
     assert len(fluntern) == 7
     assert fluntern[0].measured_at == datetime(2026, 9, 25, 11, tzinfo=timezone.utc)
     assert fluntern[-1].measured_at == datetime(2026, 9, 25, 14, tzinfo=timezone.utc)
-    assert fluntern[-1].values[parameters.TEMPERATURE] == 21.0
+    assert fluntern[-1].parameter_to_value[parameters.TEMPERATURE] == 21.0
 
 
 def test_read_station_measurements_missing_value(measurement_source_fixture):
     davos = measurement_source_fixture._read_station_measurements(find_station(measurement_source_fixture, "DAV"))[-1]
-    assert davos.values[parameters.PRECIPITATION] is None
-    assert davos.values[parameters.TEMPERATURE] == 16.5
+    assert davos.parameter_to_value[parameters.PRECIPITATION] is None
+    assert davos.parameter_to_value[parameters.TEMPERATURE] == 16.5
 
 
 def test_read_station_measurements_without_rows(measurement_source_fixture):
@@ -161,8 +161,8 @@ def test_read_all_stations_latest_measurements_time_and_canton(measurement_sourc
 
 def test_read_all_stations_latest_measurements_missing_value(measurement_source_fixture):
     davos = measurement_source_fixture.read_all_stations_latest_measurements()[3]
-    assert davos.values[parameters.PRECIPITATION] is None
-    assert davos.values[parameters.TEMPERATURE] == 16.5
+    assert davos.parameter_to_value[parameters.PRECIPITATION] is None
+    assert davos.parameter_to_value[parameters.TEMPERATURE] == 16.5
 
 
 def test_read_all_stations_latest_measurements_downloads_once(source_fixture, measurement_source_fixture):

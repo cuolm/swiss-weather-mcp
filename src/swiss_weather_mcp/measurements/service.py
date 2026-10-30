@@ -41,7 +41,7 @@ class Extreme(NamedTuple):
 
 
 ExtremeName = Literal["warmest", "coldest", "windiest", "wettest", "sunniest"]
-EXTREMES: Dict[ExtremeName, Extreme] = {
+EXTREME_NAME_TO_EXTREME: Dict[ExtremeName, Extreme] = {
     "warmest": Extreme(parameters.TEMPERATURE, "temperature_c", highest_first=True),
     "coldest": Extreme(parameters.TEMPERATURE, "temperature_c", highest_first=False),
     "windiest": Extreme(parameters.WIND_GUSTS, "gusts_kmh", highest_first=True),
@@ -107,8 +107,8 @@ def _calculate_change(all_measurements: List[StationMeasurements], parameter: st
     earlier_measurements = _find_measurements_at(all_measurements, latest_measurements.measured_at - CHANGE_PERIOD)
     if earlier_measurements is None:
         return None
-    latest_value = latest_measurements.values[parameter]
-    earlier_value = earlier_measurements.values[parameter]
+    latest_value = latest_measurements.parameter_to_value[parameter]
+    earlier_value = earlier_measurements.parameter_to_value[parameter]
     if latest_value is None or earlier_value is None:
         return None
     return round(latest_value - earlier_value, 1)
@@ -122,7 +122,7 @@ def _find_last_hour_values(all_measurements: List[StationMeasurements], paramete
     values: List[float] = []
     for measurements in all_measurements:
         if measurements.measured_at > period_start:
-            value = measurements.values[parameter]
+            value = measurements.parameter_to_value[parameter]
             if value is None:
                 return None
             values.append(value)
@@ -153,7 +153,7 @@ def _find_station_values(all_measurements: List[StationMeasurements], parameter:
     """Find the stations that have a value for a parameter, so a station without one is never counted."""
     station_values = []
     for measurements in all_measurements:
-        value = measurements.values[parameter]
+        value = measurements.parameter_to_value[parameter]
         if value is not None:
             station_values.append(StationValue(measurements.station, value))
     return station_values
@@ -185,11 +185,11 @@ def _build_station_rows(station_values: List[StationValue], extreme: Extreme) ->
 
 def _count_stations_by_canton(station_values: List[StationValue]) -> Dict[str, int]:
     """Count the stations of each canton."""
-    counts: Dict[str, int] = {}
+    canton_to_station_count: Dict[str, int] = {}
     for station_value in station_values:
         canton = station_value.station.canton
-        counts[canton] = counts.get(canton, 0) + 1
-    return counts
+        canton_to_station_count[canton] = canton_to_station_count.get(canton, 0) + 1
+    return canton_to_station_count
 
 
 def _build_canton_rows(station_values: List[StationValue], matching_values: List[StationValue],
@@ -227,13 +227,13 @@ def _find_sunshine_class(sunshine_min: float) -> str:
 
 def _count_stations_by_sunshine_class(station_values: List[StationValue]) -> Dict[str, int]:
     """Count the stations in each class of MeteoSwiss's sunshine terms, sunniest first."""
-    counts = {}
+    sunshine_class_to_station_count = {}
     for sunshine_class in SUNSHINE_CLASSES:
-        counts[sunshine_class.name] = 0
+        sunshine_class_to_station_count[sunshine_class.name] = 0
     for station_value in station_values:
         sunshine_class_name = _find_sunshine_class(station_value.value)
-        counts[sunshine_class_name] += 1
-    return counts
+        sunshine_class_to_station_count[sunshine_class_name] += 1
+    return sunshine_class_to_station_count
 
 
 def _build_sunshine_canton_rows(station_values: List[StationValue]) -> List[Dict[str, Any]]:
@@ -242,25 +242,25 @@ def _build_sunshine_canton_rows(station_values: List[StationValue]) -> List[Dict
 
     The canton whose stations had the most sun on average comes first.
     """
-    station_values_by_canton: Dict[str, List[StationValue]] = {}
+    canton_to_station_values: Dict[str, List[StationValue]] = {}
     for station_value in station_values:
         canton = station_value.station.canton
-        station_values_by_canton.setdefault(canton, []).append(station_value)
+        canton_to_station_values.setdefault(canton, []).append(station_value)
 
     rows: List[Dict[str, Any]] = []
-    average_sunshine_min_by_canton: Dict[str, float] = {}
-    for canton, canton_values in station_values_by_canton.items():
+    canton_to_average_sunshine_min: Dict[str, float] = {}
+    for canton, canton_values in canton_to_station_values.items():
         rows.append({
             "canton": canton,
             "measuring_stations": len(canton_values),
             **_count_stations_by_sunshine_class(canton_values),
         })
         total_sunshine_min = sum(station_value.value for station_value in canton_values)
-        average_sunshine_min_by_canton[canton] = total_sunshine_min / len(canton_values)
+        canton_to_average_sunshine_min[canton] = total_sunshine_min / len(canton_values)
 
     # Among equal averages the canton with more stations comes first, because its average is better supported
     rows.sort(key=lambda row: (
-        -average_sunshine_min_by_canton[row["canton"]], -row["measuring_stations"], row["canton"]
+        -canton_to_average_sunshine_min[row["canton"]], -row["measuring_stations"], row["canton"]
     ))
     return rows
 
@@ -300,9 +300,9 @@ class MeasurementService:
             "measured_at": format_swiss_time(latest_measurements.measured_at),
         }
         for field, parameter in MEASURED_FIELDS:
-            answer[field] = latest_measurements.values[parameter]
+            answer[field] = latest_measurements.parameter_to_value[parameter]
 
-        wind_direction_degrees = latest_measurements.values[parameters.WIND_DIRECTION]
+        wind_direction_degrees = latest_measurements.parameter_to_value[parameters.WIND_DIRECTION]
         if wind_direction_degrees is None:
             answer["compass_point"] = None
         else:
@@ -319,17 +319,18 @@ class MeasurementService:
         """
         Read where in Switzerland a measured value is at its extreme now.
 
-        extreme is one of EXTREMES. Raise CannotAnswerError for an unknown extreme or when
+        extreme is one of EXTREME_NAME_TO_EXTREME. Raise CannotAnswerError for an unknown extreme or when
         MeteoSwiss publishes no measurements.
         """
-        if extreme not in EXTREMES:
-            raise CannotAnswerError(f"'{extreme}' is not a known extreme, use one of: {', '.join(EXTREMES)}.")
+        if extreme not in EXTREME_NAME_TO_EXTREME:
+            extreme_names = ", ".join(EXTREME_NAME_TO_EXTREME)
+            raise CannotAnswerError(f"'{extreme}' is not a known extreme, use one of: {extreme_names}.")
 
         all_measurements = await self._read_all_stations_latest_measurements()
         if not all_measurements:
             raise CannotAnswerError("MeteoSwiss currently publishes no measurements, try again later.")
 
-        ranked_by = EXTREMES[extreme]
+        ranked_by = EXTREME_NAME_TO_EXTREME[extreme]
         station_values = _find_station_values(all_measurements, ranked_by.parameter)
         answer: Dict[str, Any] = {
             "extreme": extreme,

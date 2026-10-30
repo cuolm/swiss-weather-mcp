@@ -18,9 +18,9 @@ APPENZELL = Station(
 )
 
 
-def build_measurements(utc_time: str, values: dict) -> StationMeasurements:
+def build_measurements(utc_time: str, parameter_to_value: dict) -> StationMeasurements:
     measured_at = datetime.fromisoformat(utc_time).replace(tzinfo=timezone.utc)
-    return StationMeasurements(FLUNTERN, measured_at, values)
+    return StationMeasurements(FLUNTERN, measured_at, parameter_to_value)
 
 
 # --- read_current ---

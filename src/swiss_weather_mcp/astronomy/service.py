@@ -10,7 +10,7 @@ from .sun import calculate_sun_day
 HALF_A_MINUTE = timedelta(seconds=30)
 
 # The Unicode moon symbols, named like the phases, U+1F311 to U+1F318
-MOON_PHASE_EMOJIS = {
+MOON_PHASE_TO_EMOJI = {
     "New Moon": "🌑",
     "Waxing Crescent": "🌒",
     "First Quarter": "🌓",
@@ -55,7 +55,7 @@ class AstronomyService:
             "moonrise": _format_to_the_minute(moon_day.moonrise),
             "moonset": _format_to_the_minute(moon_day.moonset),
             "moon_phase": moon_day.phase,
-            "moon_phase_emoji": MOON_PHASE_EMOJIS[moon_day.phase],
+            "moon_phase_emoji": MOON_PHASE_TO_EMOJI[moon_day.phase],
         }
         if moon_day.phase_time is not None:
             answer["moon_phase_time"] = _format_to_the_minute(moon_day.phase_time)

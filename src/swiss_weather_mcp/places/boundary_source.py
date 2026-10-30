@@ -71,7 +71,7 @@ AREAS_AROUND_QUERY = """
 # then an envelope whose size bits 1 to 3 of the flags byte give.
 GEOPACKAGE_HEADER_BYTES = 8
 GEOPACKAGE_FLAGS_BYTE = 3
-ENVELOPE_BYTES_BY_INDICATOR = {0: 0, 1: 32, 2: 48, 3: 48, 4: 64}
+ENVELOPE_INDICATOR_TO_BYTES = {0: 0, 1: 32, 2: 48, 3: 48, 4: 64}
 # A WKB shape starts with its byte order (1 byte) and type (4 bytes); counts take 4 bytes, values 8
 WKB_SHAPE_HEADER_BYTES = 5
 WKB_COUNT_BYTES = 4
@@ -155,7 +155,7 @@ def _read_polygons(geometry: bytes) -> List[Polygon]:
     """Read the polygons of a GeoPackage geometry, a polygon or a multipolygon."""
     flags = geometry[GEOPACKAGE_FLAGS_BYTE]
     envelope_indicator = (flags >> 1) & 0b111
-    envelope_bytes = ENVELOPE_BYTES_BY_INDICATOR[envelope_indicator]
+    envelope_bytes = ENVELOPE_INDICATOR_TO_BYTES[envelope_indicator]
     wkb_start = GEOPACKAGE_HEADER_BYTES + envelope_bytes
     wkb = memoryview(geometry)[wkb_start:]
     polygons, _ = _read_wkb(wkb, 0)

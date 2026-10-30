@@ -96,9 +96,9 @@ def test_english_name_of_a_missing_place(mocker, caplog, place_lookup_fixture):
 
 
 def test_english_place_names_file():
-    swissnames3d_names_by_english_name = _read_english_place_names()
-    assert "Geneva" in swissnames3d_names_by_english_name
-    for english_name, swissnames3d_name in swissnames3d_names_by_english_name.items():
+    english_name_to_swissnames3d_name = _read_english_place_names()
+    assert "Geneva" in english_name_to_swissnames3d_name
+    for english_name, swissnames3d_name in english_name_to_swissnames3d_name.items():
         assert english_name and swissnames3d_name
         assert normalise_name(english_name) != normalise_name(swissnames3d_name), english_name
 

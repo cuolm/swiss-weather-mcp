@@ -28,7 +28,7 @@ How we use it:
 1. Ask the catalogue for the newest edition and download its archive, when no archive is
    cached or the last look for a newer edition is more than 30 days ago. The archive is
    kept as swisstopo publishes it, so reading other object types needs no new download.
-2. Read the object types in OBJECT_TYPES_BY_FILE straight from the archive, each type from
+2. Read the object types in FILE_TO_OBJECT_TYPES straight from the archive, each type from
    one file only, so a settlement is not read twice. Each row becomes one SwisstopoPlace.
 
     <cache dir>/places/
@@ -54,7 +54,7 @@ ARCHIVE_SUFFIX = "_2056.csv.zip"
 EDITION_CHECK_INTERVAL = timedelta(days=30)
 
 # The object types the server reads, by the file it reads them from
-OBJECT_TYPES_BY_FILE = {
+FILE_TO_OBJECT_TYPES = {
     "swissNAMES3D_PKT.csv": {
         "Ort", "Ortsteil", "Quartier", "Quartierteil",                                   # settlements
         "Alpiner Gipfel", "Hauptgipfel", "Gipfel", "Haupthuegel", "Huegel", "Felskopf",  # peaks, hills, rocks
@@ -71,7 +71,7 @@ OBJECT_TYPES_BY_FILE = {
 SETTLEMENT_TYPES = ("Ort", "Ortsteil", "Quartier", "Quartierteil")
 # How an answer calls each object type. The order is also the order in which the types of a
 # place are named, so a settlement comes first and a peak before the cable car station on it.
-OBJECT_TYPE_NAMES = {
+OBJECT_TYPE_TO_NAME = {
     "Ort": "settlement", "Ortsteil": "part of a settlement", "Quartier": "district", "Quartierteil": "part of a district",
     "Alpiner Gipfel": "peak", "Hauptgipfel": "peak", "Gipfel": "peak", "Haupthuegel": "hill", "Huegel": "hill",
     "Massiv": "mountain massif", "Huegelzug": "range of hills", "Grat": "ridge", "Felskopf": "rock",
@@ -83,11 +83,11 @@ OBJECT_TYPE_NAMES = {
 }
 # The people of a settlement as swissNAMES3D publishes them, as a band from 1, the smallest;
 # every other row has "k_W", no value, which is band 0
-POPULATION_BANDS = {
+POPULATION_CATEGORY_TO_BAND = {
     "< 20": 1, "20 bis 49": 2, "50 bis 99": 3, "100 bis 999": 4, "1'000 bis 1'999": 5,
     "2'000 bis 9'999": 6, "10'000 bis 49'999": 7, "50'000 bis 100'000": 8, "> 100'000": 9,
 }
-POPULATION_BAND_NAMES = {
+POPULATION_BAND_TO_NAME = {
     1: "fewer than 20 people", 2: "20 to 49 people", 3: "50 to 99 people", 4: "100 to 999 people",
     5: "1,000 to 1,999 people", 6: "2,000 to 9,999 people", 7: "10,000 to 49,999 people",
     8: "50,000 to 100,000 people", 9: "more than 100,000 people",
@@ -120,8 +120,8 @@ class SwisstopoPlace(NamedTuple):
     the district on its shore.
     """
     name: str
-    object_types: Tuple[str, ...]  # such as ("Quartier", "See"), in the order of OBJECT_TYPE_NAMES
-    population_band: int  # 0 when the place has no people, else a value of POPULATION_BANDS
+    object_types: Tuple[str, ...]  # such as ("Quartier", "See"), in the order of OBJECT_TYPE_TO_NAME
+    population_band: int  # 0 when the place has no people, else a value of POPULATION_CATEGORY_TO_BAND
     is_exonym: bool  # a name in another language, such as Genf for Genève
     altitude_m: float
     east_m: float   # LV95, the Swiss grid in metres
@@ -166,19 +166,19 @@ class SwisstopoPlace(NamedTuple):
         """What the place is, such as "district and lake, fewer than 20 people, 887 m"."""
         type_names: List[str] = []
         for object_type in self.object_types:
-            type_name = OBJECT_TYPE_NAMES[object_type]
+            type_name = OBJECT_TYPE_TO_NAME[object_type]
             if type_name not in type_names:
                 type_names.append(type_name)
         parts = [_join_with_and(type_names)]
         if self.population_band:
-            parts.append(POPULATION_BAND_NAMES[self.population_band])
+            parts.append(POPULATION_BAND_TO_NAME[self.population_band])
         parts.append(f"{self.altitude_m:.0f} m")
         return ", ".join(parts)
 
 
 def _parse_row(csv_row: Dict[str, str]) -> SwisstopoPlace:
     """Turn one row of a swissNAMES3D file into a place of one object type."""
-    population_band = POPULATION_BANDS.get(csv_row["EINWOHNERKATEGORIE"], 0)
+    population_band = POPULATION_CATEGORY_TO_BAND.get(csv_row["EINWOHNERKATEGORIE"], 0)
     return SwisstopoPlace(
         name=csv_row["NAME"],
         object_types=(csv_row["OBJEKTART"],),
@@ -254,14 +254,14 @@ class SwisstopoPlaceSource:
 
     def read_rows(self) -> List[SwisstopoPlace]:
         """
-        Read the rows of the object types in OBJECT_TYPES_BY_FILE from the archive.
+        Read the rows of the object types in FILE_TO_OBJECT_TYPES from the archive.
 
         The lookup reads them once and keeps only the places it builds from them.
         """
         archive_file = self._ensure_archive()
         rows = []
         with zipfile.ZipFile(archive_file) as archive:
-            for file_name, object_types in OBJECT_TYPES_BY_FILE.items():
+            for file_name, object_types in FILE_TO_OBJECT_TYPES.items():
                 file_rows = _read_file_rows(archive, file_name, object_types)
                 rows.extend(file_rows)
         logger.info(f"Loaded {len(rows)} rows of swissNAMES3D")

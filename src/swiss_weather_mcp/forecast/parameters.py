@@ -55,7 +55,7 @@ ALL_PARAMETERS = {
 # icon reference sheet with its "cloudly" and "intermittant" spellings corrected because these strings
 # are shown to the user, and a standard Unicode emoji, since MeteoSwiss's own pictogram images are
 # its own design. The emoji shows the kind of weather, not its strength.
-PICTOGRAMS = {
+PICTOGRAM_CODE_TO_WEATHER = {
     1: ("sunny", "☀️"),
     2: ("mostly sunny, some clouds", "🌤️"),
     3: ("partly sunny, thick passing clouds", "⛅"),

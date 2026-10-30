@@ -130,13 +130,13 @@ def test_find_forecast_point_caches_the_point_table_in_its_folder(source_fixture
 def test_read_series_keeps_the_first_row(source_fixture):
     # A point extract carries no header line, so skipping one would lose the first forecast hour
     series = source_fixture.read_series("tre200h0", ZURICH_8001)
-    assert len(series.values) == 3
-    assert series.values[datetime(2026, 9, 23, 6, tzinfo=timezone.utc)] == 6.0
+    assert len(series.time_to_value) == 3
+    assert series.time_to_value[datetime(2026, 9, 23, 6, tzinfo=timezone.utc)] == 6.0
 
 
 def test_read_series_only_the_requested_point(source_fixture):
     series = source_fixture.read_series("tre200h0", ZURICH_8001)
-    assert -1 not in series.values.values()
+    assert -1 not in series.time_to_value.values()
 
 
 def test_read_series_run_time(source_fixture):
@@ -149,7 +149,7 @@ def test_read_series_downloads_once(source_fixture):
     first_series = source_fixture.read_series("tre200h0", point)
     downloads = source_fixture.get_mock.call_count
 
-    assert source_fixture.read_series("tre200h0", point).values == first_series.values
+    assert source_fixture.read_series("tre200h0", point).time_to_value == first_series.time_to_value
     assert source_fixture.get_mock.call_count == downloads
 
 
@@ -171,11 +171,11 @@ def test_read_series_stores_all_points(tmp_path, source_fixture):
 
 def test_read_series_from_a_full_file(source_fixture, tmp_path):
     point = ZURICH_8001
-    from_extract = source_fixture.read_series("tre200h0", point).values
+    from_extract = source_fixture.read_series("tre200h0", point).time_to_value
 
     source_fixture.cache_all_forecast_points = True
     (tmp_path / "forecast" / "runs" / RUN_ID / "tre200h0_800100_2.csv").unlink()
-    assert source_fixture.read_series("tre200h0", point).values == from_extract
+    assert source_fixture.read_series("tre200h0", point).time_to_value == from_extract
 
 
 def test_read_series_drops_old_runs(source_fixture, tmp_path):

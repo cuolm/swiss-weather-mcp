@@ -126,7 +126,7 @@ class MeteoSwissPoint(NamedTuple):
 class ForecastSeries(NamedTuple):
     """One parameter over the whole forecast window at one point, with the run it came from."""
     run_time: datetime
-    values: Dict[datetime, float]
+    time_to_value: Dict[datetime, float]
 
 
 def calculate_distance_m(place: SwisstopoPlace, point: MeteoSwissPoint) -> float:
@@ -141,10 +141,10 @@ def _calculate_weighted_distance_m(place: SwisstopoPlace, point: MeteoSwissPoint
     return calculate_distance_m(place, point) + METRES_PER_HEIGHT_METRE * height_gap_m
 
 
-def _find_newest_complete_run_id(csv_file_urls_by_run: Dict[str, Dict[str, str]]) -> Optional[str]:
+def _find_newest_complete_run_id(run_to_csv_file_urls: Dict[str, Dict[str, str]]) -> Optional[str]:
     """Find the newest run with a file for every parameter, or None when no run is complete."""
     complete_run_ids = []
-    for run_id, file_urls in csv_file_urls_by_run.items():
+    for run_id, file_urls in run_to_csv_file_urls.items():
         if parameters.ALL_PARAMETERS.issubset(file_urls):
             complete_run_ids.append(run_id)
     if not complete_run_ids:
@@ -165,7 +165,7 @@ class ForecastSource:
         self.cache_dir = cache_dir / "forecast"
         self.cache_all_forecast_points = cache_all_forecast_points
         self._run_id: Optional[str] = None
-        self._run_file_urls: Dict[str, str] = {}
+        self._parameter_to_file_url: Dict[str, str] = {}
         self._run_checked_at: Optional[datetime] = None
         # A tool reads its files in parallel, and all of them must come from the same run
         self._run_lookup_lock = threading.Lock()
@@ -217,7 +217,7 @@ class ForecastSource:
             return min(points, key=lambda point: calculate_distance_m(place, point))
         return min(close_points, key=lambda point: _calculate_weighted_distance_m(place, point))
 
-    def _fetch_csv_file_urls_by_run(self, day: date) -> Dict[str, Dict[str, str]]:
+    def _fetch_run_to_csv_file_urls(self, day: date) -> Dict[str, Dict[str, str]]:
         """
         Fetch the STAC item of one UTC day and group its CSV file URLs by run and parameter.
 
@@ -246,17 +246,17 @@ class ForecastSource:
 
         item = response.json()
         assets = item.get("assets", {})
-        csv_file_urls_by_run: Dict[str, Dict[str, str]] = {}
+        run_to_csv_file_urls: Dict[str, Dict[str, str]] = {}
         for asset_name, asset in assets.items():
             # Asset names look like vnut12.lssw.<run>.<parameter>.csv
             name_parts = asset_name.split(".")
             if len(name_parts) != 5:
                 continue
             _, _, run_id, parameter, _ = name_parts
-            if run_id not in csv_file_urls_by_run:
-                csv_file_urls_by_run[run_id] = {}
-            csv_file_urls_by_run[run_id][parameter] = asset["href"]
-        return csv_file_urls_by_run
+            if run_id not in run_to_csv_file_urls:
+                run_to_csv_file_urls[run_id] = {}
+            run_to_csv_file_urls[run_id][parameter] = asset["href"]
+        return run_to_csv_file_urls
 
     def _find_latest_run(self) -> Tuple[str, Dict[str, str]]:
         """
@@ -268,18 +268,18 @@ class ForecastSource:
         with self._run_lookup_lock:
             now = datetime.now(timezone.utc)
             if self._run_id is not None and self._run_checked_at and now - self._run_checked_at < RUN_LOOKUP_MAX_AGE:
-                return self._run_id, self._run_file_urls
+                return self._run_id, self._parameter_to_file_url
 
             # Just after 00:00 UTC, today's item may hold no complete run yet, so look in yesterday's too
             today = now.date()
             for day in (today, today - timedelta(days=1)):
-                csv_file_urls_by_run = self._fetch_csv_file_urls_by_run(day)
-                run_id = _find_newest_complete_run_id(csv_file_urls_by_run)
+                run_to_csv_file_urls = self._fetch_run_to_csv_file_urls(day)
+                run_id = _find_newest_complete_run_id(run_to_csv_file_urls)
                 if run_id is not None:
                     self._run_id = run_id
-                    self._run_file_urls = csv_file_urls_by_run[run_id]
+                    self._parameter_to_file_url = run_to_csv_file_urls[run_id]
                     self._run_checked_at = now
-                    return self._run_id, self._run_file_urls
+                    return self._run_id, self._parameter_to_file_url
 
         raise RuntimeError(
             "The MeteoSwiss local forecasting collection published no complete run for today or yesterday"
@@ -328,7 +328,7 @@ class ForecastSource:
     def _read_point_values(self, parameter_file: Path, point: MeteoSwissPoint) -> Dict[datetime, float]:
         """Read one point's values from a cached file, keyed by UTC timestamp."""
         row_prefix = _build_row_prefix(point)
-        values: Dict[datetime, float] = {}
+        time_to_value: Dict[datetime, float] = {}
 
         with open(parameter_file, "rb") as file:
             for line in file:
@@ -338,11 +338,11 @@ class ForecastSource:
                 _, _, stamp_text, value_text = line.decode("latin-1").strip().split(";")
                 try:
                     stamp = parse_stamp(stamp_text)
-                    values[stamp] = float(value_text)
+                    time_to_value[stamp] = float(value_text)
                 except ValueError:
                     continue  # gaps are published as empty fields
 
-        return values
+        return time_to_value
 
     def read_series(self, parameter: str, point: MeteoSwissPoint) -> ForecastSeries:
         """
@@ -356,8 +356,8 @@ class ForecastSource:
             raise CannotAnswerError(f"MeteoSwiss's newest forecast does not include '{parameter}'.")
 
         parameter_file = self._ensure_parameter_file(parameter, point, run_id, file_urls[parameter])
-        values = self._read_point_values(parameter_file, point)
-        if not values:
+        time_to_value = self._read_point_values(parameter_file, point)
+        if not time_to_value:
             raise CannotAnswerError(f"MeteoSwiss publishes no '{parameter}' values for {point.display_name}.")
 
-        return ForecastSeries(run_time=parse_stamp(run_id), values=values)
+        return ForecastSeries(run_time=parse_stamp(run_id), time_to_value=time_to_value)

@@ -5,7 +5,7 @@ import pytest
 
 from fakes import build_swiss_time
 from swiss_weather_mcp.errors import CannotAnswerError
-from swiss_weather_mcp.forecast.parameters import PICTOGRAMS
+from swiss_weather_mcp.forecast.parameters import PICTOGRAM_CODE_TO_WEATHER
 from swiss_weather_mcp.forecast.service import _build_forecast_point_fields, _describe_pictogram
 from swiss_weather_mcp.forecast.source import MeteoSwissPoint
 from swiss_weather_mcp.places import SwisstopoPlace
@@ -436,5 +436,5 @@ def test_describe_pictogram():
 
 
 def test_describe_pictogram_every_code_has_words_and_an_emoji():
-    for code, (description, emoji) in PICTOGRAMS.items():
+    for code, (description, emoji) in PICTOGRAM_CODE_TO_WEATHER.items():
         assert description and emoji, code

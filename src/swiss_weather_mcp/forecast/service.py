@@ -53,14 +53,14 @@ def _create_stamps(first_stamp: datetime, last_stamp: datetime, step: timedelta)
 def _describe_covered_range(series: ForecastSeries) -> str:
     """Say which times a series covers, for an error message."""
     return (
-        f"The forecast covers {format_swiss_time(min(series.values))} to "
-        f"{format_swiss_time(max(series.values))}."
+        f"The forecast covers {format_swiss_time(min(series.time_to_value))} to "
+        f"{format_swiss_time(max(series.time_to_value))}."
     )
 
 
 def _describe_pictogram(pictogram_code: int) -> Tuple[str, Optional[str]]:
     """Turn a MeteoSwiss pictogram code into the sentence it stands for and its emoji."""
-    pictogram = parameters.PICTOGRAMS.get(pictogram_code)
+    pictogram = parameters.PICTOGRAM_CODE_TO_WEATHER.get(pictogram_code)
     if pictogram is None:
         return f"unknown weather code {pictogram_code}", None
     return pictogram
@@ -72,7 +72,7 @@ def _get_daily_value(series: Optional[ForecastSeries], day: date) -> Optional[fl
         return None
     # A daily row is stamped 00:00 on the Swiss calendar day it describes
     day_stamp = datetime(day.year, day.month, day.day, tzinfo=timezone.utc)
-    return series.values.get(day_stamp)
+    return series.time_to_value.get(day_stamp)
 
 
 def _get_hourly_value(series: ForecastSeries, moment: datetime, point: MeteoSwissPoint) -> float:
@@ -82,12 +82,12 @@ def _get_hourly_value(series: ForecastSeries, moment: datetime, point: MeteoSwis
     It is the average or sum of the hour up to it, or a snapshot. Raise CannotAnswerError when the
     forecast does not cover that hour.
     """
-    if moment not in series.values:
+    if moment not in series.time_to_value:
         raise CannotAnswerError(
             f"{format_swiss_time(moment)} is outside the forecast for {point.display_name}. "
             f"{_describe_covered_range(series)}"
         )
-    return series.values[moment]
+    return series.time_to_value[moment]
 
 
 def _build_forecast_point_fields(place: SwisstopoPlace, point: MeteoSwissPoint) -> Dict[str, Any]:
@@ -245,10 +245,10 @@ class ForecastService:
         last_block_end = block_ends[-1]
         last_block_hours = _create_stamps(last_block_end - RAIN_BLOCK + HOUR, last_block_end, HOUR)
         last_block_is_published = (
-            last_block_end in chance_series.values
-            and last_block_end in median_series.values
-            and last_block_end in pictogram_series.values
-            and all(stamp in upper_series.values for stamp in last_block_hours)
+            last_block_end in chance_series.time_to_value
+            and last_block_end in median_series.time_to_value
+            and last_block_end in pictogram_series.time_to_value
+            and all(stamp in upper_series.time_to_value for stamp in last_block_hours)
         )
         if len(block_ends) > 1 and last_block_end > last_stamp and not last_block_is_published:
             block_ends.pop()
@@ -261,7 +261,7 @@ class ForecastService:
             (pictogram_series, block_ends),
             (upper_series, hour_stamps),
         ):
-            period_is_covered = all(stamp in series.values for stamp in stamps)
+            period_is_covered = all(stamp in series.time_to_value for stamp in stamps)
             if not period_is_covered:
                 raise CannotAnswerError(
                     f"{format_swiss_time(start_moment)} to {format_swiss_time(end_moment)} is not fully covered "
@@ -272,13 +272,13 @@ class ForecastService:
         for block_end in block_ends:
             block_start = block_end - RAIN_BLOCK
             block_hour_stamps = _create_stamps(block_start + HOUR, block_end, HOUR)
-            heaviest_hour_mm = max(upper_series.values[stamp] for stamp in block_hour_stamps)
-            weather, weather_emoji = _describe_pictogram(int(pictogram_series.values[block_end]))
+            heaviest_hour_mm = max(upper_series.time_to_value[stamp] for stamp in block_hour_stamps)
+            weather, weather_emoji = _describe_pictogram(int(pictogram_series.time_to_value[block_end]))
             blocks.append({
                 "from": format_swiss_time(block_start),
                 "to": format_swiss_time(block_end),
-                "rain_chance_percent": chance_series.values[block_end],
-                "rainfall_median_mm": round(median_series.values[block_end], 1),
+                "rain_chance_percent": chance_series.time_to_value[block_end],
+                "rainfall_median_mm": round(median_series.time_to_value[block_end], 1),
                 "heaviest_hour_up_to_mm": round(heaviest_hour_mm, 1),
                 "weather": weather,
                 "weather_emoji": weather_emoji,
@@ -323,7 +323,7 @@ class ForecastService:
 
         hour_stamps = _create_stamps(first_stamp, last_stamp, HOUR)
         for series in (temperature_series, lower_series, upper_series):
-            period_is_covered = all(stamp in series.values for stamp in hour_stamps)
+            period_is_covered = all(stamp in series.time_to_value for stamp in hour_stamps)
             if not period_is_covered:
                 raise CannotAnswerError(
                     f"{period} is not fully covered by the forecast for {point.display_name}. "
@@ -335,9 +335,9 @@ class ForecastService:
             hours.append({
                 "from": format_swiss_time(stamp - HOUR),
                 "to": format_swiss_time(stamp),
-                "temperature_c": temperature_series.values[stamp],
-                "temperature_10th_percentile_c": lower_series.values[stamp],
-                "temperature_90th_percentile_c": upper_series.values[stamp],
+                "temperature_c": temperature_series.time_to_value[stamp],
+                "temperature_10th_percentile_c": lower_series.time_to_value[stamp],
+                "temperature_90th_percentile_c": upper_series.time_to_value[stamp],
             })
 
         return {
@@ -364,7 +364,7 @@ class ForecastService:
 
         place, point = await self._find_place_and_point(location, nearby_location)
         series = await self._read_series(parameters.SUNSHINE, point)
-        period_is_covered = all(stamp in series.values for stamp in hour_stamps)
+        period_is_covered = all(stamp in series.time_to_value for stamp in hour_stamps)
         if not period_is_covered:
             raise CannotAnswerError(
                 f"{format_swiss_time(start_moment)} to {format_swiss_time(end_moment)} is not fully covered "
@@ -373,7 +373,7 @@ class ForecastService:
 
         sunshine_minutes = 0.0
         for stamp in hour_stamps:
-            sunshine_minutes += series.values[stamp]
+            sunshine_minutes += series.time_to_value[stamp]
         return {
             **_build_forecast_point_fields(place, point),
             "value": round(sunshine_minutes / 60, 1),

@@ -3,7 +3,7 @@ import asyncio
 import json
 import sys
 
-from swiss_weather_mcp.measurements.service import EXTREMES, MeasurementService
+from swiss_weather_mcp.measurements.service import EXTREME_NAME_TO_EXTREME, MeasurementService
 from swiss_weather_mcp.measurements.source import MeasurementSource
 from swiss_weather_mcp.places import PlaceFinder
 from swiss_weather_mcp.server import CACHE_DIR
@@ -24,7 +24,7 @@ async def print_measurements(location: str) -> None:
     current_answer = await service.read_current(location)
     print_answer(f'measurements_current("{location}")', current_answer)
 
-    for extreme in EXTREMES:
+    for extreme in EXTREME_NAME_TO_EXTREME:
         extremes_answer = await service.read_extremes(extreme)
         print_answer(f'measurements_extremes("{extreme}")', extremes_answer)
 

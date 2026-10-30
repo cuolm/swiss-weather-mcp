@@ -93,7 +93,7 @@ METRES_PER_HEIGHT_METRE = 20
 MISSING_VALUE_MARKERS = {"", "-"}
 
 # The station table names a canton by its abbreviation, and lists Liechtenstein like a canton
-CANTON_NAMES = {
+CANTON_ABBREVIATION_TO_NAME = {
     "AG": "Aargau", "AI": "Appenzell Innerrhoden", "AR": "Appenzell Ausserrhoden", "BE": "Bern",
     "BL": "Basel-Landschaft", "BS": "Basel-Stadt", "FR": "Fribourg", "GE": "Geneva", "GL": "Glarus",
     "GR": "Graubünden", "JU": "Jura", "LU": "Lucerne", "NE": "Neuchâtel", "NW": "Nidwalden",
@@ -134,7 +134,7 @@ class StationMeasurements(NamedTuple):
     """The measurements of one station at one time, keyed by parameter; None where it has no value."""
     station: Station
     measured_at: datetime
-    values: Dict[str, Optional[float]]
+    parameter_to_value: Dict[str, Optional[float]]
 
 
 def _parse_value(value_text: str) -> Optional[float]:
@@ -146,15 +146,15 @@ def _parse_value(value_text: str) -> Optional[float]:
 
 def _parse_values(row: Dict[str, str]) -> Dict[str, Optional[float]]:
     """Read the value of every parameter in ALL_PARAMETERS from one row, None where the station has none."""
-    values: Dict[str, Optional[float]] = {}
+    parameter_to_value: Dict[str, Optional[float]] = {}
     for parameter in parameters.ALL_PARAMETERS:
-        values[parameter] = _parse_value(row[parameter])
-    return values
+        parameter_to_value[parameter] = _parse_value(row[parameter])
+    return parameter_to_value
 
 
 def _find_canton_name(abbreviation: str) -> str:
     """Find the full name of a canton, such as "Zurich" for "ZH"; an unknown abbreviation stays as it is."""
-    return CANTON_NAMES.get(abbreviation, abbreviation)
+    return CANTON_ABBREVIATION_TO_NAME.get(abbreviation, abbreviation)
 
 
 def _parse_reference_timestamp(timestamp_text: str) -> datetime:
@@ -167,16 +167,16 @@ class MeasurementSource:
 
     def __init__(self, cache_dir: Path):
         self.cache_dir = cache_dir / "measurements"
-        self._stations: Dict[str, Station] = {}
+        self._abbreviation_to_station: Dict[str, Station] = {}
 
     def _load_stations(self) -> Dict[str, Station]:
         """Read the station table into memory once per process, keyed by station abbreviation."""
-        if self._stations:
-            return self._stations
+        if self._abbreviation_to_station:
+            return self._abbreviation_to_station
 
         station_table_file = self.cache_dir / "ogd-smn_meta_stations.csv"
         station_table = ensure_recent_file(STATION_TABLE_URL, station_table_file, STATION_TABLE_MAX_AGE)
-        stations: Dict[str, Station] = {}
+        abbreviation_to_station: Dict[str, Station] = {}
         with open(station_table, newline="", encoding="latin-1") as file:
             for row in csv.DictReader(file, delimiter=";"):
                 station = Station(
@@ -187,11 +187,11 @@ class MeasurementSource:
                     east_m=float(row["station_coordinates_lv95_east"]),
                     north_m=float(row["station_coordinates_lv95_north"]),
                 )
-                stations[station.abbr] = station
+                abbreviation_to_station[station.abbr] = station
         # Published only once complete, so a parallel request never sees part of the table
-        self._stations = stations
-        logger.info(f"Loaded {len(stations)} weather stations")
-        return stations
+        self._abbreviation_to_station = abbreviation_to_station
+        logger.info(f"Loaded {len(abbreviation_to_station)} weather stations")
+        return abbreviation_to_station
 
     def _read_station_measurements(self, station: Station) -> List[StationMeasurements]:
         """Read every row of a station's now file, the oldest first."""
@@ -206,8 +206,8 @@ class MeasurementSource:
         with open(station_now_values, newline="", encoding="latin-1") as file:
             for row in csv.DictReader(file, delimiter=";"):
                 measured_at = _parse_reference_timestamp(row["reference_timestamp"])
-                values = _parse_values(row)
-                measurements = StationMeasurements(station, measured_at, values)
+                parameter_to_value = _parse_values(row)
+                measurements = StationMeasurements(station, measured_at, parameter_to_value)
                 all_measurements.append(measurements)
         return all_measurements
 
@@ -219,14 +219,16 @@ class MeasurementSource:
         first one that published a temperature in the last hour is taken. Raise CannotAnswerError
         when none of the first MAX_STATIONS_TRIED stations did.
         """
-        stations = self._load_stations()
-        ranked_stations = sorted(stations.values(), key=lambda station: _calculate_weighted_distance_m(place, station))
+        abbreviation_to_station = self._load_stations()
+        ranked_stations = sorted(
+            abbreviation_to_station.values(), key=lambda station: _calculate_weighted_distance_m(place, station)
+        )
         now = datetime.now(timezone.utc)
         for station in ranked_stations[:MAX_STATIONS_TRIED]:
             all_measurements = self._read_station_measurements(station)
             # Some stations measure only a few values, such as wind on a tower, and would answer
             # with almost every value None; a temperature marks a station that measures the usual set
-            if not all_measurements or all_measurements[-1].values[parameters.TEMPERATURE] is None:
+            if not all_measurements or all_measurements[-1].parameter_to_value[parameters.TEMPERATURE] is None:
                 logger.info(f"Station {station.abbr} has no current temperature, trying the next station")
                 continue
             latest_measurements = all_measurements[-1]
@@ -242,7 +244,7 @@ class MeasurementSource:
 
     def read_all_stations_latest_measurements(self) -> List[StationMeasurements]:
         """Read the latest measurements of every station in the station table from the all stations file."""
-        stations = self._load_stations()
+        abbreviation_to_station = self._load_stations()
         all_stations_latest_values_file = self.cache_dir / "VQHA80.csv"
         all_stations_latest_values = ensure_recent_file(
             ALL_STATIONS_LATEST_VALUES_URL, all_stations_latest_values_file, ALL_STATIONS_LATEST_VALUES_MAX_AGE
@@ -251,11 +253,11 @@ class MeasurementSource:
         all_measurements = []
         with open(all_stations_latest_values, newline="", encoding="latin-1") as file:
             for row in csv.DictReader(file, delimiter=";"):
-                station = stations.get(row["Station/Location"])
+                station = abbreviation_to_station.get(row["Station/Location"])
                 if station is None:
                     continue  # a station without a row in the station table has no name and no canton
                 measured_at = parse_stamp(row["Date"])
-                values = _parse_values(row)
-                measurements = StationMeasurements(station, measured_at, values)
+                parameter_to_value = _parse_values(row)
+                measurements = StationMeasurements(station, measured_at, parameter_to_value)
                 all_measurements.append(measurements)
         return all_measurements
