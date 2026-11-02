@@ -161,13 +161,14 @@ def find_similar_places(
 
     ranked_places_containing_some_query_words = _rank_places_containing_some_query_words(name_to_places, query)
 
-    suggestions: List[SwisstopoPlace] = []
-    for place in (
+    places_in_priority_order = (
         biggest_places_starting_with_query
         + biggest_places_containing_all_query_words
         + biggest_places_spelled_like_query
         + ranked_places_containing_some_query_words
-    ):
+    )
+    suggestions: List[SwisstopoPlace] = []
+    for place in places_in_priority_order:
         if len(suggestions) == MAX_SIMILAR_NAMES:
             break
         # A place may be under two names, such as Biel/Bienne under "biel" and "bienne"
