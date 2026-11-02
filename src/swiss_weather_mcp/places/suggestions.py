@@ -168,10 +168,17 @@ def find_similar_places(
         + ranked_places_containing_some_query_words
     )
     suggestions: List[SwisstopoPlace] = []
+    suggested_names_and_positions = set()
     for place in places_in_priority_order:
         if len(suggestions) == MAX_SIMILAR_NAMES:
             break
-        # A place may be under two names, such as Biel/Bienne under "biel" and "bienne"
-        if place not in suggestions:
+        # A town whose name has a slash is also in the places list under each part of its name,
+        # such as Biel/Bienne under "biel/bienne", "biel" and "bienne". The names of all other
+        # object types, such as railway stations, are not split, so a station of the same name is
+        # merged with the town only under the full name. The same town then comes with different
+        # object types, so check by name and position.
+        name_and_position = (place.name, place.east_m, place.north_m)
+        if name_and_position not in suggested_names_and_positions:
+            suggested_names_and_positions.add(name_and_position)
             suggestions.append(place)
     return suggestions

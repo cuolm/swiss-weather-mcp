@@ -164,6 +164,12 @@ def test_find_places_named_alike_by_some_query_words_last(place_lookup_fixture):
     assert [place.name for place in suggestions] == ["Davos Platz", "Davos Dorf"]
 
 
+def test_find_places_named_alike_once_per_place(place_lookup_fixture):
+    # The town is under "biel" alone, and under "biel/bienne" together with its railway station
+    suggestions = place_lookup_fixture.find_places_named_alike("Bie")
+    assert [place.name for place in suggestions] == ["Biel/Bienne"]
+
+
 def test_find_places_named_alike_without_any(place_lookup_fixture):
     assert place_lookup_fixture.find_places_named_alike("Tessin") == []
 

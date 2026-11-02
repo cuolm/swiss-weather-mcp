@@ -157,9 +157,9 @@ def build_station_now_values_csv(abbr: str) -> bytes:
 # Wallisellen. Uetliberg is a hill and the hamlet on it. Lindenhof lies next to Zürich 8001. Both
 # Moos are nearest to Wallisellen, and one Seeli lies 12 km from Wallisellen. Zurich and Genf are
 # the French and German names of Zürich and Genève, in the same spot. Wil SG is the town, and two
-# smaller districts are called Wil. Biel/Bienne has a name in two languages, and the shooting
-# range of Küsnacht a name with slashes. No row is called Davos: Davos Dorf and Davos Platz are.
-# No row is called Flims either, and Flums is a bigger town spelled alike.
+# smaller districts are called Wil. Biel/Bienne has a name in two languages, like its railway
+# station, and the shooting range of Küsnacht a name with slashes. No row is called Davos: Davos
+# Dorf and Davos Platz are. No row is called Flims either, and Flums is a bigger town spelled alike.
 # The rows from Zürich on are exactly as swisstopo publishes them.
 PLACE_NAMES_COLUMNS = "UUID;NAME;STATUS;NAMEN_TYP;OBJEKTART;EINWOHNERKATEGORIE;E;N;Z"
 PLACE_NAMES_ROWS_BY_FILE = {
@@ -184,6 +184,7 @@ PLACE_NAMES_ROWS_BY_FILE = {
         "{24};Wil;offiziell;einfacher Name;Quartier;2'000 bis 9'999;2688988;1249443;440",
         "{25};Wil;offiziell;einfacher Name;Quartier;100 bis 999;2672161;1201260;459",
         "{26};Biel/Bienne;offiziell;Namenspaar;Ort;50'000 bis 100'000;2585470;1220617;434",
+        "{34};Biel/Bienne;offiziell;Namenspaar;Haltestelle Bahn;k_W;2585140;1220206;437",
         "{27};Genève;offiziell;Endonym;Ort;> 100'000;2500226;1118241;376",
         "{28};Genf;offiziell;Exonym;Ort;> 100'000;2500226;1118241;376",
         "{29};Davos Dorf;offiziell;einfacher Name;Ort;2'000 bis 9'999;2783248;1187061;1564",
