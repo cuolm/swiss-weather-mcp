@@ -14,13 +14,13 @@ Terms:
                 point_type_id together.
 
 What MeteoSwiss publishes:
-- A point table, ogd-local-forecasting_meta_point.csv, with the 5,614 points it
-  forecasts for: 4,071 postal code centers, 912 weather stations and 631 points of
-  interest, such as peaks, passes and mountain huts. Each has an ID, a name, an
+- A point table, ogd-local-forecasting_meta_point.csv, with the 5,820 points it
+  forecasts for: 4,071 postal code centers, 1,118 weather stations and 631 points
+  of interest, such as peaks, passes and mountain huts. Each has an ID, a name, an
   altitude and a position in LV95, the Swiss grid in metres.
 - Each hourly run adds one CSV file per parameter to the item of its UTC day.
-- One file holds the values of one parameter for all 5,614 points and every time
-  step: hourly, or one per day for daily values.
+- One file holds the values of one parameter for the points and every time step:
+  hourly, or one per day for daily values.
 
     collection ch.meteoschweiz.ogd-local-forecasting
     └── item 20260928-ch                           (one per UTC day)
