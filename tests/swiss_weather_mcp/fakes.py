@@ -162,7 +162,7 @@ def build_station_now_values_csv(abbr: str) -> bytes:
 # Dorf and Davos Platz are. No row is called Flims either, and Flums is a bigger town spelled alike.
 # The rows from Zürich on are exactly as swisstopo publishes them.
 PLACE_NAMES_COLUMNS = "UUID;NAME;STATUS;NAMEN_TYP;OBJEKTART;EINWOHNERKATEGORIE;E;N;Z"
-PLACE_NAMES_ROWS_BY_FILE = {
+PLACE_NAMES_FILE_TO_ROWS = {
     "swissNAMES3D_PKT.csv": (
         "{1};Oerlikon;offiziell;einfacher Name;Quartier;10'000 bis 49'999;2683618;1251448;444",
         "{2};Rüti;offiziell;einfacher Name;Flurname swisstopo;k_W;2707453;1226029;526",
@@ -207,7 +207,7 @@ def build_place_names_archive() -> bytes:
     """Build the zip archive of an edition the way swisstopo publishes it, each file with a byte order mark."""
     archive_bytes = io.BytesIO()
     with zipfile.ZipFile(archive_bytes, "w") as archive:
-        for file_name, rows in PLACE_NAMES_ROWS_BY_FILE.items():
+        for file_name, rows in PLACE_NAMES_FILE_TO_ROWS.items():
             lines = [PLACE_NAMES_COLUMNS, *rows]
             archive.writestr(file_name, ("\r\n".join(lines) + "\r\n").encode("utf-8-sig"))
     return archive_bytes.getvalue()
