@@ -233,7 +233,8 @@ class SwisstopoPlaceSource:
         cached_archives = sorted(self.cache_dir.glob(f"*{ARCHIVE_SUFFIX}"))
         if cached_archives:
             newest_cached_archive = cached_archives[-1]
-            checked_at = datetime.fromtimestamp(newest_cached_archive.stat().st_mtime, timezone.utc)
+            modified_seconds = newest_cached_archive.stat().st_mtime
+            checked_at = datetime.fromtimestamp(modified_seconds, timezone.utc)
             if datetime.now(timezone.utc) - checked_at < EDITION_CHECK_INTERVAL:
                 return newest_cached_archive
 

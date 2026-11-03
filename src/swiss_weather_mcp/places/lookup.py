@@ -77,7 +77,8 @@ def _build_lookup_names(row: SwisstopoPlace) -> List[str]:
     lookup_names = [normalise_name(row.name)]
     canton_suffix = CANTON_SUFFIX.match(row.name)
     if canton_suffix:
-        lookup_names.append(normalise_name(canton_suffix.group(1)))
+        name_without_canton = canton_suffix.group(1)
+        lookup_names.append(normalise_name(name_without_canton))
     # Only settlements: other slashes split names such as the shooting range "Küsnacht 300/50/25m"
     if "/" in row.name and row.object_types[0] in SETTLEMENT_TYPES:
         for part in row.name.split("/"):
