@@ -164,6 +164,17 @@ def test_find_places_named_alike_by_some_query_words_last(place_lookup_fixture):
     assert [place.name for place in suggestions] == ["Davos Platz", "Davos Dorf"]
 
 
+def test_find_places_named_alike_by_the_query_cut_shorter(place_lookup_fixture):
+    # No name has a word starting with "holletsmooshutte", but one has a word starting with "holletsmoos"
+    suggestions = place_lookup_fixture.find_places_named_alike("Holletsmooshütte")
+    assert [place.name for place in suggestions] == ["Küsnacht Im Holletsmoos 300/50/25m"]
+
+
+def test_find_places_named_alike_not_by_the_query_cut_below_five_letters(place_lookup_fixture):
+    # "holl", four letters, would start "holletsmoos", but cutting stops at "hollx", five letters
+    assert place_lookup_fixture.find_places_named_alike("Hollxyzabc") == []
+
+
 def test_find_places_named_alike_once_per_place(place_lookup_fixture):
     # The town is under "biel" alone, and under "biel/bienne" together with its railway station
     suggestions = place_lookup_fixture.find_places_named_alike("Bie")

@@ -5,19 +5,22 @@ The query is the name the user typed, normalised. A name here is a lookup name, 
 as "piz ault". A name contains a query word when one of its words starts with it, such as "piz ault"
 containing "aul".
 
-The suggestions come in the order swisstopo's own search uses, from
-https://github.com/geoadmin/service-search:
+The search is similar to swisstopo's own search,
+https://github.com/geoadmin/service-search/blob/master/app/search.py:
 1. The names that start with the query, such as Davos Dorf and Davos Platz for "Davos".
 2. The names containing all query words, such as Piano della Greina for "Greina" and Piz Ault
    for "piz aul".
 3. The names spelled like the query, such as Zürich for "Zuerich".
-4. Our own addition, which swisstopo's search does not have: when places are still free, the
-   names containing some query words, such as Piz Greina for "Greina plateau". Those containing
-   more query words come first, then those containing the rarer query word, the idea of the
-   inverse document frequency in BM25 (https://en.wikipedia.org/wiki/Okapi_BM25): "greina" is
-   in 8 names, "plateau" in 13.
+4. When no name contains the query and the query is one word longer than 5 letters, the names
+   containing the query cut shorter, such as Chamanna da Boval CAS for "Bovalhütte" cut to
+   "boval". They come after the names spelled alike, so they only fill the places that are
+   still free.
+5. When places are still free, the names containing some query words, such as Piz Greina for
+   "Greina plateau". Those containing more query words come first, then those containing the
+   rarer query word, the idea of the inverse document frequency in BM25
+   (https://en.wikipedia.org/wiki/Okapi_BM25): "greina" is in 8 names, "plateau" in 13.
 
-Steps 1 to 3 each come biggest first. Each place is suggested once, and at most MAX_SIMILAR_NAMES.
+Steps 1 to 4 each come biggest first. Each place is suggested once, and at most MAX_SIMILAR_NAMES.
 """
 import difflib
 import re
@@ -31,6 +34,8 @@ NAME_SEPARATORS = (" ", "-", "/", "(", ",")
 WORD_SEPARATORS = re.compile(r"[ \-/(),']+")
 # How alike two names must be to suggest one for the other, from difflib: 1 is the same name
 SIMILAR_NAME_MIN_RATIO = 0.75
+# The fewest letters a query of one word is cut down to
+MIN_TRIMMED_QUERY_LENGTH = 5
 MAX_SIMILAR_NAMES = 10
 
 
@@ -107,6 +112,28 @@ def _find_names_spelled_like_query(name_to_places: Dict[str, List[SwisstopoPlace
     )
 
 
+def _find_names_containing_trimmed_query(
+    name_to_places: Dict[str, List[SwisstopoPlace]], query: str
+) -> List[str]:
+    """
+    Find the names that contain the query cut shorter, sorted, such as "chamanna da boval cas" for "bovalhutte".
+
+    Only for a query of one word longer than MIN_TRIMMED_QUERY_LENGTH letters. The last letter is cut off,
+    one at a time down to MIN_TRIMMED_QUERY_LENGTH letters, until a name contains what is left.
+    """
+    query_words = _split_words(query)
+    if len(query_words) != 1:
+        return []
+
+    trimmed_query = query_words[0][:-1]
+    while len(trimmed_query) >= MIN_TRIMMED_QUERY_LENGTH:
+        names_containing_trimmed_query = _find_names_containing_all_query_words(name_to_places, trimmed_query)
+        if names_containing_trimmed_query:
+            return names_containing_trimmed_query
+        trimmed_query = trimmed_query[:-1]
+    return []
+
+
 def _rank_places_containing_some_query_words(
     name_to_places: Dict[str, List[SwisstopoPlace]], query: str
 ) -> List[SwisstopoPlace]:
@@ -159,12 +186,19 @@ def find_similar_places(
     names_spelled_like_query = _find_names_spelled_like_query(name_to_places, query)
     biggest_places_spelled_like_query = _list_biggest_places(name_to_places, names_spelled_like_query)
 
+    # A cut query finds more and weaker names, so only when the whole query finds none
+    names_containing_trimmed_query = []
+    if not names_containing_all_query_words:
+        names_containing_trimmed_query = _find_names_containing_trimmed_query(name_to_places, query)
+    biggest_places_containing_trimmed_query = _list_biggest_places(name_to_places, names_containing_trimmed_query)
+
     ranked_places_containing_some_query_words = _rank_places_containing_some_query_words(name_to_places, query)
 
     places_in_priority_order = (
         biggest_places_starting_with_query
         + biggest_places_containing_all_query_words
         + biggest_places_spelled_like_query
+        + biggest_places_containing_trimmed_query
         + ranked_places_containing_some_query_words
     )
     suggestions: List[SwisstopoPlace] = []
