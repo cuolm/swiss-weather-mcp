@@ -83,8 +83,9 @@ replacement = '![\g<alt>](https://raw.githubusercontent.com/cuolm/swiss-weather-
 
 # RULE 2: relative [text](path) links -> GitHub tree view.
 # (?<!!) excludes image syntax, so this cannot overlap with RULE 1.
+# Links to a heading, such as (#usage), stay as they are: PyPI gives headings anchors too.
 [[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
-pattern = '(?<!!)\[(?P<text>.+?)\]\((?P<path>(?!https?://)\S+?)\)'
+pattern = '(?<!!)\[(?P<text>.+?)\]\((?P<path>(?!https?://|#)\S+?)\)'
 replacement = '[\g<text>](https://github.com/cuolm/swiss-weather-mcp/tree/master/\g<path>)'
 
 # RULE 3: HTML <img src="docs/..."> -> raw GitHub content
