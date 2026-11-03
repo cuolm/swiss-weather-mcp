@@ -345,6 +345,22 @@ async def test_read_cloud_cover_refuses_a_time_inside_an_hour(service_fixture):
         await service_fixture.read_cloud_cover("Zurich", build_swiss_time("2026-09-23T14:20"))
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method_name, parameters_read", [
+    ("read_wind", ("fu3010h0", "fu3010h1", "fu3q90h1", "dkl010h0")),
+    ("read_cloud_cover", ("nprolohs", "npromths", "nprohihs")),
+    ("read_freezing_level", ("zprfr0hs",)),
+])
+async def test_read_hour_when_the_clocks_go_back(service_fixture, source_fixture, method_name, parameters_read):
+    # On 25 October 2026 the clocks go back from 03:00 to 02:00, so the first 02:00 Swiss is 00:00 UTC
+    for parameter in parameters_read:
+        source_fixture.published[parameter]["202610250000"] = "1"
+
+    answer = await getattr(service_fixture, method_name)("Zurich", build_swiss_time("2026-10-25T02:00"))
+
+    assert answer["valid_at"] == "2026-10-25T02:00+02:00"
+
+
 # --- answer order ---
 
 @pytest.mark.asyncio

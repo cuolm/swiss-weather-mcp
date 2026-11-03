@@ -82,12 +82,14 @@ def _get_hourly_value(series: ForecastSeries, moment: datetime, point: MeteoSwis
     It is the average or sum of the hour up to it, or a snapshot. Raise CannotAnswerError when the
     forecast does not cover that hour.
     """
-    if moment not in series.time_to_value:
+    # Python never finds a Swiss time equal to a UTC one in the hour the clocks change, so look up in UTC
+    stamp = moment.astimezone(timezone.utc)
+    if stamp not in series.time_to_value:
         raise CannotAnswerError(
             f"{format_swiss_time(moment)} is outside the forecast for {point.display_name}. "
             f"{_describe_covered_range(series)}"
         )
-    return series.time_to_value[moment]
+    return series.time_to_value[stamp]
 
 
 def _build_forecast_point_fields(place: SwisstopoPlace, point: MeteoSwissPoint) -> Dict[str, Any]:
