@@ -3,6 +3,14 @@ __pycache__/
 *.pyc
 *.pyo
 
+# Exclude tool caches
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# Exclude local exploration scratch space
+explore/
+
 # Exclude virtual environment and environment files
 .env
 .venv/
