@@ -29,10 +29,10 @@ The location is looked up among the places of swissNAMES3D, see lookup.py:
                            'Blausee' is the name of 6 places. Call again with location
                            'Blausee' and near set to the village next to the place the user
                            means, or ask the user which one they mean. The biggest first:
-                             near="Blausee-Mitholz": district and lake, fewer than 20 people, 887 m,
-                               municipality Kandergrund, canton Bern
-                             near="Ramiswil": settlement, fewer than 20 people, 683 m,
-                               municipality Mümliswil-Ramiswil, canton Solothurn
+                             location="Blausee", near="Blausee-Mitholz": district and lake,
+                               fewer than 20 people, 887 m, municipality Kandergrund, canton Bern
+                             location="Blausee", near="Ramiswil": settlement, fewer than 20
+                               people, 683 m, municipality Mümliswil-Ramiswil, canton Solothurn
                              ...
                          (starting with "No 'Blausee' lies near 'Kandertal'." when one was given)
 
@@ -139,7 +139,7 @@ class PlaceFinder:
         option_lines = []
         for place in places:
             near_settlement_name = self._find_near_settlement_name(place, places)
-            option_line = f'  near="{near_settlement_name}": {place.description}'
+            option_line = f'  location="{location}", near="{near_settlement_name}": {place.description}'
             area = self.boundary_source.find_area(place.east_m, place.north_m)
             if area is not None:
                 option_line += f", {area.description}"

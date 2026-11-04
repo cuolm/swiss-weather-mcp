@@ -173,8 +173,8 @@ the point is not next to the place (see [Forecast Points](#forecast-points)).
   as the Thunersee, gets only its canton:
   ```
   'Blausee' is the name of 6 places. [...] The biggest first:
-    near="Blausee-Mitholz": district and lake, fewer than 20 people, 887 m, municipality Kandergrund, canton Bern
-    near="Ramiswil": settlement, fewer than 20 people, 683 m, municipality Mümliswil-Ramiswil, canton Solothurn
+    location="Blausee", near="Blausee-Mitholz": district and lake, fewer than 20 people, 887 m, municipality Kandergrund, canton Bern
+    location="Blausee", near="Ramiswil": settlement, fewer than 20 people, 683 m, municipality Mümliswil-Ramiswil, canton Solothurn
     ...
   ```
 - The municipalities and cantons carry swisstopo's names, in the local language, such as `Genève`

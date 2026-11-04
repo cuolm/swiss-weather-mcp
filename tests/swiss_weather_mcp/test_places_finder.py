@@ -36,8 +36,8 @@ def test_find_place_refuses_a_name_of_several_places(place_finder_fixture):
     assert str(raised.value) == (
         "'Blausee' is the name of 2 places. Call again with location 'Blausee' and near set to the village next "
         "to the place the user means, or ask the user which one they mean. The biggest first:\n"
-        '  near="Lindenhof": settlement and district, 20 to 49 people, 425 m\n'
-        '  near="Oerlikon": lake, 445 m'
+        '  location="Blausee", near="Lindenhof": settlement and district, 20 to 49 people, 425 m\n'
+        '  location="Blausee", near="Oerlikon": lake, 445 m'
     )
 
 
@@ -49,8 +49,8 @@ def test_find_place_names_the_area_of_each_place(place_finder_fixture):
     error_text = str(raised.value)
     option_lines = error_text.splitlines()[1:]
     assert option_lines == [
-        '  near="Lindenhof": settlement and district, 20 to 49 people, 425 m, municipality Zürich, canton Zürich',
-        '  near="Oerlikon": lake, 445 m, canton Zürich',
+        '  location="Blausee", near="Lindenhof": settlement and district, 20 to 49 people, 425 m, municipality Zürich, canton Zürich',
+        '  location="Blausee", near="Oerlikon": lake, 445 m, canton Zürich',
     ]
 
 
@@ -60,8 +60,8 @@ def test_find_place_lists_every_place(place_finder_fixture):
         place_finder_fixture.find_place("Wil")
     option_lines = str(raised.value).splitlines()[1:]
     assert len(option_lines) == 3
-    assert option_lines[0] == '  near="Wil SG": settlement, 10,000 to 49,999 people, 583 m'
-    assert option_lines[1] == '  near="Oerlikon": district, 2,000 to 9,999 people, 440 m'
+    assert option_lines[0] == '  location="Wil", near="Wil SG": settlement, 10,000 to 49,999 people, 583 m'
+    assert option_lines[1] == '  location="Wil", near="Oerlikon": district, 2,000 to 9,999 people, 440 m'
 
 
 def test_find_place_chooses_the_place_closest_to_near(place_finder_fixture):
@@ -90,8 +90,8 @@ def test_find_place_two_places_with_the_same_nearest_settlement(place_finder_fix
     # Oerlikon is nearer to both Moos than any other settlement, and chooses the Moos closer to it
     with pytest.raises(CannotAnswerError) as raised:
         place_finder_fixture.find_place("Moos")
-    assert '  near="Oerlikon": settlement, 100 to 999 people, 440 m' in str(raised.value)
-    assert '  near="Oerlikon": settlement, 100 to 999 people, 450 m' in str(raised.value)
+    assert '  location="Moos", near="Oerlikon": settlement, 100 to 999 people, 440 m' in str(raised.value)
+    assert '  location="Moos", near="Oerlikon": settlement, 100 to 999 people, 450 m' in str(raised.value)
     assert place_finder_fixture.find_place("Moos", nearby_location="Oerlikon").altitude_m == 450.0
 
 
