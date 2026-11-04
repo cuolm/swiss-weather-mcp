@@ -42,6 +42,7 @@ dev = [
 ]
 
 [project.scripts]
+swiss-weather-mcp = "swiss_weather_mcp.server:main"  # the package name, which uvx and the MCP Registry start
 swiss-weather-mcp-server = "swiss_weather_mcp.server:main"
 swiss-weather-mcp-client = "swiss_weather_mcp.client:main"
 
