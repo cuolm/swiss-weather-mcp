@@ -18,8 +18,8 @@ async def print_astronomy(location: str) -> None:
     today = datetime.now(SWISS_TZ).date()
 
     answers = {
-        "astronomy_moon": await service.read_moon(location, today),
         "astronomy_sun": await service.read_sun(location, today),
+        "astronomy_moon": await service.read_moon(location, today),
     }
     for tool_name, answer in answers.items():
         print(f'=== {tool_name}("{location}", "{today.isoformat()}")')

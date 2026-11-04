@@ -40,6 +40,23 @@ class AstronomyService:
         """Find the place a user means in a worker thread, so a download does not block other requests."""
         return await asyncio.to_thread(self.place_finder.find_place, location, nearby_location)
 
+    async def read_sun(self, location: str, day: date, nearby_location: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Read when civil twilight begins, the Sun rises and sets, and civil twilight ends on a Swiss calendar day.
+
+        Raise CannotAnswerError for an unknown location.
+        """
+        place = await self._find_place(location, nearby_location)
+        sun_day = calculate_sun_day(day, place.latitude_deg, place.longitude_deg)
+        return {
+            "place": place.name,
+            "date": day.isoformat(),
+            "civil_twilight_begin": _format_to_the_minute(sun_day.civil_twilight_begin),
+            "sunrise": _format_to_the_minute(sun_day.sunrise),
+            "sunset": _format_to_the_minute(sun_day.sunset),
+            "civil_twilight_end": _format_to_the_minute(sun_day.civil_twilight_end),
+        }
+
     async def read_moon(self, location: str, day: date, nearby_location: Optional[str] = None) -> Dict[str, Any]:
         """
         Read the moonrise, moonset and phase on a Swiss calendar day, and how much of the Moon is lit at 12:00.
@@ -61,20 +78,3 @@ class AstronomyService:
             answer["moon_phase_time"] = _format_to_the_minute(moon_day.phase_time)
         answer["illuminated_percent"] = round(moon_day.illuminated_percent)
         return answer
-
-    async def read_sun(self, location: str, day: date, nearby_location: Optional[str] = None) -> Dict[str, Any]:
-        """
-        Read when civil twilight begins, the Sun rises and sets, and civil twilight ends on a Swiss calendar day.
-
-        Raise CannotAnswerError for an unknown location.
-        """
-        place = await self._find_place(location, nearby_location)
-        sun_day = calculate_sun_day(day, place.latitude_deg, place.longitude_deg)
-        return {
-            "place": place.name,
-            "date": day.isoformat(),
-            "civil_twilight_begin": _format_to_the_minute(sun_day.civil_twilight_begin),
-            "sunrise": _format_to_the_minute(sun_day.sunrise),
-            "sunset": _format_to_the_minute(sun_day.sunset),
-            "civil_twilight_end": _format_to_the_minute(sun_day.civil_twilight_end),
-        }

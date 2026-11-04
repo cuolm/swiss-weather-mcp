@@ -141,21 +141,6 @@ class SwissWeatherMCPServer:
         self._register_tools()
 
     def _register_tools(self) -> None:
-        @self.mcp.tool(annotations=READS_THE_CLOCK)
-        def current_date_and_time() -> str:
-            """
-            Get the current weekday and Swiss local time.
-
-            Call this first when the question is relative, such as "tomorrow" or "tonight", because
-            the forecast tools take a real date rather than an offset. The time is written the way
-            the tools read it, ISO 8601 without an offset, so it can be sent back to them as it is.
-
-            Returns:
-                str: For example "Today is Wednesday, 2026-09-23T13:02 (Swiss time)".
-            """
-            now = datetime.now(SWISS_TZ)
-            return f"Today is {now:%A}, {now:%Y-%m-%dT%H:%M} (Swiss time)"
-
         @self.mcp.tool(annotations=READS_OPEN_DATA)
         @_handle_tool_call
         async def forecast_daily(location: str, start_date: str, days: int = 1, near: Near = None) -> dict:
@@ -398,6 +383,31 @@ class SwissWeatherMCPServer:
 
         @self.mcp.tool(annotations=READS_OPEN_DATA)
         @_handle_tool_call
+        async def astronomy_sun(location: str, date: str, near: Near = None) -> dict:
+            """
+            Get when the Sun rises and sets at a place on a day, and when civil twilight begins and ends.
+
+            Use this for "when does the sun rise tomorrow" or "until when is it light tonight". Civil
+            twilight is the light before sunrise and after sunset; outside it, artificial light is
+            normally needed outdoors. The times are for a level horizon, so in a valley the Sun
+            appears later behind the mountains.
+
+            Args:
+                location (str): Name of a place in Switzerland, e.g. "Zürich".
+                date (str): The day, e.g. "2026-09-23".
+
+            Returns:
+                dict: The place, the date, the begin of civil twilight, sunrise, sunset and the end of
+                    civil twilight.
+
+            Examples:
+                astronomy_sun("Zürich", "2026-09-23")
+            """
+            day = _parse_swiss_time(date).astimezone(SWISS_TZ).date()
+            return await self.astronomy_service.read_sun(location, day, near)
+
+        @self.mcp.tool(annotations=READS_OPEN_DATA)
+        @_handle_tool_call
         async def astronomy_moon(location: str, date: str, near: Near = None) -> dict:
             """
             Get when the Moon rises and sets at a place on a day, its phase and how much of it is lit.
@@ -421,30 +431,20 @@ class SwissWeatherMCPServer:
             day = _parse_swiss_time(date).astimezone(SWISS_TZ).date()
             return await self.astronomy_service.read_moon(location, day, near)
 
-        @self.mcp.tool(annotations=READS_OPEN_DATA)
-        @_handle_tool_call
-        async def astronomy_sun(location: str, date: str, near: Near = None) -> dict:
+        @self.mcp.tool(annotations=READS_THE_CLOCK)
+        def current_date_and_time() -> str:
             """
-            Get when the Sun rises and sets at a place on a day, and when civil twilight begins and ends.
+            Get the current weekday and Swiss local time.
 
-            Use this for "when does the sun rise tomorrow" or "until when is it light tonight". Civil
-            twilight is the light before sunrise and after sunset; outside it, artificial light is
-            normally needed outdoors. The times are for a level horizon, so in a valley the Sun
-            appears later behind the mountains.
-
-            Args:
-                location (str): Name of a place in Switzerland, e.g. "Zürich".
-                date (str): The day, e.g. "2026-09-23".
+            Call this first when the question is relative, such as "tomorrow" or "tonight", because
+            the forecast tools take a real date rather than an offset. The time is written the way
+            the tools read it, ISO 8601 without an offset, so it can be sent back to them as it is.
 
             Returns:
-                dict: The place, the date, the begin of civil twilight, sunrise, sunset and the end of
-                    civil twilight.
-
-            Examples:
-                astronomy_sun("Zürich", "2026-09-23")
+                str: For example "Today is Wednesday, 2026-09-23T13:02 (Swiss time)".
             """
-            day = _parse_swiss_time(date).astimezone(SWISS_TZ).date()
-            return await self.astronomy_service.read_sun(location, day, near)
+            now = datetime.now(SWISS_TZ)
+            return f"Today is {now:%A}, {now:%Y-%m-%dT%H:%M} (Swiss time)"
 
     def run(self, transport: str, host: str, port: int) -> None:
         """Serve the tools over stdio, or over streamable HTTP on host and port, until the process stops."""

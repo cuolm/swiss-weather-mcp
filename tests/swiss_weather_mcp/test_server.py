@@ -14,7 +14,6 @@ SWISS_TZ = ZoneInfo("Europe/Zurich")
 
 # Every tool the server offers, with its arguments in order
 EXPECTED_TOOLS = {
-    "current_date_and_time": [],
     "forecast_daily": ["location", "start_date", "days", "near"],
     "forecast_rain": ["location", "start", "end", "near"],
     "forecast_temperature": ["location", "start", "end", "near"],
@@ -24,8 +23,9 @@ EXPECTED_TOOLS = {
     "forecast_freezing_level": ["location", "when", "near"],
     "measurements_current": ["location", "near"],
     "measurements_extremes": ["extreme"],
-    "astronomy_moon": ["location", "date", "near"],
     "astronomy_sun": ["location", "date", "near"],
+    "astronomy_moon": ["location", "date", "near"],
+    "current_date_and_time": [],
 }
 
 FREEZING_LEVEL_CALL = {"location": "Zurich", "when": "2026-09-24T14:00"}

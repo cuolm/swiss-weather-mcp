@@ -123,7 +123,6 @@ Answers name the forecast point when it is not next to the place (see [Forecast 
 
 | Tool | Answer |
 |------|--------|
-| `current_date_and_time()` | Today's weekday and the Swiss time now |
 | `forecast_daily(location, start_date, days)` | 1 to 9 days: lowest and highest temperature, rain, weather with an emoji |
 | `forecast_rain(location, start, end)` | Chance and amount of rain in 3-hour blocks |
 | `forecast_temperature(location, start, end)` | Temperature hour by hour, or for one hour |
@@ -135,6 +134,7 @@ Answers name the forecast point when it is not next to the place (see [Forecast 
 | `measurements_extremes(extreme)` | Where it is `warmest`, `coldest`, `windiest`, `wettest` or `sunniest` now |
 | `astronomy_sun(location, date)` | Sunrise, sunset and civil twilight |
 | `astronomy_moon(location, date)` | Moonrise, moonset, phase and how much is lit |
+| `current_date_and_time()` | Today's weekday and the Swiss time now |
 
 ## Good to Know
 
