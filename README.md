@@ -4,6 +4,7 @@
 [![License](https://img.shields.io/github/license/cuolm/swiss-weather-mcp.svg)](/LICENSE.txt)
 [![Release](https://github.com/cuolm/swiss-weather-mcp/actions/workflows/release.yaml/badge.svg)](https://github.com/cuolm/swiss-weather-mcp/actions/workflows/release.yaml)
 [![Tests](https://github.com/cuolm/swiss-weather-mcp/actions/workflows/tests.yaml/badge.svg)](https://github.com/cuolm/swiss-weather-mcp/actions/workflows/tests.yaml)
+<!-- mcp-name: io.github.cuolm/swiss-weather-mcp -->
 
 A **Model Context Protocol ([MCP](https://modelcontextprotocol.io/))** server that provides AI applications with weather information for any place in Switzerland.
 
