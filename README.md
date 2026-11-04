@@ -9,7 +9,7 @@ A **Model Context Protocol ([MCP](https://modelcontextprotocol.io/))** server th
 
 - Forecasts for today and the next 8 days from the [MeteoSwiss local forecasts](https://opendatadocs.meteoswiss.ch/e-forecast-data/e4-local-forecast-data), updated every hour
 - Measurements from about 160 [SwissMetNet weather stations](https://opendatadocs.meteoswiss.ch/a-data-groundbased/a1-automatic-weather-stations), updated every 10 minutes
-- Any place on the Swiss national map, such as towns, districts, lakes and peaks, from [swissNAMES3D](https://www.swisstopo.admin.ch/en/landscape-model-swissnames3d)
+- Places on the Swiss national map, such as towns, districts, lakes and peaks, from [swissNAMES3D](https://www.swisstopo.admin.ch/en/landscape-model-swissnames3d)
 - When the Sun and the Moon rise and set at a place, the civil twilight, the Moon's phase and how much of it is lit, calculated for any day
 - A bundled MCP client for testing
 
@@ -17,7 +17,6 @@ A **Model Context Protocol ([MCP](https://modelcontextprotocol.io/))** server th
 > - Weather forecasts and measurements: [MeteoSwiss Open Data](https://opendata.swiss/en/organization/bundesamt-fur-meteorologie-und-klimatologie-meteoschweiz). Source: MeteoSwiss
 > - Place names: [swissNAMES3D](https://www.swisstopo.admin.ch/en/landscape-model-swissnames3d). Source: Federal Office of Topography swisstopo
 > - Municipalities and cantons: [swissBOUNDARIES3D](https://www.swisstopo.admin.ch/en/landscape-model-swissboundaries3d). Source: Federal Office of Topography swisstopo
-> - The Sun and the Moon: calculated with the formulae of [Van Flandern and Pulkkinen (1979)](https://ui.adsabs.harvard.edu/abs/1979ApJS...41..391V/abstract) and the definitions of the [US Naval Observatory](https://aa.usno.navy.mil/faq/RST_defs)
 
 ## Table of Contents
 - [Project Structure](#project-structure)
@@ -38,6 +37,10 @@ swiss-weather-mcp/
 │   ├── forecast/           # MeteoSwiss local forecasts
 │   ├── measurements/       # MeteoSwiss SwissMetNet measurements
 │   ├── astronomy/          # Sunrise, sunset, moonrise, moonset and phase
+│   ├── opendata.py         # Downloads from data.geo.admin.ch
+│   ├── formatting.py       # Times, wind directions and height differences in the answers
+│   ├── errors.py           # The error for questions the data cannot answer
+│   ├── log.py              # Logging setup
 │   └── client.py           # MCP client
 ├── tests/swiss_weather_mcp/  # Tests
 └── .github/workflows/      # CI and release pipelines
@@ -75,102 +78,82 @@ swiss-weather-mcp-server --transport=streamable-http --host=localhost --port=805
 ```
 From a source checkout, put `uv run` in front. `--help` lists all flags.
 
-> **Note:** The cache lives in your OS cache directory, such as `~/Library/Caches/swiss-weather-mcp` on
-> macOS or `~/.cache/swiss-weather-mcp` on Linux. Set `SWISS_WEATHER_MCP_CACHE_DIR` to move it. The
-> first start downloads the swissNAMES3D archive (about 33 MB) and the swissBOUNDARIES3D GeoPackage
-> (about 37 MB, kept unpacked at about 74 MB).
->
-> MeteoSwiss publishes a new forecast run every hour, each hourly parameter as one file of about 30 to
-> 34 MB for all forecast points. By default the server downloads such a file for every new forecast
-> point and keeps only that point's rows. With `--cache-all-forecast-points` it keeps the whole files,
-> so further places in the same run need no new download. This helps when many places are asked within
-> the hour, at the cost of disk space.
+Where the server keeps its files, and `--cache-all-forecast-points`: see [Cache and Downloads](#cache-and-downloads).
 
 ### Running the Server with Docker
 Images are built and published automatically by GitHub Actions to the project's [GitHub Container Registry](https://ghcr.io/cuolm/swiss-weather-mcp), tagged `:latest` (newest release) and by version.
 
-1. Run the published image, mapping port 8050:
-   ```bash
-   docker run -p 8050:8050 ghcr.io/cuolm/swiss-weather-mcp:latest
-   ```
-2. Access the server at:
-   ```bash
-   http://localhost:8050/mcp/
-   ```
-
-> **Note:** The cache lives inside the container and is lost when it stops. Mount a volume to keep it
-> across restarts, for example `-v swiss-weather-cache:/root/.cache/swiss-weather-mcp`.
-
-#### Manual Build
 ```bash
+# Published image
+docker run -p 8050:8050 ghcr.io/cuolm/swiss-weather-mcp:latest
+
+# Built from a source checkout
 docker build -t swiss-weather-mcp .
 docker run -p 8050:8050 swiss-weather-mcp
 ```
+The server is then at `http://localhost:8050/mcp/`.
 
-### Running the MCP Client using Stdio Transport
+Each `docker run` starts a new container with an empty cache. Mount a volume to keep it, for example
+`-v swiss-weather-cache:/root/.cache/swiss-weather-mcp`.
+
+### Running the MCP Client
 The bundled MCP client tests the server over stdio. It needs the `client` extra (see [Installation](#installation)) and starts the MCP server itself, but not the LLM, which has to be running first, for example in `llama-server`.
 
-1. Install llama.cpp, which provides `llama-server`, as its [installation guide](https://github.com/ggml-org/llama.cpp/blob/master/docs/install.md) describes. With Homebrew on macOS or Linux:
-   ```bash
-   brew install llama.cpp
-   ```
-2. Start `llama-server` with a model in its own terminal. It downloads the model on first use:
-   ```bash
-   llama-server --jinja --no-mmproj -hf unsloth/Qwen3.5-4B-GGUF --port 8080
-   ```
-   `--jinja` uses the model's chat template, which tool calling needs (the default in current llama.cpp),
-   and `--no-mmproj` skips the vision projector.
-3. Run the client against it in a second terminal:
-   ```bash
-   swiss-weather-mcp-client --model=unsloth/Qwen3.5-4B-GGUF --base-url=http://localhost:8080/v1
+```bash
+# Install llama.cpp, which provides llama-server, here with Homebrew on macOS or Linux
+brew install llama.cpp
 
-   # From a source checkout, using uv
-   uv run --extra client swiss-weather-mcp-client --model=unsloth/Qwen3.5-4B-GGUF --base-url=http://localhost:8080/v1
-   ```
-   `--base-url` is the server's OpenAI compatible API, and `--model` the name it lists under `/v1/models`.
+# Start llama-server with a model in its own terminal; it downloads the model on first use
+llama-server --jinja --no-mmproj -hf unsloth/Qwen3.5-4B-GGUF --port 8080
+
+# Run the client against it in a second terminal
+swiss-weather-mcp-client --model=unsloth/Qwen3.5-4B-GGUF --base-url=http://localhost:8080/v1
+```
+From a source checkout, put `uv run --extra client` in front of the client. Other ways to install llama.cpp
+are in its [installation guide](https://github.com/ggml-org/llama.cpp/blob/master/docs/install.md).
+
+`--jinja` uses the model's chat template, which tool calling needs (the default in current llama.cpp),
+and `--no-mmproj` skips the vision projector. `--base-url` is the server's OpenAI compatible API, and
+`--model` the name it lists under `/v1/models`.
 
 ## Available Tools
+Times are Swiss local time (see [Times](#times)). Every tool with a `location` also takes an
+optional `near`, needed only when several places share the name (see [Locations](#locations)).
+Answers name the forecast point when it is not next to the place (see [Forecast Points](#forecast-points)).
 
-The forecast tools take a `location` (the name of a place, such as `"Zürich"`) and a Swiss local time,
-or a date for `forecast_daily`. Every tool that takes a `location` also takes an optional `near`, only
-needed when several places share the name (see [Locations](#locations)). Each answer holds the forecast,
-the place, the time it applies to, and the model run. It names the MeteoSwiss forecast point only when
-the point is not next to the place (see [Forecast Points](#forecast-points)).
-
-| Tool | Purpose | Example Call |
-|------|---------|--------------|
-| `current_date_and_time()` | Today's weekday and the Swiss time now | `current_date_and_time()` |
-| `forecast_daily(location, start_date, days)` | One row per day, 1 to 9 days: lowest and highest temperature, median rainfall with its 10th and 90th percentile, daytime weather in words with an emoji | `forecast_daily("Zürich", "2026-09-26", 2)` |
-| `forecast_rain(location, start, end)` | Rain and weather in 3-hour blocks over any period within the forecast: chance (%), median (mm), how much the wettest hour may bring (mm) and the weather in words with an emoji | `forecast_rain("Zürich", "2026-09-23T12:00", "2026-09-24T00:00")` |
-| `forecast_temperature(location, start, end)` | Temperature hour by hour over any period within the forecast, or one hour without `end`: mean (°C) with its 10th and 90th percentile | `forecast_temperature("Zürich", "2026-09-23T15:00")` |
-| `forecast_sunshine(location, start, end)` | Sunshine (h) summed over a period, or one hour without `end` | `forecast_sunshine("Zürich", "2026-09-23T06:00", "2026-09-23T18:00")` |
-| `forecast_wind(location, when)` | Mean speed and strongest gust (km/h) in the hour up to that time, how strong that gust may get (its 90th percentile), and the direction as degrees and compass point | `forecast_wind("Zürich", "2026-09-23T14:00")` |
-| `forecast_cloud_cover(location, when)` | Estimated total cloud cover (%) plus the low, medium and high layers | `forecast_cloud_cover("Zürich", "2026-09-23T14:00")` |
-| `forecast_freezing_level(location, when)` | Height of the 0 °C line (m above sea level) | `forecast_freezing_level("Zürich", "2026-09-23T14:00")` |
-| `measurements_current(location)` | Measured now at a MeteoSwiss station near the place: temperature, humidity, dew point, rain and sunshine in the last 10 minutes, wind, gust, direction and sea-level pressure, plus the temperature and pressure change over the last 3 hours and the rain, sunshine and strongest gust of the last hour | `measurements_current("Zürich")` |
-| `measurements_extremes(extreme)` | Where in Switzerland it is `warmest`, `coldest`, `windiest`, `wettest` or `sunniest` now, from the measurements of all weather stations: the first 5 stations by temperature, gust or rain, how many stations are rainy, or how many stations are in each of MeteoSwiss's sunshine terms, in Switzerland and in each canton | `measurements_extremes("sunniest")` |
-| `astronomy_moon(location, date)` | Moonrise and moonset for a level horizon, the phase with its emoji, the time of a New Moon, First Quarter, Full Moon or Last Quarter on that day, and the lit percent at 12:00 | `astronomy_moon("Zürich", "2026-11-01")` |
-| `astronomy_sun(location, date)` | Sunrise and sunset for a level horizon, and the begin and end of civil twilight, when it is light enough outside without artificial light | `astronomy_sun("Zürich", "2026-10-28")` |
+| Tool | Answer |
+|------|--------|
+| `current_date_and_time()` | Today's weekday and the Swiss time now |
+| `forecast_daily(location, start_date, days)` | 1 to 9 days: lowest and highest temperature, rain, weather with an emoji |
+| `forecast_rain(location, start, end)` | Chance and amount of rain in 3-hour blocks |
+| `forecast_temperature(location, start, end)` | Temperature hour by hour, or for one hour |
+| `forecast_sunshine(location, start, end)` | Hours of sunshine over a period, or in one hour |
+| `forecast_wind(location, when)` | Mean speed, gusts and direction |
+| `forecast_cloud_cover(location, when)` | Total cloud cover and its low, medium and high layers |
+| `forecast_freezing_level(location, when)` | Height of the 0 °C line |
+| `measurements_current(location)` | What a station near the place measures now (see [Measurements](#measurements)) |
+| `measurements_extremes(extreme)` | Where it is `warmest`, `coldest`, `windiest`, `wettest` or `sunniest` now |
+| `astronomy_sun(location, date)` | Sunrise, sunset and civil twilight |
+| `astronomy_moon(location, date)` | Moonrise, moonset, phase and how much is lit |
 
 ## Good to Know
 
 ### Times
-- Send times as Swiss clock time in ISO 8601, such as `"2026-09-23T14:00"`; the server applies summer
-  or winter time.
+- Times are Swiss clock time in ISO 8601, such as `"2026-09-23T14:00"`. The server applies summer or
+  winter time.
 - Answers give times with their UTC offset, such as `2026-09-23T13:00+02:00`.
 - An hourly value stamped `14:00` covers 13:00 to 14:00. Cloud cover and the freezing level are values
   at that moment.
-- The forecast covers today and the next 8 days. For "tomorrow" or "tonight", ask
-  `current_date_and_time()` first.
+- The forecast covers today and the next 8 days. `current_date_and_time()` gives today's date, which
+  questions such as "tomorrow" or "tonight" need.
 
 ### Locations
 - A location is a place name from swissNAMES3D: a town, village, city district, peak, pass, lake,
   glacier, valley or railway station, such as `Zürich`, `Oerlikon`, `Titlis` or `Zürichsee`.
-- Case and accents are ignored, and English names such as `Geneva` work too.
+- Case and accents don't matter, and a few English names such as `Geneva` work too.
 - A name of several places, such as `Blausee`, needs `near`: a village next to the one the user means,
-  such as `near="Riederalp"`. Without it, the tool lists every place, each with a village to pass as
-  `near` and the municipality and canton it lies in. A lake that belongs to a canton itself, such
-  as the Thunersee, gets only its canton:
+  such as `near="Riederalp"`. Without it, the tool lists all places of the name, the biggest first,
+  each with the call that chooses it and the municipality and canton it lies in:
   ```
   'Blausee' is the name of 6 places. [...] The biggest first:
     location="Blausee", near="Blausee-Mitholz": district and lake, fewer than 20 people, 887 m, municipality Kandergrund, canton Bern
@@ -180,13 +163,13 @@ the point is not next to the place (see [Forecast Points](#forecast-points)).
 - The municipalities and cantons carry swisstopo's names, in the local language, such as `Genève`
   or `Graubünden`. They appear once the swissBOUNDARIES3D GeoPackage is downloaded in the
   background at start.
-- An unknown name gets suggestions, such as `Davos Dorf` and `Davos Platz` for `Davos`.
+- An unknown name gets up to 10 suggestions, such as `Davos Dorf` and `Davos Platz` for `Davos`.
 
 ### Forecast Points
 - The forecast comes from a MeteoSwiss forecast point near the place. An answer names it in
   data_from when it is more than 1 km away or more than 50 m higher or lower.
-- Weather changes faster with height than with distance: in the standard atmosphere, air cools by
-  0.65 °C per 100 m.
+- Temperature changes faster with height than with distance: in the standard atmosphere (ISO 2533),
+  air cools by 0.65 °C per 100 m.
 - So among the points within 5 km, the server takes the one with the smallest distance plus 20 times
   the height gap: 100 m of height gap counts like 2 km of distance. Without a point within 5 km, it
   takes the nearest one.
@@ -194,26 +177,42 @@ the point is not next to the place (see [Forecast Points](#forecast-points)).
   and every town of 1,000 people or more still gets a point within 3 km.
 
 ### Measurements
-- `measurements_current` uses one of the about 160 SwissMetNet stations that measure the temperature,
-  chosen like the forecast point: the smallest distance plus 20 times the height gap. Stations are
-  far fewer than forecast points, so the station can still be far from the place and higher or lower.
+- `measurements_current` uses one of the about 160 SwissMetNet stations: of the 3 with the smallest
+  distance plus 20 times the height gap, the first that published a temperature in the last hour.
+  Stations are far fewer than forecast points, so the station can still be far from the place and
+  higher or lower.
 - Every answer starts with a sentence that says so, such as "The measurements for Braunwald (1290 m)
   are those of the MeteoSwiss station Elm (958 m), 13.5 km away and 332 m lower."
-- `measurements_extremes` lists the first 5 stations by temperature, gust or rain, and counts the rainy
-  stations in Switzerland and in each canton.
+- It gives the temperature, humidity, dew point, rain and sunshine in the last 10 minutes, wind, gust,
+  direction and sea-level pressure, plus the temperature and pressure change over the last 3 hours and
+  the rain, sunshine and strongest gust of the last hour.
+- `measurements_extremes` lists the first 5 stations by temperature or gust. For the wettest, it lists
+  the first 5 rainy stations and counts the rainy stations in Switzerland and in each canton.
 - For the sunniest it groups the stations by their sun in the last 10 minutes with the sunshine terms of
   [MeteoSwiss](https://www.meteoswiss.admin.ch/weather/weather-and-climate-from-a-to-z/sunshine.html):
   mostly sunny (8 to 10 minutes, 80 to 100 %), rather sunny (5 to 7), partly sunny (2 to 4), only a little
-  sunshine (1) and hardly any sunshine (0). A share on the boundary of two of its terms counts for the
-  sunnier one. The cantons come in the order of their stations' average sun.
+  sunshine (1) and hardly any sunshine (0). MeteoSwiss's ranges meet at 20, 50 and 80 %; a station
+  exactly there counts for the sunnier term, so 2 minutes (20 %) is partly sunny. The cantons come in
+  the order of their stations' average sun.
 
 ### Forecast Values Are Medians
 - Temperature and rain are the median of the many possible outcomes MeteoSwiss calculates, not the
   most likely value.
-- Medians do not add up: when showers are possible but unlikely in any single hour, every hour shows
-  0 mm while the day still has several millimetres.
-- Use `forecast_daily` for the rain of a day, and `forecast_rain` for the chance and how much a wet
-  hour may bring.
+- Medians do not add up: when showers are possible but unlikely in any 3-hour block, every block shows
+  0 mm while the day's median is above 0.
+- `forecast_daily` gives the rain of a day, and `forecast_rain` the chance and how much a wet hour may
+  bring.
+
+### Cache and Downloads
+- The cache lives in your OS cache directory, such as `~/Library/Caches/swiss-weather-mcp` on macOS or
+  `~/.cache/swiss-weather-mcp` on Linux. `SWISS_WEATHER_MCP_CACHE_DIR` moves it elsewhere.
+- The first start downloads the swissNAMES3D archive (about 33 MB) and the swissBOUNDARIES3D GeoPackage
+  (about 37 MB, kept unpacked at about 74 MB).
+- MeteoSwiss publishes a new forecast run every hour, each hourly parameter as one file of about 30 to
+  34 MB for all forecast points. By default the server downloads such a file for every new forecast
+  point and keeps only that point's rows.
+- With `--cache-all-forecast-points` it keeps the whole files, so further places in the same run need no
+  new download. This helps when many places are asked within the hour, at the cost of disk space.
 
 ## Example Usage with LMStudio
 
@@ -228,10 +227,7 @@ Configure the mcp.json file in [LMStudio](https://lmstudio.ai/):
   }
 }
 ```
-Run the MCP server with the streamable-http transport layer:
-```bash
-swiss-weather-mcp-server --transport=streamable-http --host=localhost --port=8050
-```
+Run the MCP server with the streamable-http transport, as in [Running the Server](#running-the-server).
 
 ### Using the stdio transport layer
 Configure the mcp.json file in LMStudio. Replace `<path-to>` so the command is the full path that
@@ -248,11 +244,8 @@ Configure the mcp.json file in LMStudio. Replace `<path-to>` so the command is t
 ![LMStudioMCPServer](docs/LMStudioMCPServer.png)
 
 ## Resources
-- [Meteo Swiss Open Data](https://www.meteoswiss.admin.ch/services-and-publications/service/open-data.html)
+- [MeteoSwiss Open Data](https://www.meteoswiss.admin.ch/services-and-publications/service/open-data.html)
 - [Local Forecast Notebook Examples](https://github.com/MeteoSwiss/opendata-localforecast-demos)
-- [Automatic Weather Stations (SwissMetNet)](https://opendatadocs.meteoswiss.ch/a-data-groundbased/a1-automatic-weather-stations)
-- [swissNAMES3D (swisstopo)](https://www.swisstopo.admin.ch/en/landscape-model-swissnames3d)
-- [swissBOUNDARIES3D (swisstopo)](https://www.swisstopo.admin.ch/en/landscape-model-swissboundaries3d)
 - [Model Context Protocol](https://github.com/modelcontextprotocol/python-sdk)
 - [MCP Server Quickstart](https://modelcontextprotocol.io/docs/develop/build-server)
 
