@@ -110,6 +110,45 @@ jobs:
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
 
+  publish-to-mcp-registry:
+    name: Publish to MCP Registry
+    needs: publish-to-pypi  # the registry checks the package on PyPI, so it has to be there first
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write  # lets mcp-publisher log in to the registry as this repository
+    steps:
+      - name: Wait for the Version on PyPI  # the registry checks PyPI, which can show a new upload only after a while
+        run: |
+          for attempt in $(seq 12); do
+            curl --fail --silent --output /dev/null https://pypi.org/pypi/swiss-weather-mcp/${{ github.ref_name }}/json && exit 0
+            sleep 30
+          done
+          exit 1
+      - name: Checkout Code
+        uses: actions/checkout@v5
+      - name: Set Version in server.json
+        run: |
+          jq --arg version "${{ github.ref_name }}" '.version = $version | .packages[0].version = $version' server.json > server.json.tmp
+          mv server.json.tmp server.json
+      - name: Install cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6  # v4.1.2
+      - name: Download and Verify mcp-publisher
+        run: |
+          version="v1.8.1"
+          url="https://github.com/modelcontextprotocol/registry/releases/download/$version/mcp-publisher_linux_amd64.tar.gz"
+          curl --fail --location --remote-name "$url"
+          curl --fail --location --remote-name "$url.sigstore.json"
+          cosign verify-blob mcp-publisher_linux_amd64.tar.gz \
+            --bundle mcp-publisher_linux_amd64.tar.gz.sigstore.json \
+            --certificate-identity "https://github.com/modelcontextprotocol/registry/.github/workflows/release.yml@refs/tags/$version" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com"
+          tar xzf mcp-publisher_linux_amd64.tar.gz mcp-publisher
+      - name: Publish to MCP Registry
+        run: |
+          ./mcp-publisher login github-oidc
+          ./mcp-publisher publish
+
   github-release:
     name: Create GitHub Release
     needs: [build, publish-docker-image]

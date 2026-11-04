@@ -1,0 +1,22 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.cuolm/swiss-weather-mcp",
+  "title": "Swiss Weather",
+  "description": "Weather forecasts, measurements and sun and moon times for places in Switzerland, from MeteoSwiss",
+  "repository": {
+    "url": "https://github.com/cuolm/swiss-weather-mcp",
+    "source": "github"
+  },
+  "version": "0.0.0",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "swiss-weather-mcp",
+      "version": "0.0.0",
+      "runtimeHint": "uvx",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}

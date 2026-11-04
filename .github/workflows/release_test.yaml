@@ -112,6 +112,33 @@ jobs:
         with:
           repository-url: https://test.pypi.org/legacy/
 
+  validate-mcp-registry-server-json:
+    name: Validate MCP Registry server.json
+    needs: [test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v5
+      - name: Set Version in server.json
+        run: |
+          jq --arg version "${{ github.ref_name }}" '.version = $version | .packages[0].version = $version' server.json > server.json.tmp
+          mv server.json.tmp server.json
+      - name: Install cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6  # v4.1.2
+      - name: Download and Verify mcp-publisher
+        run: |
+          version="v1.8.1"
+          url="https://github.com/modelcontextprotocol/registry/releases/download/$version/mcp-publisher_linux_amd64.tar.gz"
+          curl --fail --location --remote-name "$url"
+          curl --fail --location --remote-name "$url.sigstore.json"
+          cosign verify-blob mcp-publisher_linux_amd64.tar.gz \
+            --bundle mcp-publisher_linux_amd64.tar.gz.sigstore.json \
+            --certificate-identity "https://github.com/modelcontextprotocol/registry/.github/workflows/release.yml@refs/tags/$version" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com"
+          tar xzf mcp-publisher_linux_amd64.tar.gz mcp-publisher
+      - name: Validate server.json  # the registry checks packages on pypi.org only, so a test release is not published
+        run: ./mcp-publisher validate
+
   github-release:
     name: Create GitHub Release
     needs: [build, publish-docker-image]
