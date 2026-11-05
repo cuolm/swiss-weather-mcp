@@ -2,6 +2,7 @@
 import asyncio
 import json
 import sys
+from datetime import datetime, timedelta, timezone
 
 from swiss_weather_mcp.measurements.service import EXTREME_NAME_TO_EXTREME, MeasurementService
 from swiss_weather_mcp.measurements.source import MeasurementSource
@@ -23,6 +24,11 @@ async def print_measurements(location: str) -> None:
 
     current_answer = await service.read_current(location)
     print_answer(f'measurements_current("{location}")', current_answer)
+
+    # The days are UTC days, and the last one published is yesterday's
+    yesterday = datetime.now(timezone.utc).date() - timedelta(days=1)
+    history_answer = await service.read_history(location, yesterday, 1)
+    print_answer(f'measurements_history("{location}", "{yesterday.isoformat()}")', history_answer)
 
     for extreme in EXTREME_NAME_TO_EXTREME:
         extremes_answer = await service.read_extremes(extreme)
