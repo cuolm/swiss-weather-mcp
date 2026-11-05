@@ -1,4 +1,5 @@
 import logging
+import threading
 import time
 
 import pytest
@@ -8,6 +9,8 @@ from swiss_weather_mcp.errors import CannotAnswerError
 
 # Long enough that a request comes while the background load is still downloading
 SLOW_DOWNLOAD_SECONDS = 0.2
+# A held back download goes on after this at the latest, so a failing test does not hang
+HELD_BACK_DOWNLOAD_MAX_SECONDS = 5
 
 
 def count_archive_downloads(source_fixture) -> int:
@@ -42,8 +45,8 @@ def test_find_place_refuses_a_name_of_several_places(place_finder_fixture):
 
 
 def test_find_place_names_the_area_of_each_place(place_finder_fixture):
-    loading_thread = place_finder_fixture.start_loading_places()
-    loading_thread.join()
+    for loading_thread in place_finder_fixture.start_loading_places():
+        loading_thread.join()
     with pytest.raises(CannotAnswerError) as raised:
         place_finder_fixture.find_place("Blausee")
     error_text = str(raised.value)
@@ -114,7 +117,8 @@ def test_find_place_unknown_name(place_finder_fixture):
 # --- start_loading_places ---
 
 def test_start_loading_places(source_fixture, place_finder_fixture):
-    place_finder_fixture.start_loading_places().join()
+    for loading_thread in place_finder_fixture.start_loading_places():
+        loading_thread.join()
     place_finder_fixture.find_place("Lindenhof")
     assert count_archive_downloads(source_fixture) == 1
 
@@ -128,17 +132,40 @@ def test_start_loading_places_while_a_request_needs_them(source_fixture, place_f
         return fast_get(url, **kwargs)
 
     source_fixture.get_mock.side_effect = slow_get
-    loading_thread = place_finder_fixture.start_loading_places()
+    loading_threads = place_finder_fixture.start_loading_places()
     lindenhof = place_finder_fixture.find_place("Lindenhof")
-    loading_thread.join()
+    for loading_thread in loading_threads:
+        loading_thread.join()
 
     assert lindenhof.name == "Lindenhof"
     assert count_archive_downloads(source_fixture) == 1
 
 
+def test_start_loading_places_loads_the_boundaries_without_waiting_for_the_places(source_fixture, place_finder_fixture):
+    fast_get = source_fixture.get_mock.side_effect
+    places_may_download = threading.Event()
+
+    def held_back_get(url, **kwargs):
+        if url.endswith(".csv.zip"):
+            places_may_download.wait(HELD_BACK_DOWNLOAD_MAX_SECONDS)
+        return fast_get(url, **kwargs)
+
+    source_fixture.get_mock.side_effect = held_back_get
+    places_thread, boundaries_thread = place_finder_fixture.start_loading_places()
+    boundaries_thread.join()
+    # Lindenhof, while the places are still downloading
+    area = place_finder_fixture.boundary_source.find_area(2683200, 1247500)
+    places_may_download.set()
+    places_thread.join()
+
+    assert area is not None
+    assert area.description == "municipality Zürich, canton Zürich"
+
+
 def test_start_loading_places_without_a_connection(caplog, source_fixture, place_finder_fixture):
     source_fixture.get_mock.side_effect = requests.ConnectionError("no connection")
     with caplog.at_level(logging.WARNING):
-        place_finder_fixture.start_loading_places().join()
+        for loading_thread in place_finder_fixture.start_loading_places():
+            loading_thread.join()
     assert "Could not load the swisstopo places at start" in caplog.text
     assert "Could not load the swisstopo boundaries" in caplog.text

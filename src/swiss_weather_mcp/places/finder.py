@@ -75,12 +75,14 @@ class PlaceFinder:
         self.boundary_source = SwisstopoBoundarySource(cache_dir)
 
     def _load_places(self) -> None:
-        """Load the places and then the boundaries, or log why not."""
+        """Load the places, or log why not."""
         try:
             self.place_lookup.load_places()
         except requests.RequestException as error:
             logger.warning(f"Could not load the swisstopo places at start, the first question tries again: {error}")
 
+    def _load_boundaries(self) -> None:
+        """Load the boundaries, or log why not."""
         try:
             self.boundary_source.load_geopackage()
         except requests.RequestException as error:
@@ -88,15 +90,18 @@ class PlaceFinder:
                 f"Could not load the swisstopo boundaries, the lists of places leave out the municipalities: {error}"
             )
 
-    def start_loading_places(self) -> threading.Thread:
+    def start_loading_places(self) -> List[threading.Thread]:
         """
-        Load the places and boundaries in a background thread and return it, so the first question need not wait.
+        Load the places and the boundaries in two background threads and return them, so the first question need not wait.
 
-        Until the boundaries are loaded, the lists of places leave out the municipality and canton.
+        The lists of places name the municipality and canton only once the boundaries are
+        loaded. The boundaries do not wait for the places, so cached ones are ready at once.
         """
-        thread = threading.Thread(target=self._load_places, name="load-places", daemon=True)
-        thread.start()
-        return thread
+        places_thread = threading.Thread(target=self._load_places, name="load-places", daemon=True)
+        boundaries_thread = threading.Thread(target=self._load_boundaries, name="load-boundaries", daemon=True)
+        places_thread.start()
+        boundaries_thread.start()
+        return [places_thread, boundaries_thread]
 
     def _choose_place_near(self, places: List[SwisstopoPlace], nearby_location: str) -> Optional[SwisstopoPlace]:
         """Choose the place nearest to one called nearby_location, or None beyond MAX_NEAR_DISTANCE_M."""
