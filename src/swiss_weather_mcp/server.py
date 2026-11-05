@@ -128,7 +128,8 @@ class SwissWeatherMCPServer:
         self.mcp = MCPServer(
             name="swiss_weather_mcp_server",
             instructions=(
-                "Weather for places in Switzerland from MeteoSwiss: what stations measure now (measurements_*), "
+                "Weather for places in Switzerland from MeteoSwiss: what stations measure now and measured on past "
+                "days (measurements_*), "
                 "forecasts for today and the next 8 days (forecast_*), and when the Sun and the Moon rise "
                 "and set (astronomy_*).\n"
                 "- Times are Swiss local time in ISO 8601 without offset, such as \"2026-09-23T14:00\".\n"
@@ -352,6 +353,36 @@ class SwissWeatherMCPServer:
                 measurements_current("Zürich")
             """
             return await self.measurement_service.read_current(location, near)
+
+        @self.mcp.tool(annotations=READS_OPEN_DATA)
+        @_handle_tool_call
+        async def measurements_history(location: str, start_date: str, days: int = 1, near: Near = None) -> dict:
+            """
+            Get what a MeteoSwiss station near a place measured on past days, for one day or several days in a row.
+
+            Use this for "how warm was it yesterday" or "how much did it rain last week". The values are
+            the daily values of the station named in data_from. Each day covers a UTC day, 00:00 to 24:00
+            UTC, which is 01:00 to 01:00 Swiss time in winter and 02:00 to 02:00 in summer. MeteoSwiss
+            publishes a day's values the next morning. The days go back to when the station started, at
+            some stations to the 1860s. For the warmest day of a year, ask for all its days.
+
+            Args:
+                location (str): Name of a place in Switzerland, e.g. "Zürich".
+                start_date (str): The first day, e.g. "2026-09-23". Yesterday or earlier.
+                days (int): How many days in a row, from 1 to 366, so up to a whole year. Default 1.
+
+            Returns:
+                dict: data_from, the place and one row per day. A value is None when the station did not
+                    measure it.
+
+            Examples:
+                measurements_history("Zürich", "2026-09-22")
+                measurements_history("Zürich", "2026-09-14", 7)     # a week
+                measurements_history("Zürich", "2025-01-01", 365)   # a whole year
+                measurements_history("Zürich", "1990-02-27")
+            """
+            first_day = _parse_swiss_time(start_date).astimezone(SWISS_TZ).date()
+            return await self.measurement_service.read_history(location, first_day, days, near)
 
         @self.mcp.tool(annotations=READS_OPEN_DATA)
         @_handle_tool_call

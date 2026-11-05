@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 import pytest
 
@@ -12,9 +12,11 @@ from swiss_weather_mcp.measurements.source import Station, StationMeasurements
 
 FLUNTERN = Station(
     abbr="SMA", name="Zürich / Fluntern", canton="Zurich", altitude_m=604.0, east_m=2685223.0, north_m=1248410.0,
+    data_since=date(1864, 1, 1),
 )
 APPENZELL = Station(
     abbr="APP", name="Appenzell", canton="Appenzell Innerrhoden", altitude_m=769.0, east_m=0.0, north_m=0.0,
+    data_since=date(1864, 1, 1),
 )
 
 
@@ -127,6 +129,60 @@ async def test_read_current_for_a_district(measurement_service_fixture):
         "2.2 km away and 176 m higher."
     )
     assert answer["place"] == "Lindenhof"
+
+
+# --- read_history ---
+
+@pytest.mark.asyncio
+async def test_read_history(measurement_service_fixture):
+    answer = await measurement_service_fixture.read_history("Zurich", date(2026, 9, 23), 2)
+
+    assert answer == {
+        "data_from": (
+            "The measurements for Zürich (418 m) are those of the MeteoSwiss station Zürich / Fluntern (604 m), "
+            "2.1 km away and 186 m higher."
+        ),
+        "place": "Zürich",
+        "days": [
+            {
+                "date": "2026-09-23",
+                "weekday": "Wednesday",
+                "temperature_mean_c": 14.3,
+                "temperature_min_c": 6.9,
+                "temperature_max_c": 21.4,
+                "rain_mm": 0.0,
+                "sunshine_h": 11.1,
+                "strongest_gust_kmh": 20.5,
+            },
+            {
+                "date": "2026-09-24",
+                "weekday": "Thursday",
+                "temperature_mean_c": 15.3,
+                "temperature_min_c": 10.9,
+                "temperature_max_c": 21.8,
+                "rain_mm": 0.0,
+                "sunshine_h": 3.0,
+                "strongest_gust_kmh": 30.2,
+            },
+        ],
+    }
+
+
+@pytest.mark.asyncio
+async def test_read_history_values_the_station_lacks(measurement_service_fixture):
+    # Fluntern has no rain from 0 to 0 UTC and no gust on 1975-07-01
+    answer = await measurement_service_fixture.read_history("Zurich", date(1975, 7, 1), 1)
+
+    day = answer["days"][0]
+    assert (day["temperature_mean_c"], day["sunshine_h"]) == (9.8, 1.5)
+    assert (day["rain_mm"], day["strongest_gust_kmh"]) == (None, None)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("days", [0, 367])
+async def test_read_history_refuses_days_out_of_range(measurement_service_fixture, days):
+    with pytest.raises(CannotAnswerError, match=f"days must be between 1 and 366, not {days}."):
+        await measurement_service_fixture.read_history("Zurich", date(2026, 9, 23), days)
 
 
 # --- read_extremes ---

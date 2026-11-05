@@ -91,14 +91,14 @@ def build_swiss_time(timestamp: str) -> datetime:
 # no thermometer, so it must be passed over, KLO has published no rows yet, and DAV stands where
 # the Davos MeteoSwiss point is.
 STATION_TABLE_COLUMNS = (
-    "station_abbr;station_name;station_canton;station_height_masl;"
+    "station_abbr;station_name;station_canton;station_data_since;station_height_masl;"
     "station_coordinates_lv95_east;station_coordinates_lv95_north"
 )
 STATION_TABLE_ROWS = (
-    ("SMA", "Zürich / Fluntern", "ZH", "604.0", "2685223.0", "1248410.0"),
-    ("UEB", "Uetliberg", "ZH", "854.0", "2679455.0", "1245034.0"),
-    ("KLO", "Zürich / Kloten", "ZH", "426.0", "2682711.0", "1259339.0"),
-    ("DAV", "Davos", "GR", "1594.0", "2783519.0", "1187459.0"),
+    ("SMA", "Zürich / Fluntern", "ZH", "01.01.1864", "604.0", "2685223.0", "1248410.0"),
+    ("UEB", "Uetliberg", "ZH", "14.11.1991", "854.0", "2679455.0", "1245034.0"),
+    ("KLO", "Zürich / Kloten", "ZH", "01.01.1935", "426.0", "2682711.0", "1259339.0"),
+    ("DAV", "Davos", "GR", "01.01.1864", "1594.0", "2783519.0", "1187459.0"),
 )
 
 # Some columns of the now files, with real values, except that DAV has no rain and no wind direction.
@@ -136,6 +136,27 @@ ALL_STATIONS_LATEST_VALUES_CSV = (
 # Five minutes after the latest rows of the now files
 MEASUREMENTS_NOW = datetime(2026, 9, 25, 14, 5, tzinfo=timezone.utc)
 
+# Some columns of the daily files, with real rows. SMA has the days up to yesterday, 2026-09-24, and
+# a few earlier ones; on 1975-07-01 it has only the rain from 6 to 6 UTC, rre150d0, as the rain from 0 to 0
+# UTC starts in 1981. UEB has no thermometer, and the other stations have no rows.
+STATION_DAYS_COLUMNS = "station_abbr;reference_timestamp;tre200d0;tre200dx;tre200dn;rka150d0;rre150d0;sre000d0;fu3010d1"
+STATION_AND_PERIOD_TO_DAYS_ROWS = {
+    ("sma", "historical"): (
+        "SMA;01.07.1975 00:00;9.8;13;8.4;;9.5;90;",
+        "SMA;30.12.2025 00:00;-1.6;1.3;-3.8;0;0;49;25.6",
+        "SMA;31.12.2025 00:00;-3.6;-0.3;-6.2;0;0;456;22.3",
+    ),
+    ("sma", "recent"): (
+        "SMA;22.09.2026 00:00;13.7;19.9;8.3;0;0;685;31",
+        "SMA;23.09.2026 00:00;14.3;21.4;6.9;0;0;663;20.5",
+        "SMA;24.09.2026 00:00;15.3;21.8;10.9;0;0;183;30.2",
+    ),
+    ("ueb", "recent"): (
+        "UEB;23.09.2026 00:00;;;;;;678;",
+        "UEB;24.09.2026 00:00;;;;;;89;",
+    ),
+}
+
 
 def build_station_table_csv() -> bytes:
     lines = [STATION_TABLE_COLUMNS]
@@ -147,6 +168,13 @@ def build_station_table_csv() -> bytes:
 def build_station_now_values_csv(abbr: str) -> bytes:
     """Build a station's now file the way MeteoSwiss publishes it, with CRLF line ends."""
     lines = [STATION_NOW_VALUES_COLUMNS, *STATION_NOW_VALUES_ROWS[abbr]]
+    return ("\r\n".join(lines) + "\r\n").encode("latin-1")
+
+
+def build_station_days_csv(abbr: str, period: str) -> bytes:
+    """Build a station's daily file of a period, "recent" or "historical", the way MeteoSwiss publishes it."""
+    rows = STATION_AND_PERIOD_TO_DAYS_ROWS.get((abbr, period), ())
+    lines = [STATION_DAYS_COLUMNS, *rows]
     return ("\r\n".join(lines) + "\r\n").encode("latin-1")
 
 

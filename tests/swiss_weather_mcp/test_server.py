@@ -22,6 +22,7 @@ EXPECTED_TOOLS = {
     "forecast_cloud_cover": ["location", "when", "near"],
     "forecast_freezing_level": ["location", "when", "near"],
     "measurements_current": ["location", "near"],
+    "measurements_history": ["location", "start_date", "days", "near"],
     "measurements_extremes": ["extreme"],
     "astronomy_sun": ["location", "date", "near"],
     "astronomy_moon": ["location", "date", "near"],
@@ -111,6 +112,14 @@ async def test_measurements_current_passes_near_on(server_fixture):
 
     await server_fixture.mcp.call_tool("measurements_current", {"location": "Blausee", "near": "Wallisellen"})
     server_fixture.measurement_service.read_current.assert_awaited_once_with("Blausee", "Wallisellen")
+
+
+@pytest.mark.asyncio
+async def test_measurements_history_passes_the_days_on(server_fixture):
+    server_fixture.measurement_service.read_history.return_value = {"place": "Zürich"}
+
+    await server_fixture.mcp.call_tool("measurements_history", {"location": "Zürich", "start_date": "2026-09-14", "days": 7})
+    server_fixture.measurement_service.read_history.assert_awaited_once_with("Zürich", date(2026, 9, 14), 7, None)
 
 
 @pytest.mark.asyncio

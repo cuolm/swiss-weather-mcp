@@ -132,6 +132,7 @@ Answers name the forecast point when it is not next to the place (see [Forecast 
 | `forecast_cloud_cover(location, when)` | Total cloud cover and its low, medium and high layers |
 | `forecast_freezing_level(location, when)` | Height of the 0 °C line |
 | `measurements_current(location)` | What a station near the place measures now (see [Measurements](#measurements)) |
+| `measurements_history(location, start_date, days)` | 1 to 366 past days: lowest, mean and highest temperature, rain, sunshine, strongest gust |
 | `measurements_extremes(extreme)` | Where it is `warmest`, `coldest`, `windiest`, `wettest` or `sunniest` now |
 | `astronomy_sun(location, date)` | Sunrise, sunset and civil twilight |
 | `astronomy_moon(location, date)` | Moonrise, moonset, phase and how much is lit |
@@ -187,6 +188,12 @@ Answers name the forecast point when it is not next to the place (see [Forecast 
 - It gives the temperature, humidity, dew point, rain and sunshine in the last 10 minutes, wind, gust,
   direction and sea-level pressure, plus the temperature and pressure change over the last 3 hours and
   the rain, sunshine and strongest gust of the last hour.
+- `measurements_history` gives MeteoSwiss's daily values of the station chosen the same way: of the 3
+  first stations, the first with a temperature on the days asked. A day runs from 00:00 to 24:00 UTC,
+  which is 01:00 to 01:00 Swiss time in winter and 02:00 to 02:00 in summer, and MeteoSwiss publishes
+  it the next morning. The days go back to when the station started, such as 1864 for Zürich /
+  Fluntern, where the rain from 0 to 0 UTC and the gust start in 1981; a value the station did not
+  measure is None. Days before this year come from a file of up to about 6.4 MB per station.
 - `measurements_extremes` lists the first 5 stations by temperature or gust. For the wettest, it lists
   the first 5 rainy stations and counts the rainy stations in Switzerland and in each canton.
 - For the sunniest it groups the stations by their sun in the last 10 minutes with the sunshine terms of

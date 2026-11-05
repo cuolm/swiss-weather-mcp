@@ -5,7 +5,8 @@ import pytest
 from fakes import (
     ALL_STATIONS_LATEST_VALUES_CSV, MEASUREMENTS_NOW, RUN_ID, FakeResponse, build_boundaries_archive,
     build_boundaries_editions, build_parameter_csv, build_place_names_archive, build_place_names_editions,
-    build_point_table_csv, build_stac_item, build_station_now_values_csv, build_station_table_csv,
+    build_point_table_csv, build_stac_item, build_station_days_csv, build_station_now_values_csv,
+    build_station_table_csv,
 )
 from swiss_weather_mcp.forecast.service import ForecastService
 from swiss_weather_mcp.forecast.source import ForecastSource
@@ -61,6 +62,10 @@ def source_fixture(mocker, tmp_path, tmp_path_factory):
         if url.endswith("_t_now.csv"):
             abbr = url.rsplit("/", 2)[-2]
             return FakeResponse(body=build_station_now_values_csv(abbr))
+        if url.endswith(("_d_recent.csv", "_d_historical.csv")):
+            abbr = url.rsplit("/", 2)[-2]
+            period = url.removesuffix(".csv").rsplit("_", 1)[-1]
+            return FakeResponse(body=build_station_days_csv(abbr, period))
         if url.endswith("swissnames3d/items"):
             return FakeResponse(payload=build_place_names_editions())
         if url.endswith(".csv.zip"):

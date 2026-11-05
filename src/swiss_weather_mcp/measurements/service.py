@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any, Dict, List, Literal, NamedTuple, Optional
 
 from . import parameters
@@ -12,6 +12,9 @@ from .source import MeasurementSource, Station, StationMeasurements, calculate_d
 logger = logging.getLogger(__name__)
 
 METRES_PER_KILOMETRE = 1000
+MINUTES_PER_HOUR = 60
+# Up to a whole year, a leap year too
+MAX_HISTORY_DAYS = 366
 
 # The usual period for a pressure tendency
 CHANGE_PERIOD = timedelta(hours=3)
@@ -79,17 +82,45 @@ class StationValue(NamedTuple):
     value: float
 
 
-def _build_data_from_sentence(place: SwisstopoPlace, measurements: StationMeasurements) -> str:
-    """Build the data_from sentence: the station that measured the values, its distance and height difference."""
-    station = measurements.station
+def _describe_station(place: SwisstopoPlace, station: Station) -> str:
+    """Say which station measured the values for a place, its distance and height difference."""
     distance_km = round(calculate_distance_m(place, station) / METRES_PER_KILOMETRE, 1)
     difference_m = round(station.altitude_m - place.altitude_m)
-    measured_at = measurements.measured_at.astimezone(SWISS_TZ)
     return (
         f"The measurements for {place.display_name} are those of the MeteoSwiss station "
-        f"{station.display_name}, {distance_km} km away and {describe_height_difference(difference_m)}. "
-        f"It measured the following values at {measured_at:%H:%M}."
+        f"{station.display_name}, {distance_km} km away and {describe_height_difference(difference_m)}."
     )
+
+
+def _build_data_from_sentence(place: SwisstopoPlace, measurements: StationMeasurements) -> str:
+    """Build the data_from sentence: the station that measured the values, and when it measured them."""
+    station_sentence = _describe_station(place, measurements.station)
+    measured_at = measurements.measured_at.astimezone(SWISS_TZ)
+    return f"{station_sentence} It measured the following values at {measured_at:%H:%M}."
+
+
+def _convert_minutes_to_hours(minutes: Optional[float]) -> Optional[float]:
+    """Turn minutes into hours rounded to a tenth, such as the sunshine of a day, or return None for None."""
+    if minutes is None:
+        return None
+    return round(minutes / MINUTES_PER_HOUR, 1)
+
+
+def _build_day_row(day_measurements: StationMeasurements) -> Dict[str, Any]:
+    """Build the answer row of one day of a station's daily measurements."""
+    day = day_measurements.measured_at.date()
+    parameter_to_value = day_measurements.parameter_to_value
+    sunshine_min = parameter_to_value[parameters.SUNSHINE_DAY]
+    return {
+        "date": day.isoformat(),
+        "weekday": f"{day:%A}",
+        "temperature_mean_c": parameter_to_value[parameters.TEMPERATURE_DAY_MEAN],
+        "temperature_min_c": parameter_to_value[parameters.TEMPERATURE_DAY_MIN],
+        "temperature_max_c": parameter_to_value[parameters.TEMPERATURE_DAY_MAX],
+        "rain_mm": parameter_to_value[parameters.PRECIPITATION_DAY],
+        "sunshine_h": _convert_minutes_to_hours(sunshine_min),
+        "strongest_gust_kmh": parameter_to_value[parameters.WIND_GUSTS_DAY],
+    }
 
 
 def _find_measurements_at(all_measurements: List[StationMeasurements],
@@ -280,6 +311,10 @@ class MeasurementService:
         """Find a place's station measurements in a worker thread, so a download does not block other requests."""
         return await asyncio.to_thread(self.measurement_source.find_station_measurements, place)
 
+    async def _find_station_days(self, place: SwisstopoPlace, first_day: date, last_day: date) -> List[StationMeasurements]:
+        """Find a place's daily station measurements in a worker thread, so a download does not block other requests."""
+        return await asyncio.to_thread(self.measurement_source.find_station_days, place, first_day, last_day)
+
     async def _read_all_stations_latest_measurements(self) -> List[StationMeasurements]:
         """Read every station's latest measurements in a worker thread, so a download does not block other requests."""
         return await asyncio.to_thread(self.measurement_source.read_all_stations_latest_measurements)
@@ -314,6 +349,32 @@ class MeasurementService:
         answer["rain_last_hour_mm"] = _sum_last_hour(all_measurements, parameters.PRECIPITATION)
         answer["strongest_gust_last_hour_kmh"] = _find_highest_last_hour(all_measurements, parameters.WIND_GUSTS)
         return answer
+
+    async def read_history(
+        self, location: str, first_day: date, days: int, nearby_location: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Read the daily measurements of the station chosen for the location, for 1 to MAX_HISTORY_DAYS UTC days from first_day.
+
+        Raise CannotAnswerError when days is out of range, for an unknown location, for today or later, and
+        when no station has measurements for the days.
+        """
+        if not 1 <= days <= MAX_HISTORY_DAYS:
+            raise CannotAnswerError(f"days must be between 1 and {MAX_HISTORY_DAYS}, not {days}.")
+
+        last_day = first_day + timedelta(days=days - 1)
+        place = await self._find_place(location, nearby_location)
+        station_days = await self._find_station_days(place, first_day, last_day)
+
+        day_rows = []
+        for day_measurements in station_days:
+            day_row = _build_day_row(day_measurements)
+            day_rows.append(day_row)
+        return {
+            "data_from": _describe_station(place, station_days[0].station),
+            "place": place.name,
+            "days": day_rows,
+        }
 
     async def read_extremes(self, extreme: str) -> Dict[str, Any]:
         """
