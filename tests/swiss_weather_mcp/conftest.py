@@ -5,15 +5,16 @@ import pytest
 from fakes import (
     ALL_STATIONS_LATEST_VALUES_CSV, MEASUREMENTS_NOW, RUN_ID, FakeResponse, build_boundaries_archive,
     build_boundaries_editions, build_parameter_csv, build_place_names_archive, build_place_names_editions,
-    build_point_table_csv, build_stac_item, build_station_days_csv, build_station_now_values_csv,
-    build_station_table_csv,
+    build_point_table_csv, build_slf_measurements_json, build_slf_stations_json, build_stac_item,
+    build_station_days_csv, build_station_now_values_csv, build_station_table_csv,
 )
 from swiss_weather_mcp.forecast.service import ForecastService
 from swiss_weather_mcp.forecast.source import ForecastSource
 from swiss_weather_mcp.places.boundary_source import SwisstopoBoundarySource
 from swiss_weather_mcp.places.finder import PlaceFinder
 from swiss_weather_mcp.measurements.service import MeasurementService
-from swiss_weather_mcp.measurements.source import MeasurementSource
+from swiss_weather_mcp.measurements.meteoswiss_source import MeteoSwissMeasurementSource
+from swiss_weather_mcp.measurements.slf_source import SLFMeasurementSource
 from swiss_weather_mcp.places.lookup import SwisstopoPlaceLookup
 from swiss_weather_mcp.places.place_source import SwisstopoPlaceSource
 
@@ -74,6 +75,11 @@ def source_fixture(mocker, tmp_path, tmp_path_factory):
             return FakeResponse(payload=build_boundaries_editions())
         if url.endswith(".gpkg.zip"):
             return FakeResponse(body=build_boundaries_archive(fake_files_dir))
+        if url.endswith("/imis/stations"):
+            return FakeResponse(body=build_slf_stations_json())
+        if url.endswith("/measurements?period_in_days=1"):
+            code = url.rsplit("/", 2)[-2]
+            return FakeResponse(body=build_slf_measurements_json(code))
         if "/items/" in url:
             return FakeResponse(payload=build_stac_item(RUN_ID, published))
         parameter = url.rsplit("/", 1)[-1].removesuffix(".csv")
@@ -95,18 +101,29 @@ def service_fixture(place_finder_fixture, source_fixture):
 @pytest.fixture
 def measurement_source_fixture(mocker, source_fixture, tmp_path):
     """
-    Return a MeasurementSource reading the fake station files, served by the same fake HTTP responses,
+    Return a MeteoSwissMeasurementSource reading the fake station files, served by the same fake HTTP responses,
     at a time when their latest rows are 5 minutes old.
     """
-    datetime_mock = mocker.patch("swiss_weather_mcp.measurements.source.datetime", wraps=datetime)
+    datetime_mock = mocker.patch("swiss_weather_mcp.measurements.meteoswiss_source.datetime", wraps=datetime)
     datetime_mock.now.return_value = MEASUREMENTS_NOW
-    return MeasurementSource(tmp_path)
+    return MeteoSwissMeasurementSource(tmp_path)
 
 
 @pytest.fixture
-def measurement_service_fixture(place_finder_fixture, measurement_source_fixture):
-    """Return a MeasurementService reading from the fake station files."""
-    return MeasurementService(place_finder_fixture, measurement_source_fixture)
+def slf_source_fixture(mocker, source_fixture, tmp_path):
+    """
+    Return an SLFMeasurementSource reading the fake SLF station list and measurements, served by the same fake HTTP
+    responses, at the time of measurement_source_fixture.
+    """
+    datetime_mock = mocker.patch("swiss_weather_mcp.measurements.slf_source.datetime", wraps=datetime)
+    datetime_mock.now.return_value = MEASUREMENTS_NOW
+    return SLFMeasurementSource(tmp_path)
+
+
+@pytest.fixture
+def measurement_service_fixture(place_finder_fixture, measurement_source_fixture, slf_source_fixture):
+    """Return a MeasurementService reading from the fake MeteoSwiss and SLF files."""
+    return MeasurementService(place_finder_fixture, measurement_source_fixture, slf_source_fixture)
 
 
 @pytest.fixture

@@ -16,6 +16,7 @@ A **Model Context Protocol ([MCP](https://modelcontextprotocol.io/))** server th
 
 > **Data sources.** This project is not an official MeteoSwiss product.
 > - Weather forecasts and measurements: [MeteoSwiss Open Data](https://opendata.swiss/en/organization/bundesamt-fur-meteorologie-und-klimatologie-meteoschweiz). Source: MeteoSwiss
+> - Measurements of the IMIS mountain stations: [SLF](https://www.slf.ch), the WSL Institute for Snow and Avalanche Research, under [CC BY 4.0](https://www.slf.ch/en/services-and-products/slf-data-service/). Source: SLF
 > - Place names: [swissNAMES3D](https://www.swisstopo.admin.ch/en/landscape-model-swissnames3d). Source: Federal Office of Topography swisstopo
 > - Municipalities and cantons: [swissBOUNDARIES3D](https://www.swisstopo.admin.ch/en/landscape-model-swissboundaries3d). Source: Federal Office of Topography swisstopo
 
@@ -36,9 +37,10 @@ swiss-weather-mcp/
 │   ├── server.py           # MCP server and its tools
 │   ├── places/             # swisstopo place lookup
 │   ├── forecast/           # MeteoSwiss local forecasts
-│   ├── measurements/       # MeteoSwiss SwissMetNet measurements
+│   ├── measurements/       # MeteoSwiss SwissMetNet and SLF IMIS measurements
 │   ├── astronomy/          # Sunrise, sunset, moonrise, moonset and phase
-│   ├── opendata.py         # Downloads from data.geo.admin.ch
+│   ├── opendata.py         # Downloads from data.geo.admin.ch and SLF
+│   ├── distance.py         # Distance plus height gap, to choose a station for a place
 │   ├── formatting.py       # Times, wind directions and height differences in the answers
 │   ├── errors.py           # The error for questions the data cannot answer
 │   ├── log.py              # Logging setup
@@ -188,6 +190,13 @@ Answers name the forecast point when it is not next to the place (see [Forecast 
 - It gives the temperature, humidity, dew point, rain and sunshine in the last 10 minutes, wind, gust,
   direction and sea-level pressure, plus the temperature and pressure change over the last 3 hours and
   the rain, sunshine and strongest gust of the last hour.
+- In the mountains it adds an `slf_station` block from one of the about 200 IMIS stations of the
+  [SLF](https://www.slf.ch), most between 1300 and 3300 m: the temperature, humidity, wind, direction
+  and strongest 5-second gust of the 30 minutes up to its latest row. It is added only when the station's
+  distance plus 20 times the height gap is smaller than the MeteoSwiss station's, and the station
+  published a temperature in the last hour (of the 3 best, the first that did). On the real data that is
+  no place below 800 m and most places above 2000 m. Its own data_from names the station, its distance
+  and height. When SLF cannot be reached, the answer comes without the block.
 - `measurements_history` gives MeteoSwiss's daily values of the station chosen the same way: of the 3
   first stations, the first with a temperature on the days asked. A day runs from 00:00 to 24:00 UTC,
   which is 01:00 to 01:00 Swiss time in winter and 02:00 to 02:00 in summer, and MeteoSwiss publishes

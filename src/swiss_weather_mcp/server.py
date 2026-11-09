@@ -20,7 +20,8 @@ from .forecast.service import ForecastService
 from .forecast.source import ForecastSource
 from .places import PlaceFinder
 from .measurements.service import ExtremeName, MeasurementService
-from .measurements.source import MeasurementSource
+from .measurements.meteoswiss_source import MeteoSwissMeasurementSource
+from .measurements.slf_source import SLFMeasurementSource
 from .astronomy.service import AstronomyService
 from .formatting import SWISS_TZ
 
@@ -341,13 +342,17 @@ class SwissWeatherMCPServer:
 
             Use this for "how warm is it now" or "is it raining now". The values are those of the
             station named in data_from. MeteoSwiss publishes new values about every 10 minutes.
+            When a station of the SLF, the WSL Institute for Snow and Avalanche Research, is closer
+            to the place in distance and height, mostly in the mountains, slf_station adds its
+            temperature, humidity and wind over the last 30 minutes, with its own data_from.
 
             Args:
                 location (str): Name of a place in Switzerland, e.g. "Zürich".
 
             Returns:
                 dict: data_from, the place, the time of the measurements and the measured values. A
-                    value is None when the station has not published it.
+                    value is None when the station has not published it. slf_station, only when an
+                    SLF station is closer, holds the values of that station.
 
             Examples:
                 measurements_current("Zürich")
@@ -493,8 +498,9 @@ def _build_server(args: argparse.Namespace) -> SwissWeatherMCPServer:
     place_finder.start_loading_places()
     forecast_source = ForecastSource(CACHE_DIR, cache_all_forecast_points=args.cache_all_forecast_points)
     forecast_service = ForecastService(place_finder, forecast_source)
-    measurement_source = MeasurementSource(CACHE_DIR)
-    measurement_service = MeasurementService(place_finder, measurement_source)
+    measurement_source = MeteoSwissMeasurementSource(CACHE_DIR)
+    slf_source = SLFMeasurementSource(CACHE_DIR)
+    measurement_service = MeasurementService(place_finder, measurement_source, slf_source)
     astronomy_service = AstronomyService(place_finder)
     return SwissWeatherMCPServer(forecast_service, measurement_service, astronomy_service, args.log_level)
 

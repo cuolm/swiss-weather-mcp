@@ -5,11 +5,11 @@ from datetime import date, datetime, timedelta, timezone
 import pytest
 
 from fakes import MEASUREMENTS_NOW
+from swiss_weather_mcp.distance import calculate_weighted_distance_m
 from swiss_weather_mcp.errors import CannotAnswerError
 from swiss_weather_mcp.measurements import parameters
-from swiss_weather_mcp.measurements.source import (
-    MAX_STATIONS_TRIED, Station, _calculate_weighted_distance_m, _find_canton_name, _list_periods,
-    _parse_reference_timestamp,
+from swiss_weather_mcp.measurements.meteoswiss_source import (
+    MAX_STATIONS_TRIED, MeteoSwissStation, _find_canton_name, _list_periods, _parse_reference_timestamp,
 )
 from swiss_weather_mcp.places.place_source import SwisstopoPlace
 
@@ -30,11 +30,11 @@ BRAUNWALD = SwisstopoPlace(
     name="Braunwald", object_types=("Ort", "Haltestelle Bahn"), population_band=4, is_exonym=False,
     altitude_m=1290.0, east_m=2718807.0, north_m=1199989.0,
 )
-GLARUS = Station(
+GLARUS = MeteoSwissStation(
     abbr="GLA", name="Glarus", canton="Glarus", altitude_m=517.0, east_m=2723757.0, north_m=1210567.0,
     data_since=date(1864, 1, 1),
 )
-ELM = Station(
+ELM = MeteoSwissStation(
     abbr="ELM", name="Elm", canton="Glarus", altitude_m=958.0, east_m=2732266.0, north_m=1198424.0,
     data_since=date(1878, 2, 1),
 )
@@ -109,11 +109,11 @@ def test_read_station_measurements_downloads_again_when_old(source_fixture, meas
     assert count_downloads(source_fixture, "ogd-smn_sma_t_now.csv") == 2
 
 
-# --- _calculate_weighted_distance_m ---
+# --- calculate_weighted_distance_m ---
 
 def test_calculate_weighted_distance_m_prefers_a_station_of_similar_height():
     # Glarus is nearer to Braunwald, but 773 m lower; Elm is 1.8 km farther, but only 332 m lower
-    assert _calculate_weighted_distance_m(BRAUNWALD, ELM) < _calculate_weighted_distance_m(BRAUNWALD, GLARUS)
+    assert calculate_weighted_distance_m(BRAUNWALD, ELM) < calculate_weighted_distance_m(BRAUNWALD, GLARUS)
 
 
 # --- find_station_measurements ---
@@ -238,7 +238,7 @@ def test_find_station_days_refuses_today(measurement_source_fixture):
 
 def test_find_station_days_refuses_days_not_published_yet(mocker, measurement_source_fixture):
     # A day later, at 14:05 UTC, but MeteoSwiss has not added the row of 2026-09-25 to the recent files
-    datetime_mock = mocker.patch("swiss_weather_mcp.measurements.source.datetime", wraps=datetime)
+    datetime_mock = mocker.patch("swiss_weather_mcp.measurements.meteoswiss_source.datetime", wraps=datetime)
     datetime_mock.now.return_value = MEASUREMENTS_NOW + timedelta(days=1)
     with pytest.raises(CannotAnswerError) as raised:
         measurement_source_fixture.find_station_days(ZURICH, date(2026, 9, 25), date(2026, 9, 25))

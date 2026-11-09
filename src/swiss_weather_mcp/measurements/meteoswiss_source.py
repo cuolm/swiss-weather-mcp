@@ -81,12 +81,12 @@ How we use it to compare all stations:
 """
 import csv
 import logging
-import math
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Dict, List, NamedTuple, Optional, Sequence
 
 from . import parameters
+from ..distance import calculate_weighted_distance_m
 from ..errors import CannotAnswerError
 from ..opendata import ensure_recent_file, parse_stamp
 from ..places import SwisstopoPlace
@@ -113,8 +113,6 @@ PERIOD_TO_MAX_AGE = {
 # Older latest measurements mean the station stopped publishing
 LATEST_MEASUREMENTS_MAX_AGE = timedelta(hours=1)
 MAX_STATIONS_TRIED = 3
-# Weather changes more with height than with distance: 1 m of height gap counts like 20 m farther away
-METRES_PER_HEIGHT_METRE = 20
 
 MISSING_VALUE_MARKERS = {"", "-"}
 
@@ -129,7 +127,7 @@ CANTON_ABBREVIATION_TO_NAME = {
 }
 
 
-class Station(NamedTuple):
+class MeteoSwissStation(NamedTuple):
     """A SwissMetNet weather station as the MeteoSwiss station table describes it."""
     abbr: str
     name: str
@@ -145,21 +143,9 @@ class Station(NamedTuple):
         return f"{self.name} ({self.altitude_m:.0f} m)"
 
 
-def calculate_distance_m(place: SwisstopoPlace, station: Station) -> float:
-    """Return the distance in metres between a place and a station."""
-    # LV95 is a flat grid in metres, so Pythagoras is exact enough within Switzerland
-    return math.hypot(place.east_m - station.east_m, place.north_m - station.north_m)
-
-
-def _calculate_weighted_distance_m(place: SwisstopoPlace, station: Station) -> float:
-    """Return the distance to a station plus METRES_PER_HEIGHT_METRE times the height gap."""
-    height_gap_m = abs(station.altitude_m - place.altitude_m)
-    return calculate_distance_m(place, station) + METRES_PER_HEIGHT_METRE * height_gap_m
-
-
-class StationMeasurements(NamedTuple):
+class MeteoSwissStationMeasurements(NamedTuple):
     """The measurements of one station at one time, keyed by parameter; None where it has no value."""
-    station: Station
+    station: MeteoSwissStation
     measured_at: datetime
     parameter_to_value: Dict[str, Optional[float]]
 
@@ -202,8 +188,8 @@ def _describe_days(first_day: date, last_day: date) -> str:
 
 
 def _find_days_between(
-    all_days: List[StationMeasurements], first_day: date, last_day: date
-) -> List[StationMeasurements]:
+    all_days: List[MeteoSwissStationMeasurements], first_day: date, last_day: date
+) -> List[MeteoSwissStationMeasurements]:
     """Find the daily rows from first_day to last_day."""
     days_between = []
     for day_measurements in all_days:
@@ -223,25 +209,25 @@ def _list_periods(first_day: date, last_day: date, today: date) -> List[str]:
     return periods
 
 
-class MeasurementSource:
+class MeteoSwissMeasurementSource:
     """Read the latest SwissMetNet measurements and find the station for a place."""
 
     def __init__(self, cache_dir: Path):
         self.cache_dir = cache_dir / "measurements"
-        self._abbreviation_to_station: Dict[str, Station] = {}
+        self._abbreviation_to_station: Dict[str, MeteoSwissStation] = {}
 
-    def _load_stations(self) -> Dict[str, Station]:
+    def _load_stations(self) -> Dict[str, MeteoSwissStation]:
         """Read the station table into memory once per process, keyed by station abbreviation."""
         if self._abbreviation_to_station:
             return self._abbreviation_to_station
 
         station_table_file = self.cache_dir / "ogd-smn_meta_stations.csv"
         station_table = ensure_recent_file(STATION_TABLE_URL, station_table_file, STATION_TABLE_MAX_AGE)
-        abbreviation_to_station: Dict[str, Station] = {}
+        abbreviation_to_station: Dict[str, MeteoSwissStation] = {}
         with open(station_table, newline="", encoding="latin-1") as file:
             for row in csv.DictReader(file, delimiter=";"):
                 data_since = _parse_data_since(row["station_data_since"])
-                station = Station(
+                station = MeteoSwissStation(
                     abbr=row["station_abbr"],
                     name=row["station_name"],
                     canton=_find_canton_name(row["station_canton"]),
@@ -256,7 +242,7 @@ class MeasurementSource:
         logger.info(f"Loaded {len(abbreviation_to_station)} weather stations")
         return abbreviation_to_station
 
-    def _read_station_measurements(self, station: Station) -> List[StationMeasurements]:
+    def _read_station_measurements(self, station: MeteoSwissStation) -> List[MeteoSwissStationMeasurements]:
         """Read every row of a station's now file, the oldest first."""
         abbr = station.abbr.lower()
         station_now_values_url = STATION_NOW_VALUES_URL.format(abbr=abbr)
@@ -270,11 +256,11 @@ class MeasurementSource:
             for row in csv.DictReader(file, delimiter=";"):
                 measured_at = _parse_reference_timestamp(row["reference_timestamp"])
                 parameter_to_value = _parse_values(row, parameters.ALL_NOW_PARAMETERS)
-                measurements = StationMeasurements(station, measured_at, parameter_to_value)
+                measurements = MeteoSwissStationMeasurements(station, measured_at, parameter_to_value)
                 all_measurements.append(measurements)
         return all_measurements
 
-    def _read_station_days(self, station: Station, period: str) -> List[StationMeasurements]:
+    def _read_station_days(self, station: MeteoSwissStation, period: str) -> List[MeteoSwissStationMeasurements]:
         """Read every row of one of a station's daily files, RECENT_DAYS or HISTORICAL_DAYS, the oldest first."""
         abbr = station.abbr.lower()
         station_days_url = STATION_DAYS_URL.format(abbr=abbr, period=period)
@@ -287,18 +273,18 @@ class MeasurementSource:
                 # A daily row is stamped 00:00 UTC at the start of its day
                 measured_at = _parse_reference_timestamp(row["reference_timestamp"])
                 parameter_to_value = _parse_values(row, parameters.ALL_DAILY_PARAMETERS)
-                day_measurements = StationMeasurements(station, measured_at, parameter_to_value)
+                day_measurements = MeteoSwissStationMeasurements(station, measured_at, parameter_to_value)
                 all_days.append(day_measurements)
         return all_days
 
-    def _rank_stations(self, place: SwisstopoPlace) -> List[Station]:
+    def _rank_stations(self, place: SwisstopoPlace) -> List[MeteoSwissStation]:
         """Rank the stations for a place by distance plus METRES_PER_HEIGHT_METRE times the height gap."""
         abbreviation_to_station = self._load_stations()
         return sorted(
-            abbreviation_to_station.values(), key=lambda station: _calculate_weighted_distance_m(place, station)
+            abbreviation_to_station.values(), key=lambda station: calculate_weighted_distance_m(place, station)
         )
 
-    def find_station_measurements(self, place: SwisstopoPlace) -> List[StationMeasurements]:
+    def find_station_measurements(self, place: SwisstopoPlace) -> List[MeteoSwissStationMeasurements]:
         """
         Find the measurements of the station for a place, the oldest first.
 
@@ -326,7 +312,9 @@ class MeasurementSource:
             f"temperature in the last hour, try again later."
         )
 
-    def find_station_days(self, place: SwisstopoPlace, first_day: date, last_day: date) -> List[StationMeasurements]:
+    def find_station_days(
+        self, place: SwisstopoPlace, first_day: date, last_day: date
+    ) -> List[MeteoSwissStationMeasurements]:
         """
         Find the daily measurements of the station for a place from first_day to last_day, the oldest first.
 
@@ -382,7 +370,7 @@ class MeasurementSource:
             f"for {described_days}."
         )
 
-    def read_all_stations_latest_measurements(self) -> List[StationMeasurements]:
+    def read_all_stations_latest_measurements(self) -> List[MeteoSwissStationMeasurements]:
         """Read the latest measurements of every station in the station table from the all stations file."""
         abbreviation_to_station = self._load_stations()
         all_stations_latest_values_file = self.cache_dir / "VQHA80.csv"
@@ -398,6 +386,6 @@ class MeasurementSource:
                     continue  # a station without a row in the station table has no name and no canton
                 measured_at = parse_stamp(row["Date"])
                 parameter_to_value = _parse_values(row, parameters.ALL_NOW_PARAMETERS)
-                measurements = StationMeasurements(station, measured_at, parameter_to_value)
+                measurements = MeteoSwissStationMeasurements(station, measured_at, parameter_to_value)
                 all_measurements.append(measurements)
         return all_measurements

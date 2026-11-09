@@ -1,6 +1,7 @@
 """
-Download files from data.geo.admin.ch, the Swiss open data portal that publishes the MeteoSwiss
-and the swisstopo data, and read the MeteoSwiss timestamps.
+Download and cache open data files: from data.geo.admin.ch, the Swiss open data portal that
+publishes the MeteoSwiss and the swisstopo data, and from the SLF measurement API. Read the
+MeteoSwiss timestamps.
 
 Shared by the forecast, the measurement and the places code. All MeteoSwiss timestamps are UTC.
 """

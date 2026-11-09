@@ -1,5 +1,6 @@
-"""Fake MeteoSwiss and swisstopo data and responses shared by the tests."""
+"""Fake MeteoSwiss, SLF and swisstopo data and responses shared by the tests."""
 import io
+import json
 import sqlite3
 import struct
 import zipfile
@@ -176,6 +177,60 @@ def build_station_days_csv(abbr: str, period: str) -> bytes:
     rows = STATION_AND_PERIOD_TO_DAYS_ROWS.get((abbr, period), ())
     lines = [STATION_DAYS_COLUMNS, *rows]
     return ("\r\n".join(lines) + "\r\n").encode("latin-1")
+
+
+# Four objects of the SLF station list, as SLF publishes them: the IMIS stations that suit the
+# Matterhorn best, in that order.
+SLF_STATIONS = (
+    {"code": "ZER1", "label": "Platthorn", "lon": 7.7363289398, "lat": 46.0536592487, "elevation": 3345.0,
+     "country_code": "CH", "canton_code": "VS", "type": "WIND"},
+    {"code": "GOR2", "label": "Gornergratsee", "lon": 7.7835986582, "lat": 45.987191604, "elevation": 2953.0,
+     "country_code": "CH", "canton_code": "VS", "type": "SNOW_FLAT"},
+    {"code": "ARO1", "label": "La Cassorte", "lon": 7.4352901353, "lat": 46.0353666322, "elevation": 3300.0,
+     "country_code": "CH", "canton_code": "VS", "type": "WIND"},
+    {"code": "ZER2", "label": "Triftchumme", "lon": 7.7274051006, "lat": 46.0421771157, "elevation": 2752.0,
+     "country_code": "CH", "canton_code": "VS", "type": "SNOW_FLAT"},
+)
+
+
+def build_slf_row(code: str, utc_time: str, values: tuple) -> dict:
+    """Build one row of a station's measurements with the temperature, humidity, wind, gust and direction."""
+    row = {"station_code": code, "measure_date": f"2026-09-25T{utc_time}:00Z", "HS": None}
+    for key, value in zip(("TA_30MIN_MEAN", "RH_30MIN_MEAN", "VW_30MIN_MEAN", "VW_30MIN_MAX", "DW_30MIN_MEAN"), values):
+        row[key] = value
+    return row
+
+
+# The last two rows of each station's measurements, with real values of 2026-11-09 moved to the time of
+# the MeteoSwiss now files. Platthorn's temperature is left out, and Gornergratsee's last row is from
+# 12:30 UTC, more than 1 hour before MEASUREMENTS_NOW.
+SLF_STATION_CODE_TO_ROWS = {
+    "ZER1": (
+        build_slf_row("ZER1", "13:30", (None, 77.1, 3.394, 8.12, 223.7)),
+        build_slf_row("ZER1", "14:00", (None, 71.3, 4.584, 11.28, 235.8)),
+    ),
+    "GOR2": (
+        build_slf_row("GOR2", "12:00", (0.663, 63.36, 3.352, 8.02, 236.5)),
+        build_slf_row("GOR2", "12:30", (0.216, 63.08, 4.325, 7.922, 227.6)),
+    ),
+    "ARO1": (
+        build_slf_row("ARO1", "13:30", (-1.009, 76.1, 3.033, 6.277, 199.2)),
+        build_slf_row("ARO1", "14:00", (-0.713, 73.6, 2.318, 4.557, 198.8)),
+    ),
+    "ZER2": (
+        build_slf_row("ZER2", "13:30", (1.762, 65.83, 0.16, 1.897, 75.6)),
+        build_slf_row("ZER2", "14:00", (2.345, 61.94, 0.507, 2.836, 22.92)),
+    ),
+}
+
+
+def build_slf_stations_json() -> bytes:
+    return json.dumps(SLF_STATIONS).encode("utf-8")
+
+
+def build_slf_measurements_json(code: str) -> bytes:
+    rows = SLF_STATION_CODE_TO_ROWS[code]
+    return json.dumps(rows).encode("utf-8")
 
 
 # Some columns of the swissNAMES3D files, with real places. Oerlikon is a city district in the

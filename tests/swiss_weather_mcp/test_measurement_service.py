@@ -1,28 +1,30 @@
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 import pytest
+import requests
 
+from fakes import MEASUREMENTS_NOW
 from swiss_weather_mcp.errors import CannotAnswerError
 from swiss_weather_mcp.measurements import parameters
 from swiss_weather_mcp.measurements.service import (
     StationValue, _build_canton_rows, _build_sunshine_canton_rows, _calculate_change, _find_highest_last_hour,
     _find_sunshine_class, _sum_last_hour,
 )
-from swiss_weather_mcp.measurements.source import Station, StationMeasurements
+from swiss_weather_mcp.measurements.meteoswiss_source import MeteoSwissStation, MeteoSwissStationMeasurements
 
-FLUNTERN = Station(
+FLUNTERN = MeteoSwissStation(
     abbr="SMA", name="Zürich / Fluntern", canton="Zurich", altitude_m=604.0, east_m=2685223.0, north_m=1248410.0,
     data_since=date(1864, 1, 1),
 )
-APPENZELL = Station(
+APPENZELL = MeteoSwissStation(
     abbr="APP", name="Appenzell", canton="Appenzell Innerrhoden", altitude_m=769.0, east_m=0.0, north_m=0.0,
     data_since=date(1864, 1, 1),
 )
 
 
-def build_measurements(utc_time: str, parameter_to_value: dict) -> StationMeasurements:
+def build_measurements(utc_time: str, parameter_to_value: dict) -> MeteoSwissStationMeasurements:
     measured_at = datetime.fromisoformat(utc_time).replace(tzinfo=timezone.utc)
-    return StationMeasurements(FLUNTERN, measured_at, parameter_to_value)
+    return MeteoSwissStationMeasurements(FLUNTERN, measured_at, parameter_to_value)
 
 
 # --- read_current ---
@@ -77,6 +79,59 @@ async def test_read_current_without_earlier_measurements(measurement_service_fix
     assert answer["sunshine_last_hour_min"] is None
     assert answer["rain_last_hour_mm"] is None
     assert answer["strongest_gust_last_hour_kmh"] is None
+
+
+@pytest.mark.asyncio
+async def test_read_current_adds_an_slf_station_in_the_mountains(measurement_service_fixture):
+    # The MeteoSwiss stations of the fakes are all far below the summit, and La Cassorte is the first SLF
+    # station with a temperature in the last hour. Its wind is 2.318 m/s, its gust 4.557 m/s.
+    answer = await measurement_service_fixture.read_current("Matterhorn")
+
+    assert answer["slf_station"] == {
+        "data_from": (
+            "The SLF station La Cassorte (3300 m), 18.5 km away and 1178 m lower, suits Matterhorn (4478 m) "
+            "better in distance and height than the MeteoSwiss station. Its values cover the 30 minutes up "
+            "to 16:00."
+        ),
+        "measured_at": "2026-09-25T16:00+02:00",
+        "temperature_c": -0.7,
+        "humidity_percent": 73.6,
+        "wind_speed_kmh": 8.3,
+        "wind_direction_degrees": 198.8,
+        "compass_point": "SSW",
+        "strongest_gust_last_30_minutes_kmh": 16.4,
+    }
+
+
+@pytest.mark.asyncio
+async def test_read_current_without_an_slf_station_in_the_lowlands(measurement_service_fixture):
+    # Fluntern, 2.1 km away and 186 m higher, suits Zürich better than any SLF station
+    answer = await measurement_service_fixture.read_current("Zurich")
+
+    assert "slf_station" not in answer
+
+
+@pytest.mark.asyncio
+async def test_read_current_without_recent_slf_measurements(mocker, measurement_service_fixture):
+    # An hour later for SLF only: La Cassorte's last row is then more than 1 hour old as well
+    datetime_mock = mocker.patch("swiss_weather_mcp.measurements.slf_source.datetime", wraps=datetime)
+    datetime_mock.now.return_value = MEASUREMENTS_NOW + timedelta(hours=1)
+    answer = await measurement_service_fixture.read_current("Matterhorn")
+
+    assert "slf_station" not in answer
+    assert answer["temperature_c"] is not None
+
+
+@pytest.mark.asyncio
+async def test_read_current_when_slf_cannot_be_reached(mocker, measurement_service_fixture):
+    mocker.patch.object(
+        measurement_service_fixture.slf_source, "find_closer_slf_station_measurements",
+        side_effect=requests.ConnectionError("SLF is down"),
+    )
+    answer = await measurement_service_fixture.read_current("Matterhorn")
+
+    assert "slf_station" not in answer
+    assert answer["temperature_c"] is not None
 
 
 # --- _calculate_change ---

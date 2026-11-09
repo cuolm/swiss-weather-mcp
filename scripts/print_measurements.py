@@ -5,7 +5,8 @@ import sys
 from datetime import datetime, timedelta, timezone
 
 from swiss_weather_mcp.measurements.service import EXTREME_NAME_TO_EXTREME, MeasurementService
-from swiss_weather_mcp.measurements.source import MeasurementSource
+from swiss_weather_mcp.measurements.meteoswiss_source import MeteoSwissMeasurementSource
+from swiss_weather_mcp.measurements.slf_source import SLFMeasurementSource
 from swiss_weather_mcp.places import PlaceFinder
 from swiss_weather_mcp.server import CACHE_DIR
 
@@ -20,7 +21,9 @@ def print_answer(tool_call: str, answer: dict) -> None:
 
 async def print_measurements(location: str) -> None:
     """Call each measurement service method and print its answer."""
-    service = MeasurementService(PlaceFinder(CACHE_DIR), MeasurementSource(CACHE_DIR))
+    service = MeasurementService(
+        PlaceFinder(CACHE_DIR), MeteoSwissMeasurementSource(CACHE_DIR), SLFMeasurementSource(CACHE_DIR)
+    )
 
     current_answer = await service.read_current(location)
     print_answer(f'measurements_current("{location}")', current_answer)

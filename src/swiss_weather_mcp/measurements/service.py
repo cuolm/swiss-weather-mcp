@@ -3,16 +3,21 @@ import logging
 from datetime import date, datetime, timedelta
 from typing import Any, Dict, List, Literal, NamedTuple, Optional
 
+import requests
+
 from . import parameters
+from ..distance import calculate_distance_m, calculate_weighted_distance_m
 from ..errors import CannotAnswerError
 from ..formatting import SWISS_TZ, describe_height_difference, find_compass_point, format_swiss_time
 from ..places import PlaceFinder, SwisstopoPlace
-from .source import MeasurementSource, Station, StationMeasurements, calculate_distance_m
+from .meteoswiss_source import MeteoSwissMeasurementSource, MeteoSwissStation, MeteoSwissStationMeasurements
+from .slf_source import SLFStationMeasurements, SLFMeasurementSource
 
 logger = logging.getLogger(__name__)
 
 METRES_PER_KILOMETRE = 1000
 MINUTES_PER_HOUR = 60
+KMH_PER_M_PER_S = 3.6
 # Up to a whole year, a leap year too
 MAX_HISTORY_DAYS = 366
 
@@ -78,11 +83,11 @@ SUNSHINE_CLASSES = (
 
 class StationValue(NamedTuple):
     """One measured value of one station."""
-    station: Station
+    station: MeteoSwissStation
     value: float
 
 
-def _describe_station(place: SwisstopoPlace, station: Station) -> str:
+def _describe_station(place: SwisstopoPlace, station: MeteoSwissStation) -> str:
     """Say which station measured the values for a place, its distance and height difference."""
     distance_km = round(calculate_distance_m(place, station) / METRES_PER_KILOMETRE, 1)
     difference_m = round(station.altitude_m - place.altitude_m)
@@ -92,11 +97,57 @@ def _describe_station(place: SwisstopoPlace, station: Station) -> str:
     )
 
 
-def _build_data_from_sentence(place: SwisstopoPlace, measurements: StationMeasurements) -> str:
+def _build_data_from_sentence(place: SwisstopoPlace, measurements: MeteoSwissStationMeasurements) -> str:
     """Build the data_from sentence: the station that measured the values, and when it measured them."""
     station_sentence = _describe_station(place, measurements.station)
     measured_at = measurements.measured_at.astimezone(SWISS_TZ)
     return f"{station_sentence} It measured the following values at {measured_at:%H:%M}."
+
+
+def _build_slf_data_from_sentence(place: SwisstopoPlace, slf_measurements: SLFStationMeasurements) -> str:
+    """Build the data_from sentence of the SLF block: the station, and the time its values cover."""
+    station = slf_measurements.station
+    distance_km = round(calculate_distance_m(place, station) / METRES_PER_KILOMETRE, 1)
+    difference_m = round(station.altitude_m - place.altitude_m)
+    measured_at = slf_measurements.measured_at.astimezone(SWISS_TZ)
+    return (
+        f"The SLF station {station.display_name}, {distance_km} km away and {describe_height_difference(difference_m)}, "
+        f"suits {place.display_name} better in distance and height than the MeteoSwiss station. Its values "
+        f"cover the 30 minutes up to {measured_at:%H:%M}."
+    )
+
+
+def _round_to_tenth(value: Optional[float]) -> Optional[float]:
+    """Round a value to a tenth, as MeteoSwiss publishes them, or return None for None."""
+    if value is None:
+        return None
+    return round(value, 1)
+
+
+def _convert_m_per_s_to_kmh(speed_m_per_s: Optional[float]) -> Optional[float]:
+    """Turn a speed in m/s into km/h rounded to a tenth, or return None for None."""
+    if speed_m_per_s is None:
+        return None
+    return round(speed_m_per_s * KMH_PER_M_PER_S, 1)
+
+
+def _build_slf_block(place: SwisstopoPlace, slf_measurements: SLFStationMeasurements) -> Dict[str, Any]:
+    """Build the slf_station block of the weather now: the latest measurements of an SLF station."""
+    wind_direction_degrees = _round_to_tenth(slf_measurements.wind_direction_degrees)
+    if wind_direction_degrees is None:
+        compass_point = None
+    else:
+        compass_point = find_compass_point(wind_direction_degrees)
+    return {
+        "data_from": _build_slf_data_from_sentence(place, slf_measurements),
+        "measured_at": format_swiss_time(slf_measurements.measured_at),
+        "temperature_c": _round_to_tenth(slf_measurements.temperature_c),
+        "humidity_percent": _round_to_tenth(slf_measurements.humidity_percent),
+        "wind_speed_kmh": _convert_m_per_s_to_kmh(slf_measurements.wind_speed_m_per_s),
+        "wind_direction_degrees": wind_direction_degrees,
+        "compass_point": compass_point,
+        "strongest_gust_last_30_minutes_kmh": _convert_m_per_s_to_kmh(slf_measurements.strongest_gust_m_per_s),
+    }
 
 
 def _convert_minutes_to_hours(minutes: Optional[float]) -> Optional[float]:
@@ -106,7 +157,7 @@ def _convert_minutes_to_hours(minutes: Optional[float]) -> Optional[float]:
     return round(minutes / MINUTES_PER_HOUR, 1)
 
 
-def _build_day_row(day_measurements: StationMeasurements) -> Dict[str, Any]:
+def _build_day_row(day_measurements: MeteoSwissStationMeasurements) -> Dict[str, Any]:
     """Build the answer row of one day of a station's daily measurements."""
     day = day_measurements.measured_at.date()
     parameter_to_value = day_measurements.parameter_to_value
@@ -123,8 +174,8 @@ def _build_day_row(day_measurements: StationMeasurements) -> Dict[str, Any]:
     }
 
 
-def _find_measurements_at(all_measurements: List[StationMeasurements],
-                          measured_at: datetime) -> Optional[StationMeasurements]:
+def _find_measurements_at(all_measurements: List[MeteoSwissStationMeasurements],
+                          measured_at: datetime) -> Optional[MeteoSwissStationMeasurements]:
     """Find the measurements of a time, or None when the station published none for it."""
     for measurements in all_measurements:
         if measurements.measured_at == measured_at:
@@ -132,7 +183,7 @@ def _find_measurements_at(all_measurements: List[StationMeasurements],
     return None
 
 
-def _calculate_change(all_measurements: List[StationMeasurements], parameter: str) -> Optional[float]:
+def _calculate_change(all_measurements: List[MeteoSwissStationMeasurements], parameter: str) -> Optional[float]:
     """Return how much a value changed over the last 3 hours, or None when either value is missing."""
     latest_measurements = all_measurements[-1]
     earlier_measurements = _find_measurements_at(all_measurements, latest_measurements.measured_at - CHANGE_PERIOD)
@@ -145,7 +196,7 @@ def _calculate_change(all_measurements: List[StationMeasurements], parameter: st
     return round(latest_value - earlier_value, 1)
 
 
-def _find_last_hour_values(all_measurements: List[StationMeasurements], parameter: str) -> Optional[List[float]]:
+def _find_last_hour_values(all_measurements: List[MeteoSwissStationMeasurements], parameter: str) -> Optional[List[float]]:
     """Return the six 10-minute values of the last hour, or None when one of them is missing."""
     latest_measurements = all_measurements[-1]
     period_start = latest_measurements.measured_at - LAST_HOUR
@@ -163,7 +214,7 @@ def _find_last_hour_values(all_measurements: List[StationMeasurements], paramete
     return values
 
 
-def _sum_last_hour(all_measurements: List[StationMeasurements], parameter: str) -> Optional[float]:
+def _sum_last_hour(all_measurements: List[MeteoSwissStationMeasurements], parameter: str) -> Optional[float]:
     """Return the total of a 10-minute value over the last hour, such as the rain, or None when one is missing."""
     values = _find_last_hour_values(all_measurements, parameter)
     if values is None:
@@ -172,7 +223,7 @@ def _sum_last_hour(all_measurements: List[StationMeasurements], parameter: str) 
     return round(sum(values), 1)
 
 
-def _find_highest_last_hour(all_measurements: List[StationMeasurements], parameter: str) -> Optional[float]:
+def _find_highest_last_hour(all_measurements: List[MeteoSwissStationMeasurements], parameter: str) -> Optional[float]:
     """Return the highest 10-minute value of the last hour, such as the strongest gust, or None when one is missing."""
     values = _find_last_hour_values(all_measurements, parameter)
     if values is None:
@@ -180,7 +231,7 @@ def _find_highest_last_hour(all_measurements: List[StationMeasurements], paramet
     return max(values)
 
 
-def _find_station_values(all_measurements: List[StationMeasurements], parameter: str) -> List[StationValue]:
+def _find_station_values(all_measurements: List[MeteoSwissStationMeasurements], parameter: str) -> List[StationValue]:
     """Find the stations that have a value for a parameter, so a station without one is never counted."""
     station_values = []
     for measurements in all_measurements:
@@ -299,23 +350,48 @@ def _build_sunshine_canton_rows(station_values: List[StationValue]) -> List[Dict
 class MeasurementService:
     """Answer what the weather is now, at a place and across all stations, from the station measurements."""
 
-    def __init__(self, place_finder: PlaceFinder, measurement_source: MeasurementSource):
+    def __init__(
+        self,
+        place_finder: PlaceFinder,
+        measurement_source: MeteoSwissMeasurementSource,
+        slf_source: SLFMeasurementSource,
+    ):
         self.place_finder = place_finder
         self.measurement_source = measurement_source
+        self.slf_source = slf_source
 
     async def _find_place(self, location: str, nearby_location: Optional[str]) -> SwisstopoPlace:
         """Find the place a user means in a worker thread, so a download does not block other requests."""
         return await asyncio.to_thread(self.place_finder.find_place, location, nearby_location)
 
-    async def _find_station_measurements(self, place: SwisstopoPlace) -> List[StationMeasurements]:
+    async def _find_station_measurements(self, place: SwisstopoPlace) -> List[MeteoSwissStationMeasurements]:
         """Find a place's station measurements in a worker thread, so a download does not block other requests."""
         return await asyncio.to_thread(self.measurement_source.find_station_measurements, place)
 
-    async def _find_station_days(self, place: SwisstopoPlace, first_day: date, last_day: date) -> List[StationMeasurements]:
+    async def _find_closer_slf_station_measurements(
+        self, place: SwisstopoPlace, meteoswiss_station_weighted_distance_m: float
+    ) -> Optional[SLFStationMeasurements]:
+        """
+        Find a place's closer SLF station measurements in a worker thread, so a download does not block other requests.
+
+        Return None when no SLF station suits the place better than the MeteoSwiss station, and when SLF
+        cannot be reached, as the MeteoSwiss values answer alone.
+        """
+        try:
+            return await asyncio.to_thread(
+                self.slf_source.find_closer_slf_station_measurements, place, meteoswiss_station_weighted_distance_m
+            )
+        except requests.RequestException as error:
+            logger.warning(f"Could not download the SLF measurements for {place.display_name}, answering without: {error}")
+            return None
+
+    async def _find_station_days(
+        self, place: SwisstopoPlace, first_day: date, last_day: date
+    ) -> List[MeteoSwissStationMeasurements]:
         """Find a place's daily station measurements in a worker thread, so a download does not block other requests."""
         return await asyncio.to_thread(self.measurement_source.find_station_days, place, first_day, last_day)
 
-    async def _read_all_stations_latest_measurements(self) -> List[StationMeasurements]:
+    async def _read_all_stations_latest_measurements(self) -> List[MeteoSwissStationMeasurements]:
         """Read every station's latest measurements in a worker thread, so a download does not block other requests."""
         return await asyncio.to_thread(self.measurement_source.read_all_stations_latest_measurements)
 
@@ -323,6 +399,7 @@ class MeasurementService:
         """
         Read the latest measurements of the station chosen for the location.
 
+        Add the slf_station block when an SLF station suits the location better than the MeteoSwiss station.
         Raise CannotAnswerError for an unknown location or when no station publishes a temperature.
         """
         place = await self._find_place(location, nearby_location)
@@ -348,6 +425,11 @@ class MeasurementService:
         answer["sunshine_last_hour_min"] = _sum_last_hour(all_measurements, parameters.SUNSHINE)
         answer["rain_last_hour_mm"] = _sum_last_hour(all_measurements, parameters.PRECIPITATION)
         answer["strongest_gust_last_hour_kmh"] = _find_highest_last_hour(all_measurements, parameters.WIND_GUSTS)
+
+        meteoswiss_station_weighted_distance_m = calculate_weighted_distance_m(place, latest_measurements.station)
+        slf_measurements = await self._find_closer_slf_station_measurements(place, meteoswiss_station_weighted_distance_m)
+        if slf_measurements is not None:
+            answer["slf_station"] = _build_slf_block(place, slf_measurements)
         return answer
 
     async def read_history(
