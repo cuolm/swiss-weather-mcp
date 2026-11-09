@@ -1,9 +1,8 @@
 """
-Download and cache open data files: from data.geo.admin.ch, the Swiss open data portal that
-publishes the MeteoSwiss and the swisstopo data, and from the SLF measurement API. Read the
-MeteoSwiss timestamps.
+Download files and cache them on disk: from data.geo.admin.ch, the Swiss open data portal that
+publishes the MeteoSwiss and the swisstopo data, and from the SLF measurement API.
 
-Shared by the forecast, the measurement and the places code. All MeteoSwiss timestamps are UTC.
+Shared by the forecast, the measurement and the places code.
 """
 import logging
 import uuid
@@ -17,11 +16,6 @@ logger = logging.getLogger(__name__)
 
 REQUEST_TIMEOUT_SECONDS = 60
 DOWNLOAD_CHUNK_SIZE_BYTES = 1024 * 1024
-
-
-def parse_stamp(stamp_text: str) -> datetime:
-    """Read a MeteoSwiss timestamp such as "202609231200", which is always UTC."""
-    return datetime.strptime(stamp_text, "%Y%m%d%H%M").replace(tzinfo=timezone.utc)
 
 
 def _write_rows_starting_with(response: requests.Response, row_prefix: bytes, file: BinaryIO) -> None:

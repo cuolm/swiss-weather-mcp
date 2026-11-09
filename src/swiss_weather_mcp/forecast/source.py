@@ -85,7 +85,7 @@ import requests
 
 from . import parameters
 from ..errors import CannotAnswerError
-from ..opendata import REQUEST_TIMEOUT_SECONDS, download_file, ensure_recent_file, parse_stamp
+from ..downloads import REQUEST_TIMEOUT_SECONDS, download_file, ensure_recent_file
 from ..places import SwisstopoPlace
 
 logger = logging.getLogger(__name__)
@@ -156,6 +156,11 @@ def _find_newest_complete_run_id(run_to_csv_file_urls: Dict[str, Dict[str, str]]
 def _build_row_prefix(point: MeteoSwissPoint) -> bytes:
     """Return the start every row of a point has in a parameter file, such as b"800100;2;"."""
     return f"{point.point_id};{point.point_type_id};".encode()
+
+
+def _parse_stamp(stamp_text: str) -> datetime:
+    """Read a forecast timestamp or run ID such as "202609231200", which is always UTC."""
+    return datetime.strptime(stamp_text, "%Y%m%d%H%M").replace(tzinfo=timezone.utc)
 
 
 class ForecastSource:
@@ -337,7 +342,7 @@ class ForecastSource:
                     continue
                 _, _, stamp_text, value_text = line.decode("latin-1").strip().split(";")
                 try:
-                    stamp = parse_stamp(stamp_text)
+                    stamp = _parse_stamp(stamp_text)
                     time_to_value[stamp] = float(value_text)
                 except ValueError:
                     continue  # gaps are published as empty fields
@@ -360,4 +365,4 @@ class ForecastSource:
         if not time_to_value:
             raise CannotAnswerError(f"MeteoSwiss publishes no '{parameter}' values for {point.display_name}.")
 
-        return ForecastSeries(run_time=parse_stamp(run_id), time_to_value=time_to_value)
+        return ForecastSeries(run_time=_parse_stamp(run_id), time_to_value=time_to_value)

@@ -43,7 +43,7 @@ from typing import List, NamedTuple, Optional, Tuple
 
 import requests
 
-from ..opendata import REQUEST_TIMEOUT_SECONDS, download_file
+from ..downloads import REQUEST_TIMEOUT_SECONDS, download_file
 
 logger = logging.getLogger(__name__)
 

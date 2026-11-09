@@ -52,7 +52,7 @@ from pathlib import Path
 from typing import Any, Dict, List, NamedTuple, Optional
 
 from ..distance import calculate_weighted_distance_m
-from ..opendata import ensure_recent_file
+from ..downloads import ensure_recent_file
 from ..places import SwisstopoPlace
 
 logger = logging.getLogger(__name__)

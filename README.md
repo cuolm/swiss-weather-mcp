@@ -39,7 +39,7 @@ swiss-weather-mcp/
 │   ├── forecast/           # MeteoSwiss local forecasts
 │   ├── measurements/       # MeteoSwiss SwissMetNet and SLF IMIS measurements
 │   ├── astronomy/          # Sunrise, sunset, moonrise, moonset and phase
-│   ├── opendata.py         # Downloads from data.geo.admin.ch and SLF
+│   ├── downloads.py        # Downloads and caches files from data.geo.admin.ch and SLF
 │   ├── distance.py         # Distance plus height gap, to choose a station for a place
 │   ├── formatting.py       # Times, wind directions and height differences in the answers
 │   ├── errors.py           # The error for questions the data cannot answer

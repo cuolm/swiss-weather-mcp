@@ -88,7 +88,7 @@ from typing import Dict, List, NamedTuple, Optional, Sequence
 from . import parameters
 from ..distance import calculate_weighted_distance_m
 from ..errors import CannotAnswerError
-from ..opendata import ensure_recent_file, parse_stamp
+from ..downloads import ensure_recent_file
 from ..places import SwisstopoPlace
 
 logger = logging.getLogger(__name__)
@@ -178,6 +178,11 @@ def _parse_data_since(date_text: str) -> date:
 def _parse_reference_timestamp(timestamp_text: str) -> datetime:
     """Read a now file or daily file timestamp such as "30.09.2026 07:40", which is always UTC."""
     return datetime.strptime(timestamp_text, "%d.%m.%Y %H:%M").replace(tzinfo=timezone.utc)
+
+
+def _parse_stamp(stamp_text: str) -> datetime:
+    """Read an all stations file timestamp such as "202609281020", which is always UTC."""
+    return datetime.strptime(stamp_text, "%Y%m%d%H%M").replace(tzinfo=timezone.utc)
 
 
 def _describe_days(first_day: date, last_day: date) -> str:
@@ -384,7 +389,7 @@ class MeteoSwissMeasurementSource:
                 station = abbreviation_to_station.get(row["Station/Location"])
                 if station is None:
                     continue  # a station without a row in the station table has no name and no canton
-                measured_at = parse_stamp(row["Date"])
+                measured_at = _parse_stamp(row["Date"])
                 parameter_to_value = _parse_values(row, parameters.ALL_NOW_PARAMETERS)
                 measurements = MeteoSwissStationMeasurements(station, measured_at, parameter_to_value)
                 all_measurements.append(measurements)
