@@ -161,9 +161,11 @@ class SwissWeatherMCPServer:
 
             Returns:
                 dict: data_from when the forecast point is far away or at a significantly different
-                    height, the place, one row per day and the model run. In 8 of 10 possible outcomes,
-                    the day's rain lies between its 10th and 90th percentile. A value is None when
-                    MeteoSwiss does not publish it for the place.
+                    height, the place, the model run and per day: date, weekday, lowest and highest
+                    temperature, rain median with its 10th and 90th percentile, weather symbol code,
+                    weather in words and emoji. In 8 of 10 possible outcomes, the day's rain lies between
+                    its 10th and 90th percentile. A value is None when MeteoSwiss does not publish it for
+                    the place.
 
             Examples:
                 forecast_daily("Zürich", "2026-09-23")
@@ -194,7 +196,8 @@ class SwissWeatherMCPServer:
 
             Returns:
                 dict: data_from when the forecast point is far away or at a significantly different
-                    height, the place, one row per 3-hour block and the model run.
+                    height, the place, the model run and per 3-hour block: from, to, chance of rain,
+                    median rainfall, wettest hour up to, weather in words and emoji.
 
             Examples:
                 forecast_rain("Zürich", "2026-09-23T15:00", "2026-09-23T18:00")    # 15:00
@@ -221,8 +224,9 @@ class SwissWeatherMCPServer:
 
             Returns:
                 dict: data_from when the forecast point is far away or at a significantly different
-                    height, the place, one row per hour and the model run. In 8 of 10 possible outcomes,
-                    the temperature lies between its 10th and 90th percentile.
+                    height, the place, the model run and per hour: from, to, temperature with its 10th
+                    and 90th percentile. In 8 of 10 possible outcomes, the temperature lies between its
+                    10th and 90th percentile.
 
             Examples:
                 forecast_temperature("Zürich", "2026-09-23T15:00")                        # one hour
@@ -248,7 +252,7 @@ class SwissWeatherMCPServer:
 
             Returns:
                 dict: data_from when the forecast point is far away or at a significantly different
-                    height, the place, the sunshine in hours, the period and the model run.
+                    height, the place, the period, the model run and the sunshine hours.
 
             Examples:
                 forecast_sunshine("Zürich", "2026-09-23T15:00")                        # one hour
@@ -277,7 +281,8 @@ class SwissWeatherMCPServer:
 
             Returns:
                 dict: data_from when the forecast point is far away or at a significantly different
-                    height, the place, the wind, the time it is valid for and the model run.
+                    height, the place, the valid time, the model run, mean speed, gust with its 90th
+                    percentile, direction in degrees and as compass point.
 
             Examples:
                 forecast_wind("Zürich", "2026-09-23T14:00")
@@ -302,8 +307,8 @@ class SwissWeatherMCPServer:
 
             Returns:
                 dict: data_from when the forecast point is far away or at a significantly different
-                    height, the place, the total cloud cover and its low, medium and high layers in
-                    percent, the time it is valid for and the model run.
+                    height, the place, the valid time, the model run and the total cloud cover with its
+                    low, medium and high layers.
 
             Examples:
                 forecast_cloud_cover("Zürich", "2026-09-23T14:00")
@@ -325,8 +330,8 @@ class SwissWeatherMCPServer:
 
             Returns:
                 dict: data_from when the forecast point is far away or at a significantly different
-                    height, the place, the freezing level in metres above sea level, the time it is
-                    valid for and the model run.
+                    height, the place, the valid time, the model run and the freezing level above sea
+                    level.
 
             Examples:
                 forecast_freezing_level("Zürich", "2026-09-23T14:00")
@@ -350,9 +355,12 @@ class SwissWeatherMCPServer:
                 location (str): Name of a place in Switzerland, e.g. "Zürich".
 
             Returns:
-                dict: data_from, the place, the time of the measurements and the measured values. A
-                    value is None when the station has not published it. slf_station, only when an
-                    SLF station is closer, holds the values of that station.
+                dict: data_from, the place, the time of the measurements, temperature, humidity, dew
+                    point and sea-level pressure; wind speed, gust and direction of the last 10 minutes;
+                    rain and sunshine of the last 10 minutes and the last hour; strongest gust of the last
+                    hour; temperature and pressure change over 3 hours. A value is None when the station
+                    has not published it. slf_station, only when an SLF station is closer: its data_from,
+                    time, temperature, humidity, wind speed, direction and gust over 30 minutes.
 
             Examples:
                 measurements_current("Zürich")
@@ -377,8 +385,9 @@ class SwissWeatherMCPServer:
                 days (int): How many days in a row, from 1 to 366, so up to a whole year. Default 1.
 
             Returns:
-                dict: data_from, the place and one row per day. A value is None when the station did not
-                    measure it.
+                dict: data_from, the place and per day: date, weekday, mean, lowest and highest
+                    temperature, rain, sunshine hours and strongest gust. A value is None when the
+                    station did not measure it.
 
             Examples:
                 measurements_history("Zürich", "2026-09-22")
@@ -407,10 +416,11 @@ class SwissWeatherMCPServer:
                 extreme (str): One of "warmest", "coldest", "windiest", "wettest" or "sunniest".
 
             Returns:
-                dict: The time of the measurements and the first 5 stations. For the sunniest instead
-                    the number of stations in each sunshine group, in Switzerland and in each canton,
-                    the sunniest canton first. For the wettest also the number of rainy stations out of
-                    those that measure rain, in Switzerland and in each canton.
+                dict: the time of the measurements and the first 5 stations, each with altitude, canton
+                    and value. For the sunniest instead the number of stations in each sunshine group, in
+                    Switzerland and in each canton, the sunniest canton first. For the wettest also the
+                    number of rainy stations out of those that measure rain, in Switzerland and in each
+                    canton.
 
             Examples:
                 measurements_extremes("warmest")
@@ -433,8 +443,7 @@ class SwissWeatherMCPServer:
                 date (str): The day, e.g. "2026-09-23".
 
             Returns:
-                dict: The place, the date, the begin of civil twilight, sunrise, sunset and the end of
-                    civil twilight.
+                dict: the place, the date, civil twilight begin, sunrise, sunset and civil twilight end.
 
             Examples:
                 astronomy_sun("Zürich", "2026-09-23")
@@ -458,8 +467,9 @@ class SwissWeatherMCPServer:
                 date (str): The day, e.g. "2026-09-23".
 
             Returns:
-                dict: The place, the date, the moonrise and moonset, None when the Moon does not rise
-                    or set that day, the phase with its emoji and time, and the lit percent.
+                dict: the place, the date, moonrise and moonset (None when the Moon does not rise or
+                    set that day), phase with emoji, phase time when a main phase falls on the day, and lit
+                    percent.
 
             Examples:
                 astronomy_moon("Zürich", "2026-09-23")
