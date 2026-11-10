@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from fakes import MEASUREMENTS_NOW, SLF_STATION_CODE_TO_ROWS
-from swiss_weather_mcp.measurements.slf_source import MAX_STATIONS_TRIED, _calculate_east_m, _calculate_north_m
+from swiss_weather_mcp.measurements.slf_source import MAX_STATIONS_TRIED
 from swiss_weather_mcp.measurements.snow_values import NewSnow, SnowDepth
 from swiss_weather_mcp.places.place_source import SwisstopoPlace
 
@@ -14,7 +14,6 @@ MATTERHORN = SwisstopoPlace(
 # About the weighted distance of the MeteoSwiss station Davos to the Matterhorn, so every SLF station
 # of the fakes suits it better
 METEOSWISS_STATION_WEIGHTED_DISTANCE_M = 250000.0
-ARCSECONDS_PER_DEGREE = 3600
 
 
 def count_downloads(source_fixture, url_part: str) -> int:
@@ -35,16 +34,6 @@ def find_snow_station(slf_source_fixture, code: str):
 def move_now(mocker, later: timedelta) -> None:
     datetime_mock = mocker.patch("swiss_weather_mcp.measurements.slf_source.datetime", wraps=datetime)
     datetime_mock.now.return_value = MEASUREMENTS_NOW + later
-
-
-# --- _calculate_east_m and _calculate_north_m ---
-
-def test_calculate_east_m_and_north_m_of_the_swisstopo_example():
-    # The numerical example of section 1 of the swisstopo formulas: 46° 02' 38.87", 8° 43' 49.79"
-    latitude_deg = 46 + 2 / 60 + 38.87 / ARCSECONDS_PER_DEGREE
-    longitude_deg = 8 + 43 / 60 + 49.79 / ARCSECONDS_PER_DEGREE
-    assert _calculate_east_m(latitude_deg, longitude_deg) == pytest.approx(2699999.76, abs=0.01)
-    assert _calculate_north_m(latitude_deg, longitude_deg) == pytest.approx(1099999.97, abs=0.01)
 
 
 # --- find_closer_slf_station_measurements ---

@@ -92,6 +92,7 @@ from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, NamedTuple, Optional
 
+from ..coordinates import calculate_lv95_east_m, calculate_lv95_north_m
 from ..distance import rank_by_weighted_distance
 from ..downloads import ensure_recent_file
 from ..places import SwisstopoPlace
@@ -136,15 +137,6 @@ NEW_SNOW = "HN_1D"                # height of new snow during the last 24 hours,
 
 KMH_PER_M_PER_S = 3.6
 
-# The swisstopo approximate formulas from WGS84 to LV95, section 1 of "Approximate formulas for the
-# transformation between Swiss projection coordinates and WGS84" (December 2016),
-# https://www.swisstopo.admin.ch/dam/en/sd-web/KLRCX9XIdXDu/ch1903wgs84-EN.pdf
-# They are better than 1 metre everywhere in Switzerland.
-ARCSECONDS_PER_DEGREE = 3600
-BERN_LATITUDE_ARCSECONDS = 169028.66
-BERN_LONGITUDE_ARCSECONDS = 26782.5
-# The formulas take the angles relative to Bern in units of 10000"
-ARCSECONDS_PER_10000_ARCSECONDS = 10000
 
 
 class SLFStation(NamedTuple):
@@ -181,38 +173,6 @@ class SLFDailySnowMeasurements(NamedTuple):
     new_snow_cm: Optional[float]  # of the 24 hours up to measured_at
 
 
-def _calculate_offset_from_bern(angle_deg: float, bern_angle_arcseconds: float) -> float:
-    """Return how far an angle lies from Bern's, in the unit of the formulas, 10000"."""
-    return (angle_deg * ARCSECONDS_PER_DEGREE - bern_angle_arcseconds) / ARCSECONDS_PER_10000_ARCSECONDS
-
-
-def _calculate_east_m(latitude_deg: float, longitude_deg: float) -> float:
-    """Return the LV95 east coordinate of a WGS84 position, by the swisstopo approximate formulas."""
-    latitude = _calculate_offset_from_bern(latitude_deg, BERN_LATITUDE_ARCSECONDS)
-    longitude = _calculate_offset_from_bern(longitude_deg, BERN_LONGITUDE_ARCSECONDS)
-    return (
-        2600072.37
-        + 211455.93 * longitude
-        - 10938.51 * longitude * latitude
-        - 0.36 * longitude * latitude**2
-        - 44.54 * longitude**3
-    )
-
-
-def _calculate_north_m(latitude_deg: float, longitude_deg: float) -> float:
-    """Return the LV95 north coordinate of a WGS84 position, by the swisstopo approximate formulas."""
-    latitude = _calculate_offset_from_bern(latitude_deg, BERN_LATITUDE_ARCSECONDS)
-    longitude = _calculate_offset_from_bern(longitude_deg, BERN_LONGITUDE_ARCSECONDS)
-    return (
-        1200147.07
-        + 308807.95 * latitude
-        + 3745.25 * longitude**2
-        + 76.63 * latitude**2
-        - 194.56 * longitude**2 * latitude
-        + 119.79 * latitude**3
-    )
-
-
 def _parse_station(station_object: Dict[str, Any], is_manual_site: bool) -> SLFStation:
     """Turn one object of a station list into a station on LV95."""
     latitude_deg = station_object["lat"]
@@ -221,8 +181,8 @@ def _parse_station(station_object: Dict[str, Any], is_manual_site: bool) -> SLFS
         code=station_object["code"],
         name=station_object["label"],
         altitude_m=station_object["elevation"],
-        east_m=_calculate_east_m(latitude_deg, longitude_deg),
-        north_m=_calculate_north_m(latitude_deg, longitude_deg),
+        east_m=calculate_lv95_east_m(latitude_deg, longitude_deg),
+        north_m=calculate_lv95_north_m(latitude_deg, longitude_deg),
         is_manual_site=is_manual_site,
     )
 
