@@ -6,9 +6,9 @@ import requests
 from fakes import MEASUREMENTS_NOW
 from swiss_weather_mcp.errors import CannotAnswerError
 from swiss_weather_mcp.measurements import parameters
-from swiss_weather_mcp.measurements.service import (
-    StationValue, _build_canton_rows, _build_sunshine_canton_rows, _calculate_change, _find_highest_last_hour,
-    _find_sunshine_class, _sum_last_hour,
+from swiss_weather_mcp.measurements.current import _calculate_change, _find_highest_last_hour, _sum_last_hour
+from swiss_weather_mcp.measurements.extremes import (
+    StationValue, _build_canton_rows, _build_sunshine_canton_rows, _find_sunshine_class,
 )
 from swiss_weather_mcp.measurements.meteoswiss_source import MeteoSwissStation, MeteoSwissStationMeasurements
 
@@ -249,7 +249,7 @@ def move_slf_now(mocker, later: timedelta) -> None:
 
 def lift_distance_limit(mocker) -> None:
     # The fake SLF stations of the Matterhorn are all farther than the limit, so these tests lift it
-    mocker.patch("swiss_weather_mcp.measurements.service.MAX_SNOW_STATION_WEIGHTED_DISTANCE_M", 1e9)
+    mocker.patch("swiss_weather_mcp.measurements.snow.MAX_SNOW_STATION_WEIGHTED_DISTANCE_M", 1e9)
 
 
 @pytest.mark.asyncio

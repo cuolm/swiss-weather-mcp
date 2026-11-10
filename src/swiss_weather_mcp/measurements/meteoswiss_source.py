@@ -421,7 +421,7 @@ class MeteoSwissMeasurementSource:
         return snow_stations
 
     def read_snow_depth(self, station: MeteoSwissStation) -> Optional[SnowDepth]:
-        """Read a station's current snow depth, or None when it has none from the last SNOW_DEPTH_MAX_AGE."""
+        """Read a station's current snow depth, or None when it has none or it is older than SNOW_DEPTH_MAX_AGE."""
         all_measurements = self._read_station_measurements(station)
         if not all_measurements:
             return None

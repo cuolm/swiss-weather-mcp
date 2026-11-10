@@ -1,4 +1,4 @@
-"""The snow values of the MeteoSwiss and the SLF source, so the service compares the stations of both alike."""
+"""The snow values both measurement sources return, so the snow tool compares their stations alike."""
 from datetime import datetime
 from typing import TYPE_CHECKING, NamedTuple, Optional, Union
 
@@ -19,7 +19,7 @@ class SnowDepth(NamedTuple):
 
 
 class NewSnow(NamedTuple):
-    """The new snow of an SLF station over the 24 hours up to measured_at, and over the 3 days up to it."""
+    """The new snow of an SLF station in the 24 hours and in the 3 days up to measured_at."""
     station: "SLFStation"
     measured_at: datetime
     new_snow_24_hours_cm: float

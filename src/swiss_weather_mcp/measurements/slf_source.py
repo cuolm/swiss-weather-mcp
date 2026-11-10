@@ -244,7 +244,7 @@ def _parse_station_measurements(station: SLFStation, row: Dict[str, Any]) -> SLF
 
 
 def _parse_imis_daily_snow(row: Dict[str, Any]) -> SLFDailySnowMeasurements:
-    """Read one row of the IMIS daily snow, such as "2026-11-10T00:00:00" for the values of 06:00 UTC that day."""
+    """Read one row of the IMIS daily snow; one stamped "2026-11-10T00:00:00" holds the values of 06:00 UTC that day."""
     day = datetime.fromisoformat(row["measure_date"]).date()
     measured_at = datetime.combine(day, DAILY_SNOW_TIME)
     return SLFDailySnowMeasurements(measured_at, row[SNOW_DEPTH], row[NEW_SNOW])
@@ -397,7 +397,7 @@ class SLFMeasurementSource:
         return SnowDepth(station, latest_measurements.measured_at, latest_measurements.snow_depth_cm)
 
     def _read_manual_site_snow_depth(self, manual_site: SLFStation) -> Optional[SnowDepth]:
-        """Read a manual site's snow depth of its newest day, or None when it has none from today or yesterday."""
+        """Read the snow depth of a manual site's newest day, or None when it has none from today or yesterday."""
         all_days = self._read_manual_site_daily_snow(manual_site)
         if not all_days:
             return None

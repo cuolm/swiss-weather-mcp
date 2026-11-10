@@ -1,8 +1,13 @@
-"""Write times, wind directions and height differences the way the tools answer with them."""
+"""Write times, wind directions, distances and height differences the way the tools answer with them."""
 from datetime import datetime
+from typing import Optional
 from zoneinfo import ZoneInfo
 
+from .distance import GridPosition, calculate_distance_m
+from .places import SwisstopoPlace
+
 SWISS_TZ = ZoneInfo("Europe/Zurich")
+METRES_PER_KILOMETRE = 1000
 
 # Compass points the wind direction in degrees is reported as, clockwise from north
 COMPASS_POINTS = ("N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
@@ -29,3 +34,17 @@ def describe_height_difference(difference_m: int) -> str:
     if difference_m < 0:
         return f"{-difference_m} m lower"
     return "at the same height"
+
+
+def describe_distance_and_height(place: SwisstopoPlace, position: GridPosition) -> str:
+    """Say how far away and how much higher or lower a station is, such as "0.5 km away and 30 m higher"."""
+    distance_km = round(calculate_distance_m(place, position) / METRES_PER_KILOMETRE, 1)
+    difference_m = round(position.altitude_m - place.altitude_m)
+    return f"{distance_km} km away and {describe_height_difference(difference_m)}"
+
+
+def round_to_tenth(value: Optional[float]) -> Optional[float]:
+    """Round a value to a tenth, as MeteoSwiss publishes them, or return None for None."""
+    if value is None:
+        return None
+    return round(value, 1)

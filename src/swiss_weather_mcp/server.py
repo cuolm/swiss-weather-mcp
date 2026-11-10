@@ -19,7 +19,8 @@ from .errors import CannotAnswerError
 from .forecast.service import ForecastService
 from .forecast.source import ForecastSource
 from .places import PlaceFinder
-from .measurements.service import ExtremeName, MeasurementService
+from .measurements.extremes import ExtremeName
+from .measurements.service import MeasurementService
 from .measurements.meteoswiss_source import MeteoSwissMeasurementSource
 from .measurements.slf_source import SLFMeasurementSource
 from .astronomy.service import AstronomyService
