@@ -34,6 +34,9 @@ async def print_measurements(location: str) -> None:
     history_answer = await service.read_history(location, yesterday, 1)
     print_answer(f'measurements_history("{location}", "{yesterday.isoformat()}")', history_answer)
 
+    snow_answer = await service.read_snow(location)
+    print_answer(f'measurements_snow("{location}")', snow_answer)
+
     for extreme in EXTREME_NAME_TO_EXTREME:
         extremes_answer = await service.read_extremes(extreme)
         print_answer(f'measurements_extremes("{extreme}")', extremes_answer)

@@ -130,8 +130,8 @@ class SwissWeatherMCPServer:
         self.mcp = MCPServer(
             name="swiss_weather_mcp_server",
             instructions=(
-                "Weather for places in Switzerland from MeteoSwiss: what stations measure now and measured on past "
-                "days (measurements_*), "
+                "Weather for places in Switzerland from MeteoSwiss and the SLF: what stations measure now, measured "
+                "on past days and the snow (measurements_*), "
                 "forecasts for today and the next 8 days (forecast_*), and when the Sun and the Moon rise "
                 "and set (astronomy_*).\n"
                 "- Times are Swiss local time in ISO 8601 without offset, such as \"2026-09-23T14:00\".\n"
