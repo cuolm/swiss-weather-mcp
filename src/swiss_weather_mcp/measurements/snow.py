@@ -136,6 +136,17 @@ def _find_new_snow(
     return None
 
 
+def _describe_closest_snow_station(place: SwisstopoPlace, snow_stations: List[SnowStation]) -> str:
+    """Say that no snow station is close enough to a place, and which one is the closest."""
+    ranked_snow_stations = rank_by_weighted_distance(place, snow_stations)
+    closest_station = ranked_snow_stations[0]
+    distance_and_height = describe_distance_and_height(place, closest_station)
+    return (
+        f"No snow station is close enough to {place.display_name} in distance and height. The closest, "
+        f"{closest_station.display_name}, is {distance_and_height}."
+    )
+
+
 def build_snow_answer(
     meteoswiss_source: MeteoSwissMeasurementSource, slf_source: SLFMeasurementSource, place: SwisstopoPlace
 ) -> Dict[str, Any]:
@@ -143,7 +154,7 @@ def build_snow_answer(
     Build the measurements_snow answer for a place; run it in a worker thread, as it downloads.
 
     snow_depth or new_snow is None when no station close enough has a current value. Raise
-    CannotAnswerError when neither has one.
+    CannotAnswerError when no snow station is close enough, and when neither has a current value.
     """
     meteoswiss_snow_stations = meteoswiss_source.list_snow_stations()
     slf_snow_stations = _list_slf_snow_stations(slf_source)
@@ -152,6 +163,12 @@ def build_snow_answer(
     snow_depth = _find_snow_depth(meteoswiss_source, slf_source, place, snow_depth_stations)
     new_snow = _find_new_snow(slf_source, place, slf_snow_stations)
     if snow_depth is None and new_snow is None:
+        # The SLF stations for the new snow are among these, so none of them is close enough either
+        close_snow_stations = rank_by_weighted_distance(
+            place, snow_depth_stations, MAX_SNOW_STATION_WEIGHTED_DISTANCE_M
+        )
+        if not close_snow_stations:
+            raise CannotAnswerError(_describe_closest_snow_station(place, snow_depth_stations))
         raise CannotAnswerError(
             f"There are no current snow measurements near {place.display_name}: no snow station close enough in "
             f"distance and height has a current value. The SLF observers measure the snow from November to April."

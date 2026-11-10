@@ -274,9 +274,12 @@ async def test_read_snow_leaves_out_stations_too_far_away(measurement_service_fi
 
 @pytest.mark.asyncio
 async def test_read_snow_without_a_station_close_enough(measurement_service_fixture):
-    # Gornergratsee, the closest SLF station to the Matterhorn, is 9.8 km away but 1525 m lower
-    with pytest.raises(CannotAnswerError):
+    with pytest.raises(CannotAnswerError) as raised:
         await measurement_service_fixture.read_snow("Matterhorn")
+    assert str(raised.value) == (
+        "No snow station is close enough to Matterhorn (4478 m) in distance and height. The closest, "
+        "Gornergratsee (2953 m), is 9.8 km away and 1525 m lower."
+    )
 
 
 @pytest.mark.asyncio
