@@ -491,18 +491,14 @@ class MeasurementService:
             logger.warning(f"Could not download the new snow of SLF station {station.code}: {error}")
             return None
 
-    def _find_snow_depth(
-        self, place: SwisstopoPlace, slf_snow_stations: List[SLFStation]
-    ) -> Optional[SnowDepth]:
+    def _find_snow_depth(self, place: SwisstopoPlace, snow_stations: List[SnowStation]) -> Optional[SnowDepth]:
         """
-        Find the current snow depth for a place from the MeteoSwiss and the SLF snow stations.
+        Find the current snow depth for a place from the given snow stations.
 
         The stations within MAX_SNOW_STATION_WEIGHTED_DISTANCE_M are ranked by distance plus
         METRES_PER_HEIGHT_METRE times the height gap, and the first of the first MAX_SNOW_STATIONS_TRIED
         with a current snow depth is taken.
         """
-        meteoswiss_snow_stations = self.meteoswiss_source.list_snow_stations()
-        snow_stations: List[SnowStation] = [*meteoswiss_snow_stations, *slf_snow_stations]
         ranked_snow_stations = _rank_close_snow_stations(place, snow_stations)
         for station in ranked_snow_stations[:MAX_SNOW_STATIONS_TRIED]:
             snow_depth = self._read_snow_depth(station)
@@ -513,7 +509,7 @@ class MeasurementService:
 
     def _find_new_snow(self, place: SwisstopoPlace, slf_snow_stations: List[SLFStation]) -> Optional[NewSnow]:
         """
-        Find the new snow for a place from the SLF snow stations, the only ones that have it.
+        Find the new snow for a place from the given SLF snow stations, the only ones that have it.
 
         The stations are chosen and ranked as for the snow depth, and the first of the first
         MAX_SNOW_STATIONS_TRIED with new snow from today or yesterday is taken.
@@ -528,8 +524,11 @@ class MeasurementService:
 
     def _build_snow_answer(self, place: SwisstopoPlace) -> Dict[str, Any]:
         """Find the snow depth and the new snow for a place, each from its own station; run it in a worker thread."""
+        meteoswiss_snow_stations = self.meteoswiss_source.list_snow_stations()
         slf_snow_stations = self._list_slf_snow_stations()
-        snow_depth = self._find_snow_depth(place, slf_snow_stations)
+        # Both sources measure the snow depth, only SLF the new snow
+        snow_depth_stations: List[SnowStation] = [*meteoswiss_snow_stations, *slf_snow_stations]
+        snow_depth = self._find_snow_depth(place, snow_depth_stations)
         new_snow = self._find_new_snow(place, slf_snow_stations)
         if snow_depth is None and new_snow is None:
             raise CannotAnswerError(
