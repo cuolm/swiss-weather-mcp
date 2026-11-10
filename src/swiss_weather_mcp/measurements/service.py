@@ -1,17 +1,18 @@
 import asyncio
 import logging
 from datetime import date, datetime, timedelta
-from typing import Any, Dict, List, Literal, NamedTuple, Optional
+from typing import Any, Dict, List, Literal, NamedTuple, Optional, TypeVar
 
 import requests
 
 from . import parameters
-from ..distance import calculate_distance_m, calculate_weighted_distance_m
+from ..distance import GridPosition, calculate_distance_m, calculate_weighted_distance_m
 from ..errors import CannotAnswerError
 from ..formatting import SWISS_TZ, describe_height_difference, find_compass_point, format_swiss_time
 from ..places import PlaceFinder, SwisstopoPlace
 from .meteoswiss_source import MeteoSwissMeasurementSource, MeteoSwissStation, MeteoSwissStationMeasurements
-from .slf_source import SLFStationMeasurements, SLFMeasurementSource
+from .slf_source import SLFMeasurementSource, SLFStation, SLFStationMeasurements
+from .snow import NewSnow, SnowDepth, SnowStation
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,13 @@ CHANGE_PERIOD = timedelta(hours=3)
 LAST_HOUR = timedelta(hours=1)
 # A station publishes a row every 10 minutes
 MEASUREMENTS_PER_HOUR = 6
+# As many as the sources try for the weather now
+MAX_SNOW_STATIONS_TRIED = 3
+# Snow changes with height and terrain, so a station farther than this by distance plus 20 times the
+# height gap, such as 15 km away and 500 m higher, says too little about a place. Tested on the 5817
+# forecast points: 94 % of those between 1200 and 2000 m keep a new snow station, and 88 % of those below
+# 800 m, where the nearest SLF station is often 40 km away and 600 m higher, get none.
+MAX_SNOW_STATION_WEIGHTED_DISTANCE_M = 25000
 
 # The field each measured value fills in the answer
 MEASURED_FIELDS = (
@@ -85,6 +93,10 @@ class StationValue(NamedTuple):
     """One measured value of one station."""
     station: MeteoSwissStation
     value: float
+
+
+# Any station list, so ranking SLF stations alone still returns SLF stations
+SnowStationT = TypeVar("SnowStationT", bound=GridPosition)
 
 
 def _describe_station(place: SwisstopoPlace, station: MeteoSwissStation) -> str:
@@ -148,6 +160,64 @@ def _build_slf_block(place: SwisstopoPlace, slf_measurements: SLFStationMeasurem
         "compass_point": compass_point,
         "strongest_gust_last_30_minutes_kmh": _convert_m_per_s_to_kmh(slf_measurements.strongest_gust_m_per_s),
     }
+
+
+def _describe_distance_and_height(place: SwisstopoPlace, position: GridPosition) -> str:
+    """Say how far away and how much higher or lower a station is, such as "0.5 km away and 30 m higher"."""
+    distance_km = round(calculate_distance_m(place, position) / METRES_PER_KILOMETRE, 1)
+    difference_m = round(position.altitude_m - place.altitude_m)
+    return f"{distance_km} km away and {describe_height_difference(difference_m)}"
+
+
+def _describe_snow_station(station: SnowStation) -> str:
+    """Say where a snow value comes from, such as "comes from the MeteoSwiss station Davos (1594 m)"."""
+    if isinstance(station, MeteoSwissStation):
+        return f"comes from the MeteoSwiss station {station.display_name}"
+    if station.is_manual_site:
+        return f"was measured by an observer at {station.display_name}"
+    return f"comes from the automatic SLF station {station.display_name}"
+
+
+def _build_snow_depth_block(place: SwisstopoPlace, snow_depth: SnowDepth) -> Dict[str, Any]:
+    """Build the snow_depth block of the snow answer."""
+    station_source = _describe_snow_station(snow_depth.station)
+    distance_and_height = _describe_distance_and_height(place, snow_depth.station)
+    measured_at = snow_depth.measured_at.astimezone(SWISS_TZ)
+    data_from = (
+        f"The snow depth for {place.display_name} {station_source}, {distance_and_height}. "
+        f"It was measured at {measured_at:%H:%M} on {measured_at:%Y-%m-%d}."
+    )
+    return {
+        "data_from": data_from,
+        "measured_at": format_swiss_time(snow_depth.measured_at),
+        "snow_depth_cm": _round_to_tenth(snow_depth.snow_depth_cm),
+    }
+
+
+def _build_new_snow_block(place: SwisstopoPlace, new_snow: NewSnow) -> Dict[str, Any]:
+    """Build the new_snow block of the snow answer."""
+    station_source = _describe_snow_station(new_snow.station)
+    distance_and_height = _describe_distance_and_height(place, new_snow.station)
+    measured_at = new_snow.measured_at.astimezone(SWISS_TZ)
+    data_from = (
+        f"The new snow for {place.display_name} {station_source}, {distance_and_height}. "
+        f"It covers the 24 hours and the 3 days up to {measured_at:%H:%M} on {measured_at:%Y-%m-%d}."
+    )
+    return {
+        "data_from": data_from,
+        "measured_at": format_swiss_time(new_snow.measured_at),
+        "new_snow_24_hours_cm": _round_to_tenth(new_snow.new_snow_24_hours_cm),
+        "new_snow_3_days_cm": _round_to_tenth(new_snow.new_snow_3_days_cm),
+    }
+
+
+def _rank_close_snow_stations(place: SwisstopoPlace, snow_stations: List[SnowStationT]) -> List[SnowStationT]:
+    """Rank the stations within MAX_SNOW_STATION_WEIGHTED_DISTANCE_M of a place, the closest first."""
+    close_snow_stations = []
+    for station in snow_stations:
+        if calculate_weighted_distance_m(place, station) <= MAX_SNOW_STATION_WEIGHTED_DISTANCE_M:
+            close_snow_stations.append(station)
+    return sorted(close_snow_stations, key=lambda station: calculate_weighted_distance_m(place, station))
 
 
 def _convert_minutes_to_hours(minutes: Optional[float]) -> Optional[float]:
@@ -348,7 +418,7 @@ def _build_sunshine_canton_rows(station_values: List[StationValue]) -> List[Dict
 
 
 class MeasurementService:
-    """Answer what the weather is now, at a place and across all stations, from the station measurements."""
+    """Answer what the stations measure: the weather and the snow at a place, past days, and all stations now."""
 
     def __init__(
         self,
@@ -394,6 +464,85 @@ class MeasurementService:
     async def _read_all_stations_latest_measurements(self) -> List[MeteoSwissStationMeasurements]:
         """Read every station's latest measurements in a worker thread, so a download does not block other requests."""
         return await asyncio.to_thread(self.measurement_source.read_all_stations_latest_measurements)
+
+    def _list_slf_snow_stations(self) -> List[SLFStation]:
+        """List the SLF snow stations, or none when SLF cannot be reached, as the MeteoSwiss stations answer alone."""
+        try:
+            return self.slf_source.list_snow_stations()
+        except requests.RequestException as error:
+            logger.warning(f"Could not download the SLF snow stations, answering without them: {error}")
+            return []
+
+    def _read_snow_depth(self, station: SnowStation) -> Optional[SnowDepth]:
+        """Read a station's current snow depth from its source, or None when it has none or SLF cannot be reached."""
+        if isinstance(station, MeteoSwissStation):
+            return self.measurement_source.read_snow_depth(station)
+        try:
+            return self.slf_source.read_snow_depth(station)
+        except requests.RequestException as error:
+            logger.warning(f"Could not download the snow depth of SLF station {station.code}: {error}")
+            return None
+
+    def _read_new_snow(self, station: SLFStation) -> Optional[NewSnow]:
+        """Read an SLF station's new snow, or None when it has none or SLF cannot be reached."""
+        try:
+            return self.slf_source.read_new_snow(station)
+        except requests.RequestException as error:
+            logger.warning(f"Could not download the new snow of SLF station {station.code}: {error}")
+            return None
+
+    def _find_snow_depth(
+        self, place: SwisstopoPlace, slf_snow_stations: List[SLFStation]
+    ) -> Optional[SnowDepth]:
+        """
+        Find the current snow depth for a place from the MeteoSwiss and the SLF snow stations.
+
+        The stations within MAX_SNOW_STATION_WEIGHTED_DISTANCE_M are ranked by distance plus
+        METRES_PER_HEIGHT_METRE times the height gap, and the first of the first MAX_SNOW_STATIONS_TRIED
+        with a current snow depth is taken.
+        """
+        meteoswiss_snow_stations = self.measurement_source.list_snow_stations()
+        snow_stations: List[SnowStation] = [*meteoswiss_snow_stations, *slf_snow_stations]
+        ranked_snow_stations = _rank_close_snow_stations(place, snow_stations)
+        for station in ranked_snow_stations[:MAX_SNOW_STATIONS_TRIED]:
+            snow_depth = self._read_snow_depth(station)
+            if snow_depth is not None:
+                return snow_depth
+            logger.info(f"Station {station.name} has no current snow depth, trying the next station")
+        return None
+
+    def _find_new_snow(self, place: SwisstopoPlace, slf_snow_stations: List[SLFStation]) -> Optional[NewSnow]:
+        """
+        Find the new snow for a place from the SLF snow stations, the only ones that have it.
+
+        The stations are chosen and ranked as for the snow depth, and the first of the first
+        MAX_SNOW_STATIONS_TRIED with new snow from today or yesterday is taken.
+        """
+        ranked_snow_stations = _rank_close_snow_stations(place, slf_snow_stations)
+        for station in ranked_snow_stations[:MAX_SNOW_STATIONS_TRIED]:
+            new_snow = self._read_new_snow(station)
+            if new_snow is not None:
+                return new_snow
+            logger.info(f"SLF station {station.code} has no current new snow, trying the next station")
+        return None
+
+    def _build_snow_answer(self, place: SwisstopoPlace) -> Dict[str, Any]:
+        """Find the snow depth and the new snow for a place, each from its own station; run it in a worker thread."""
+        slf_snow_stations = self._list_slf_snow_stations()
+        snow_depth = self._find_snow_depth(place, slf_snow_stations)
+        new_snow = self._find_new_snow(place, slf_snow_stations)
+        if snow_depth is None and new_snow is None:
+            raise CannotAnswerError(
+                f"There are no current snow measurements near {place.display_name}: no snow station close enough in "
+                f"distance and height has a current value. The SLF observers measure the snow from November to April."
+            )
+
+        answer: Dict[str, Any] = {"place": place.name, "snow_depth": None, "new_snow": None}
+        if snow_depth is not None:
+            answer["snow_depth"] = _build_snow_depth_block(place, snow_depth)
+        if new_snow is not None:
+            answer["new_snow"] = _build_new_snow_block(place, new_snow)
+        return answer
 
     async def read_current(self, location: str, nearby_location: Optional[str] = None) -> Dict[str, Any]:
         """
@@ -457,6 +606,16 @@ class MeasurementService:
             "place": place.name,
             "days": day_rows,
         }
+
+    async def read_snow(self, location: str, nearby_location: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Read the current snow depth and the new snow for the location, each from its own best station.
+
+        snow_depth or new_snow is None when no station close enough has a current value. Raise
+        CannotAnswerError for an unknown location and when neither has one.
+        """
+        place = await self._find_place(location, nearby_location)
+        return await asyncio.to_thread(self._build_snow_answer, place)
 
     async def read_extremes(self, extreme: str) -> Dict[str, Any]:
         """

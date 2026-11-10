@@ -17,6 +17,9 @@ What MeteoSwiss publishes:
 - A station table, ogd-smn_meta_stations.csv, with one row per station: its name,
   the abbreviation of its canton, the day its measurements start, altitude and position
   in LV95, the Swiss grid in metres.
+- A data inventory, ogd-smn_meta_datainventory.csv, with one row per station and
+  parameter: the day it starts, and the day it ends when the station no longer measures it.
+  About 75 stations measure the snow depth, htoauts0.
 - All files use ";" between columns. A station abbreviation, such as SMA, links the
   station table to the station's now file and to its row in the all stations file.
 
@@ -67,6 +70,13 @@ How we use it for past days at one place:
    table says, or has no temperature on any of the days, at most 3 stations. Stations
    started in different years, and some measured the temperature only years later.
 
+How we use it for the snow depth at one place:
+1. Read the data inventory on the first question and keep the stations that measure the
+   snow depth now in memory; the file is downloaded first when it is missing or older than
+   7 days. The service ranks them together with the SLF snow stations.
+2. Read the last row of a station's now file, as for the weather now. Its snow depth counts
+   when it is at most 210 minutes old, as on SLF's map of measured values.
+
 How we use it to compare all stations:
 1. Read the all stations file; it is downloaded again when it is older than 5 minutes.
 2. Join each row to its station by abbreviation. A station missing from the station
@@ -74,6 +84,7 @@ How we use it to compare all stations:
 
     <cache dir>/measurements/
     ├── ogd-smn_meta_stations.csv      (station table, downloaded again when older than 7 days)
+    ├── ogd-smn_meta_datainventory.csv (data inventory, downloaded again when older than 7 days)
     ├── ogd-smn_sma_t_now.csv          (now file per station, downloaded again after 5 minutes)
     ├── ogd-smn_sma_d_recent.csv       (days of this year per station, downloaded again after 1 hour)
     ├── ogd-smn_sma_d_historical.csv   (earlier days per station, downloaded again after 30 days)
@@ -83,17 +94,19 @@ import csv
 import logging
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
-from typing import Dict, List, NamedTuple, Optional, Sequence
+from typing import Dict, List, NamedTuple, Optional, Sequence, Set
 
 from . import parameters
 from ..distance import calculate_weighted_distance_m
 from ..errors import CannotAnswerError
 from ..downloads import ensure_recent_file
 from ..places import SwisstopoPlace
+from .snow import SnowDepth
 
 logger = logging.getLogger(__name__)
 
 STATION_TABLE_URL = "https://data.geo.admin.ch/ch.meteoschweiz.ogd-smn/ogd-smn_meta_stations.csv"
+DATA_INVENTORY_URL = "https://data.geo.admin.ch/ch.meteoschweiz.ogd-smn/ogd-smn_meta_datainventory.csv"
 STATION_NOW_VALUES_URL = "https://data.geo.admin.ch/ch.meteoschweiz.ogd-smn/{abbr}/ogd-smn_{abbr}_t_now.csv"
 # The period is RECENT_DAYS or HISTORICAL_DAYS
 STATION_DAYS_URL = "https://data.geo.admin.ch/ch.meteoschweiz.ogd-smn/{abbr}/ogd-smn_{abbr}_d_{period}.csv"
@@ -102,6 +115,7 @@ RECENT_DAYS = "recent"
 HISTORICAL_DAYS = "historical"
 
 STATION_TABLE_MAX_AGE = timedelta(days=7)
+DATA_INVENTORY_MAX_AGE = timedelta(days=7)
 # Shorter than MeteoSwiss's 10-minute update, so a new file is used at most 5 minutes after it appears
 STATION_NOW_VALUES_MAX_AGE = timedelta(minutes=5)
 ALL_STATIONS_LATEST_VALUES_MAX_AGE = timedelta(minutes=5)
@@ -112,6 +126,9 @@ PERIOD_TO_MAX_AGE = {
 }
 # Older latest measurements mean the station stopped publishing
 LATEST_MEASUREMENTS_MAX_AGE = timedelta(hours=1)
+# SLF's map of measured values shows a station's latest value for up to 210 minutes, and snow
+# depth changes slowly, https://www.slf.ch/en/avalanche-bulletin-and-snow-situation/measured-values/information-about-snow-measurement/
+SNOW_DEPTH_MAX_AGE = timedelta(minutes=210)
 MAX_STATIONS_TRIED = 3
 
 MISSING_VALUE_MARKERS = {"", "-"}
@@ -220,6 +237,7 @@ class MeteoSwissMeasurementSource:
     def __init__(self, cache_dir: Path):
         self.cache_dir = cache_dir / "measurements"
         self._abbreviation_to_station: Dict[str, MeteoSwissStation] = {}
+        self._snow_station_abbreviations: Set[str] = set()
 
     def _load_stations(self) -> Dict[str, MeteoSwissStation]:
         """Read the station table into memory once per process, keyed by station abbreviation."""
@@ -247,6 +265,23 @@ class MeteoSwissMeasurementSource:
         logger.info(f"Loaded {len(abbreviation_to_station)} weather stations")
         return abbreviation_to_station
 
+    def _load_snow_station_abbreviations(self) -> Set[str]:
+        """Read once per process which stations measure the snow depth now, from the data inventory."""
+        if self._snow_station_abbreviations:
+            return self._snow_station_abbreviations
+
+        data_inventory_file = self.cache_dir / "ogd-smn_meta_datainventory.csv"
+        data_inventory = ensure_recent_file(DATA_INVENTORY_URL, data_inventory_file, DATA_INVENTORY_MAX_AGE)
+        snow_station_abbreviations: Set[str] = set()
+        with open(data_inventory, newline="", encoding="latin-1") as file:
+            for row in csv.DictReader(file, delimiter=";"):
+                # A parameter with an end day is no longer measured
+                if row["parameter_shortname"] == parameters.SNOW_DEPTH and not row["data_till"]:
+                    snow_station_abbreviations.add(row["station_abbr"])
+        self._snow_station_abbreviations = snow_station_abbreviations
+        logger.info(f"Loaded {len(snow_station_abbreviations)} stations that measure the snow depth")
+        return snow_station_abbreviations
+
     def _read_station_measurements(self, station: MeteoSwissStation) -> List[MeteoSwissStationMeasurements]:
         """Read every row of a station's now file, the oldest first."""
         abbr = station.abbr.lower()
@@ -260,7 +295,7 @@ class MeteoSwissMeasurementSource:
         with open(station_now_values, newline="", encoding="latin-1") as file:
             for row in csv.DictReader(file, delimiter=";"):
                 measured_at = _parse_reference_timestamp(row["reference_timestamp"])
-                parameter_to_value = _parse_values(row, parameters.ALL_NOW_PARAMETERS)
+                parameter_to_value = _parse_values(row, parameters.NOW_FILE_PARAMETERS)
                 measurements = MeteoSwissStationMeasurements(station, measured_at, parameter_to_value)
                 all_measurements.append(measurements)
         return all_measurements
@@ -374,6 +409,28 @@ class MeteoSwissMeasurementSource:
             f"None of the {MAX_STATIONS_TRIED} stations tried for {place.display_name} has a daily temperature "
             f"for {described_days}."
         )
+
+    def list_snow_stations(self) -> List[MeteoSwissStation]:
+        """List the stations that measure the snow depth now."""
+        abbreviation_to_station = self._load_stations()
+        snow_station_abbreviations = self._load_snow_station_abbreviations()
+        snow_stations = []
+        for station in abbreviation_to_station.values():
+            if station.abbr in snow_station_abbreviations:
+                snow_stations.append(station)
+        return snow_stations
+
+    def read_snow_depth(self, station: MeteoSwissStation) -> Optional[SnowDepth]:
+        """Read a station's current snow depth, or None when it has none from the last SNOW_DEPTH_MAX_AGE."""
+        all_measurements = self._read_station_measurements(station)
+        if not all_measurements:
+            return None
+        latest_measurements = all_measurements[-1]
+        snow_depth_cm = latest_measurements.parameter_to_value[parameters.SNOW_DEPTH]
+        now = datetime.now(timezone.utc)
+        if snow_depth_cm is None or now - latest_measurements.measured_at > SNOW_DEPTH_MAX_AGE:
+            return None
+        return SnowDepth(station, latest_measurements.measured_at, snow_depth_cm)
 
     def read_all_stations_latest_measurements(self) -> List[MeteoSwissStationMeasurements]:
         """Read the latest measurements of every station in the station table from the all stations file."""

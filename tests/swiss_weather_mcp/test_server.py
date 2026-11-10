@@ -23,6 +23,7 @@ EXPECTED_TOOLS = {
     "forecast_freezing_level": ["location", "when", "near"],
     "measurements_current": ["location", "near"],
     "measurements_history": ["location", "start_date", "days", "near"],
+    "measurements_snow": ["location", "near"],
     "measurements_extremes": ["extreme"],
     "astronomy_sun": ["location", "date", "near"],
     "astronomy_moon": ["location", "date", "near"],

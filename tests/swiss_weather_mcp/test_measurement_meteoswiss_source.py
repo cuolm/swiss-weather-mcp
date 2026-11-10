@@ -11,6 +11,7 @@ from swiss_weather_mcp.measurements import parameters
 from swiss_weather_mcp.measurements.meteoswiss_source import (
     MAX_STATIONS_TRIED, MeteoSwissStation, _find_canton_name, _list_periods, _parse_reference_timestamp,
 )
+from swiss_weather_mcp.measurements.snow import SnowDepth
 from swiss_weather_mcp.places.place_source import SwisstopoPlace
 
 # How far back a cached file is dated to make it older than the 5 minutes it is kept
@@ -253,6 +254,30 @@ def test_find_station_days_refuses_days_no_station_measured(measurement_source_f
     assert str(raised.value) == (
         "None of the 3 stations tried for Zürich (418 m) has a daily temperature for 1975-07-02 to 1975-07-03."
     )
+
+
+# --- list_snow_stations ---
+
+def test_list_snow_stations_leaves_out_stations_without_snow_depth(measurement_source_fixture):
+    # UEB measures no snow depth, and KLO's has an end day
+    snow_stations = measurement_source_fixture.list_snow_stations()
+    assert [station.abbr for station in snow_stations] == ["SMA", "DAV"]
+
+
+# --- read_snow_depth ---
+
+def test_read_snow_depth(measurement_source_fixture):
+    davos = find_station(measurement_source_fixture, "DAV")
+    snow_depth = measurement_source_fixture.read_snow_depth(davos)
+    assert snow_depth == SnowDepth(davos, datetime(2026, 9, 25, 14, tzinfo=timezone.utc), 12.0)
+
+
+def test_read_snow_depth_older_than_210_minutes(mocker, measurement_source_fixture):
+    # 3 hours 35 minutes after the last row of DAV
+    datetime_mock = mocker.patch("swiss_weather_mcp.measurements.meteoswiss_source.datetime", wraps=datetime)
+    datetime_mock.now.return_value = MEASUREMENTS_NOW + timedelta(hours=3, minutes=30)
+    davos = find_station(measurement_source_fixture, "DAV")
+    assert measurement_source_fixture.read_snow_depth(davos) is None
 
 
 # --- read_all_stations_latest_measurements ---

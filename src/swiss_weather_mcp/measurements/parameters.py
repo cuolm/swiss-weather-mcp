@@ -16,12 +16,15 @@ WIND_SPEED = "fu3010z0"          # Wind speed; ten minutes mean in km/h
 WIND_GUSTS = "fu3010z1"          # Gust peak (one second); maximum in km/h
 WIND_DIRECTION = "dkl010z0"      # Wind direction; ten minutes mean [°]
 PRESSURE_SEA_LEVEL = "pp0qnhs0"  # Pressure reduced to sea level according to standard atmosphere (QNH); current value [hPa]
+SNOW_DEPTH = "htoauts0"          # Snow depth (automatic measurement); current value [cm]
 
 # Every column the server reads from a station's now file and from the all stations file
 ALL_NOW_PARAMETERS = (
     TEMPERATURE, HUMIDITY, DEW_POINT, PRECIPITATION, SUNSHINE, WIND_SPEED, WIND_GUSTS,
     WIND_DIRECTION, PRESSURE_SEA_LEVEL,
 )
+# The now files also hold the snow depth, which the all stations file does not
+NOW_FILE_PARAMETERS = (*ALL_NOW_PARAMETERS, SNOW_DEPTH)
 
 # ── daily, 00:00 - 24:00 UTC ─────────────────────────────────────────────────
 TEMPERATURE_DAY_MEAN = "tre200d0"   # Air temperature 2 m above ground; daily mean [°C]

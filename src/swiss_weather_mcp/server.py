@@ -400,6 +400,35 @@ class SwissWeatherMCPServer:
 
         @self.mcp.tool(annotations=READS_OPEN_DATA)
         @_handle_tool_call
+        async def measurements_snow(location: str, near: Near = None) -> dict:
+            """
+            Get the snow depth and the new snow near a place, from MeteoSwiss and SLF stations.
+
+            Use this for "how much snow is there in Davos" or "how much new snow fell in Zermatt".
+            Snow depth and new snow can come from two different stations, each named in its own
+            data_from. The snow depth comes from a MeteoSwiss station, an automatic SLF station or
+            an SLF observer; the new snow only from SLF, the WSL Institute for Snow and Avalanche
+            Research. An observer measures the new snow by hand each morning, from November to
+            April; at automatic stations, SLF calculates it from the snow depth. Only stations close
+            enough in distance and height are used, so in the lowlands there is often no new snow.
+            Always say which station each value comes from, how far away it is and how much higher
+            or lower.
+
+            Args:
+                location (str): Name of a place in Switzerland, e.g. "Davos Dorf".
+
+            Returns:
+                dict: the place, snow_depth and new_snow. snow_depth: data_from, time and snow depth.
+                    new_snow: data_from, time, new snow of the last 24 hours and of the last 3 days.
+                    A block is null when no station close enough has a current value.
+
+            Examples:
+                measurements_snow("Davos Dorf")
+            """
+            return await self.measurement_service.read_snow(location, near)
+
+        @self.mcp.tool(annotations=READS_OPEN_DATA)
+        @_handle_tool_call
         async def measurements_extremes(extreme: ExtremeName) -> dict:
             """
             Get where in Switzerland it is warmest, coldest, windiest, wettest or sunniest now.

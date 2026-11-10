@@ -3,9 +3,10 @@ from datetime import datetime
 import pytest
 
 from fakes import (
-    ALL_STATIONS_LATEST_VALUES_CSV, MEASUREMENTS_NOW, RUN_ID, FakeResponse, build_boundaries_archive,
-    build_boundaries_editions, build_parameter_csv, build_place_names_archive, build_place_names_editions,
-    build_point_table_csv, build_slf_measurements_json, build_slf_stations_json, build_stac_item,
+    ALL_STATIONS_LATEST_VALUES_CSV, DATA_INVENTORY_CSV, MEASUREMENTS_NOW, RUN_ID, FakeResponse,
+    build_boundaries_archive, build_boundaries_editions, build_parameter_csv, build_place_names_archive,
+    build_place_names_editions, build_point_table_csv, build_slf_daily_snow_json, build_slf_measurements_json,
+    build_slf_stations_json, build_slf_manual_site_days_json, build_slf_manual_sites_json, build_stac_item,
     build_station_days_csv, build_station_now_values_csv, build_station_table_csv,
 )
 from swiss_weather_mcp.forecast.service import ForecastService
@@ -58,6 +59,8 @@ def source_fixture(mocker, tmp_path, tmp_path_factory):
             return FakeResponse(body=build_point_table_csv())
         if url.endswith("ogd-smn_meta_stations.csv"):
             return FakeResponse(body=build_station_table_csv())
+        if url.endswith("ogd-smn_meta_datainventory.csv"):
+            return FakeResponse(body=DATA_INVENTORY_CSV.encode("latin-1"))
         if url.endswith("VQHA80.csv"):
             return FakeResponse(body=ALL_STATIONS_LATEST_VALUES_CSV.encode("latin-1"))
         if url.endswith("_t_now.csv"):
@@ -80,6 +83,13 @@ def source_fixture(mocker, tmp_path, tmp_path_factory):
         if url.endswith("/measurements?period_in_days=1"):
             code = url.rsplit("/", 2)[-2]
             return FakeResponse(body=build_slf_measurements_json(code))
+        if url.endswith("/imis/daily-snow?period_in_days=3"):
+            return FakeResponse(body=build_slf_daily_snow_json())
+        if url.endswith("/study-plot/stations"):
+            return FakeResponse(body=build_slf_manual_sites_json())
+        if url.endswith("/measurements?period_in_days=7"):
+            code = url.rsplit("/", 2)[-2]
+            return FakeResponse(body=build_slf_manual_site_days_json(code))
         if "/items/" in url:
             return FakeResponse(payload=build_stac_item(RUN_ID, published))
         parameter = url.rsplit("/", 1)[-1].removesuffix(".csv")

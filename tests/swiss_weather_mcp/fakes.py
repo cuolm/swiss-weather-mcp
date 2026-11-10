@@ -102,26 +102,39 @@ STATION_TABLE_ROWS = (
     ("DAV", "Davos", "GR", "01.01.1864", "1594.0", "2783519.0", "1187459.0"),
 )
 
-# Some columns of the now files, with real values, except that DAV has no rain and no wind direction.
-# SMA has the row of 3 hours before its last one and the six rows of its last hour, DAV only one row.
+# Some columns of the now files, with real values, except that DAV has no rain and no wind direction,
+# and a made-up snow depth of 12 cm. SMA has the row of 3 hours before its last one and the six rows of
+# its last hour, DAV only one row.
 STATION_NOW_VALUES_COLUMNS = (
     "station_abbr;reference_timestamp;tre200s0;ure200s0;tde200s0;pp0qnhs0;dkl010z0;fu3010z0;"
-    "fu3010z1;rre150z0;sre000z0;gre000z0"
+    "fu3010z1;rre150z0;sre000z0;gre000z0;htoauts0"
 )
 STATION_NOW_VALUES_ROWS = {
     "sma": (
-        "SMA;25.09.2026 11:00;18.40;45.20;6.40;1022.80;12.00;5.40;11.50;0;10;489",
-        "SMA;25.09.2026 13:10;20.50;36.00;4.90;1021.90;18.00;4.30;9.40;0;10;560",
-        "SMA;25.09.2026 13:20;20.60;35.80;4.80;1021.80;20.00;4.00;9.00;0;10;549",
-        "SMA;25.09.2026 13:30;20.60;35.60;4.70;1021.80;25.00;3.60;7.90;0;4;402",
-        "SMA;25.09.2026 13:40;20.70;35.30;4.70;1021.70;28.00;4.10;8.30;0;0;268",
-        "SMA;25.09.2026 13:50;20.80;35.10;4.60;1021.70;31.00;3.90;8.60;0;10;509",
-        "SMA;25.09.2026 14:00;21.00;34.30;4.70;1021.60;23.00;4.70;10.10;0.00;10.00;516.00",
+        "SMA;25.09.2026 11:00;18.40;45.20;6.40;1022.80;12.00;5.40;11.50;0;10;489;0",
+        "SMA;25.09.2026 13:10;20.50;36.00;4.90;1021.90;18.00;4.30;9.40;0;10;560;0",
+        "SMA;25.09.2026 13:20;20.60;35.80;4.80;1021.80;20.00;4.00;9.00;0;10;549;0",
+        "SMA;25.09.2026 13:30;20.60;35.60;4.70;1021.80;25.00;3.60;7.90;0;4;402;0",
+        "SMA;25.09.2026 13:40;20.70;35.30;4.70;1021.70;28.00;4.10;8.30;0;0;268;0",
+        "SMA;25.09.2026 13:50;20.80;35.10;4.60;1021.70;31.00;3.90;8.60;0;10;509;0",
+        "SMA;25.09.2026 14:00;21.00;34.30;4.70;1021.60;23.00;4.70;10.10;0.00;10.00;516.00;0",
     ),
-    "ueb": ("UEB;25.09.2026 14:00;;;;;;;;;10.00;561.00",),
+    "ueb": ("UEB;25.09.2026 14:00;;;;;;;;;10.00;561.00;",),
     "klo": (),
-    "dav": ("DAV;25.09.2026 14:00;16.50;17.70;-8.10;1024.10;;16.60;28.80;;10.00;537.00",),
+    "dav": ("DAV;25.09.2026 14:00;16.50;17.70;-8.10;1024.10;;16.60;28.80;;10.00;537.00;12",),
 }
+# Rows of ogd-smn_meta_datainventory.csv, real except that KLO's snow depth is given an end day, as
+# for a station that no longer measures it. UEB measures no snow depth.
+DATA_INVENTORY_CSV = (
+    "station_abbr;parameter_shortname;meas_cat_nr;data_since;data_till;owner\n"
+    "DAV;htoauts0;1;01.02.2009 00:00;;MeteoSchweiz\n"
+    "DAV;tre200s0;1;01.02.2004 00:00;;MeteoSchweiz\n"
+    "KLO;htoauts0;1;11.05.2021 12:00;30.09.2025 23:50;MeteoSchweiz\n"
+    "KLO;tre200s0;1;01.02.2004 00:00;;MeteoSchweiz\n"
+    "SMA;htoauts0;1;14.05.2024 14:00;;MeteoSchweiz\n"
+    "SMA;tre200s0;1;01.02.2004 00:00;;MeteoSchweiz\n"
+    "UEB;tre200s0;1;14.11.1991 00:00;;MeteoSchweiz\n"
+)
 # Rows of VQHA80.csv at the time of the latest rows of the now files. UEB measures neither the
 # temperature nor the rain, KLO had 4 minutes of sun and some rain, and DAV measures no rain. MRP is
 # published there but missing from the station table.
@@ -193,33 +206,72 @@ SLF_STATIONS = (
 )
 
 
+# The temperature, humidity, wind, gust, direction and snow depth of a row of an IMIS station
+SLF_ROW_KEYS = ("TA_30MIN_MEAN", "RH_30MIN_MEAN", "VW_30MIN_MEAN", "VW_30MIN_MAX", "DW_30MIN_MEAN", "HS")
+
+
 def build_slf_row(code: str, utc_time: str, values: tuple) -> dict:
-    """Build one row of a station's measurements with the temperature, humidity, wind, gust and direction."""
-    row = {"station_code": code, "measure_date": f"2026-09-25T{utc_time}:00Z", "HS": None}
-    for key, value in zip(("TA_30MIN_MEAN", "RH_30MIN_MEAN", "VW_30MIN_MEAN", "VW_30MIN_MAX", "DW_30MIN_MEAN"), values):
+    """Build one row of a station's measurements with the values of SLF_ROW_KEYS."""
+    row = {"station_code": code, "measure_date": f"2026-09-25T{utc_time}:00Z"}
+    for key, value in zip(SLF_ROW_KEYS, values):
         row[key] = value
     return row
 
 
 # The last two rows of each station's measurements, with real values of 2026-11-09 moved to the time of
 # the MeteoSwiss now files. Platthorn's temperature is left out, and Gornergratsee's last row is from
-# 12:30 UTC, more than 1 hour before MEASUREMENTS_NOW.
+# 12:30 UTC, more than 1 hour before MEASUREMENTS_NOW. The WIND stations Platthorn and La Cassorte
+# measure no snow depth.
 SLF_STATION_CODE_TO_ROWS = {
     "ZER1": (
-        build_slf_row("ZER1", "13:30", (None, 77.1, 3.394, 8.12, 223.7)),
-        build_slf_row("ZER1", "14:00", (None, 71.3, 4.584, 11.28, 235.8)),
+        build_slf_row("ZER1", "13:30", (None, 77.1, 3.394, 8.12, 223.7, None)),
+        build_slf_row("ZER1", "14:00", (None, 71.3, 4.584, 11.28, 235.8, None)),
     ),
     "GOR2": (
-        build_slf_row("GOR2", "12:00", (0.663, 63.36, 3.352, 8.02, 236.5)),
-        build_slf_row("GOR2", "12:30", (0.216, 63.08, 4.325, 7.922, 227.6)),
+        build_slf_row("GOR2", "12:00", (0.663, 63.36, 3.352, 8.02, 236.5, 21.422)),
+        build_slf_row("GOR2", "12:30", (0.216, 63.08, 4.325, 7.922, 227.6, 21.412)),
     ),
     "ARO1": (
-        build_slf_row("ARO1", "13:30", (-1.009, 76.1, 3.033, 6.277, 199.2)),
-        build_slf_row("ARO1", "14:00", (-0.713, 73.6, 2.318, 4.557, 198.8)),
+        build_slf_row("ARO1", "13:30", (-1.009, 76.1, 3.033, 6.277, 199.2, None)),
+        build_slf_row("ARO1", "14:00", (-0.713, 73.6, 2.318, 4.557, 198.8, None)),
     ),
     "ZER2": (
-        build_slf_row("ZER2", "13:30", (1.762, 65.83, 0.16, 1.897, 75.6)),
-        build_slf_row("ZER2", "14:00", (2.345, 61.94, 0.507, 2.836, 22.92)),
+        build_slf_row("ZER2", "13:30", (1.762, 65.83, 0.16, 1.897, 75.6, 7.75)),
+        build_slf_row("ZER2", "14:00", (2.345, 61.94, 0.507, 2.836, 22.92, 6.98)),
+    ),
+}
+
+# The IMIS daily snow of the 4 days up to MEASUREMENTS_NOW, with real values of 2026-11-07 to 2026-11-10
+# moved to those days, the newest day first as SLF publishes them. Triftchumme's new snow of 2026-09-24
+# is left out.
+SLF_DAILY_SNOW = (
+    {"station_code": "GOR2", "measure_date": "2026-09-25T00:00:00", "HS": 21.0, "HN_1D": 0.0},
+    {"station_code": "ZER2", "measure_date": "2026-09-25T00:00:00", "HS": 8.0, "HN_1D": 0.0},
+    {"station_code": "GOR2", "measure_date": "2026-09-24T00:00:00", "HS": 22.0, "HN_1D": 0.0},
+    {"station_code": "ZER2", "measure_date": "2026-09-24T00:00:00", "HS": 9.0, "HN_1D": None},
+    {"station_code": "GOR2", "measure_date": "2026-09-23T00:00:00", "HS": 25.0, "HN_1D": 0.0},
+    {"station_code": "ZER2", "measure_date": "2026-09-23T00:00:00", "HS": 11.0, "HN_1D": 3.8},
+    {"station_code": "GOR2", "measure_date": "2026-09-22T00:00:00", "HS": 27.0, "HN_1D": 4.2},
+    {"station_code": "ZER2", "measure_date": "2026-09-22T00:00:00", "HS": 13.0, "HN_1D": 0.0},
+)
+
+# Two objects of the SLF manual site list, as SLF publishes them
+SLF_MANUAL_SITES = (
+    {"code": "5DF0", "label": "Davos Flüelastr.", "lon": 9.8482749954, "lat": 46.8127039463, "elevation": 1560.0,
+     "country_code": "CH", "canton_code": "GR"},
+    {"code": "4ZE0", "label": "Zermatt", "lon": 7.7506291923, "lat": 46.0237554415, "elevation": 1600.0,
+     "country_code": "CH", "canton_code": "VS"},
+)
+
+# The days of each manual site, with made-up snow. Zermatt's last day is from 2026-09-20, too old to count.
+SLF_MANUAL_SITE_CODE_TO_ROWS = {
+    "5DF0": (
+        {"station_code": "5DF0", "measure_date": "2026-09-23T06:00:00Z", "HS": 18.0, "HN_1D": 2.0, "HNW_1D": 2.4},
+        {"station_code": "5DF0", "measure_date": "2026-09-24T06:00:00Z", "HS": 25.0, "HN_1D": 8.0, "HNW_1D": 9.1},
+        {"station_code": "5DF0", "measure_date": "2026-09-25T06:00:00Z", "HS": 31.0, "HN_1D": 6.0, "HNW_1D": 6.8},
+    ),
+    "4ZE0": (
+        {"station_code": "4ZE0", "measure_date": "2026-09-20T06:00:00Z", "HS": 10.0, "HN_1D": 0.0, "HNW_1D": 0.0},
     ),
 }
 
@@ -230,6 +282,19 @@ def build_slf_stations_json() -> bytes:
 
 def build_slf_measurements_json(code: str) -> bytes:
     rows = SLF_STATION_CODE_TO_ROWS[code]
+    return json.dumps(rows).encode("utf-8")
+
+
+def build_slf_daily_snow_json() -> bytes:
+    return json.dumps(SLF_DAILY_SNOW).encode("utf-8")
+
+
+def build_slf_manual_sites_json() -> bytes:
+    return json.dumps(SLF_MANUAL_SITES).encode("utf-8")
+
+
+def build_slf_manual_site_days_json(code: str) -> bytes:
+    rows = SLF_MANUAL_SITE_CODE_TO_ROWS[code]
     return json.dumps(rows).encode("utf-8")
 
 

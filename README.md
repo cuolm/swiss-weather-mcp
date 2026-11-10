@@ -10,13 +10,14 @@ A **Model Context Protocol ([MCP](https://modelcontextprotocol.io/))** server th
 
 - Forecasts for today and the next 8 days from the [MeteoSwiss local forecasts](https://opendatadocs.meteoswiss.ch/e-forecast-data/e4-local-forecast-data), updated every hour
 - Measurements from about 160 [SwissMetNet weather stations](https://opendatadocs.meteoswiss.ch/a-data-groundbased/a1-automatic-weather-stations), updated every 10 minutes
+- Snow depth and new snow from MeteoSwiss and [SLF](https://www.slf.ch) stations and observers
 - Places on the Swiss national map, such as towns, districts, lakes and peaks, from [swissNAMES3D](https://www.swisstopo.admin.ch/en/landscape-model-swissnames3d)
 - When the Sun and the Moon rise and set at a place, the civil twilight, the Moon's phase and how much of it is lit, calculated for any day
 - A bundled MCP client for testing
 
 > **Data sources.** This project is not an official MeteoSwiss product.
 > - Weather forecasts and measurements: [MeteoSwiss Open Data](https://opendata.swiss/en/organization/bundesamt-fur-meteorologie-und-klimatologie-meteoschweiz). Source: MeteoSwiss
-> - Measurements of the IMIS mountain stations: [SLF](https://www.slf.ch), the WSL Institute for Snow and Avalanche Research, under [CC BY 4.0](https://www.slf.ch/en/services-and-products/slf-data-service/). Source: SLF
+> - Measurements of the IMIS mountain stations and the snow measured by observers: [SLF](https://www.slf.ch), the WSL Institute for Snow and Avalanche Research, under [CC BY 4.0](https://www.slf.ch/en/services-and-products/slf-data-service/). Source: SLF
 > - Place names: [swissNAMES3D](https://www.swisstopo.admin.ch/en/landscape-model-swissnames3d). Source: Federal Office of Topography swisstopo
 > - Municipalities and cantons: [swissBOUNDARIES3D](https://www.swisstopo.admin.ch/en/landscape-model-swissboundaries3d). Source: Federal Office of Topography swisstopo
 
@@ -135,6 +136,7 @@ Answers name the forecast point when it is not next to the place (see [Forecast 
 | `forecast_freezing_level(location, when)` | Height of the 0 °C line |
 | `measurements_current(location)` | What a station near the place measures now (see [Measurements](#measurements)) |
 | `measurements_history(location, start_date, days)` | 1 to 366 past days: lowest, mean and highest temperature, rain, sunshine, strongest gust |
+| `measurements_snow(location)` | Snow depth now, and new snow of the last 24 hours and 3 days (see [Measurements](#measurements)) |
 | `measurements_extremes(extreme)` | Where it is `warmest`, `coldest`, `windiest`, `wettest` or `sunniest` now |
 | `astronomy_sun(location, date)` | Sunrise, sunset and civil twilight |
 | `astronomy_moon(location, date)` | Moonrise, moonset, phase and how much is lit |
@@ -203,6 +205,24 @@ Answers name the forecast point when it is not next to the place (see [Forecast 
   it the next morning. The days go back to when the station started, such as 1864 for Zürich /
   Fluntern, where the rain from 0 to 0 UTC and the gust start in 1981; a value the station did not
   measure is None. Days before this year come from a file of up to about 6.4 MB per station.
+- `measurements_snow` gives the snow depth and the new snow, each from its own station: of the 3 with
+  the smallest distance plus 20 times the height gap, the first with a current value. Each has its own
+  data_from, which names the station, its distance and height.
+  - The snow depth comes from one of about 75 MeteoSwiss stations, one of about 130 automatic SLF
+    stations or one of about 100 SLF manual measuring sites, where an observer measures the snow by hand each
+    morning from November to April. A depth measured every 10 or 30 minutes counts for 210 minutes, as
+    on [SLF's map](https://www.slf.ch/en/avalanche-bulletin-and-snow-situation/measured-values/information-about-snow-measurement/);
+    an observer's counts until the next morning.
+  - The new snow comes only from SLF: measured by an observer, or, at an automatic station, calculated by
+    SLF from the snow depth, as old snow settles while new snow falls. Both cover the 24 hours up to
+    about 06:00 UTC. The 3 days are the sum of three 24-hour values, as SLF adds them for its maps.
+  - SLF says the observers' values are very accurate, but that most manual sites lie below about
+    2000 m, so with moist snow or rain more new snow lies higher up.
+  - Only stations within 25 km by distance plus 20 times the height gap are used, such as 15 km away and
+    500 m higher, as snow changes with height and terrain. Tested on the 5817 forecast points: 94 % of
+    those between 1200 and 2000 m keep a new snow station; below 800 m, where the nearest SLF station is
+    often 40 km away and 600 m higher, 88 % get none, but 96 % still get a snow depth.
+  - A block is null when none of its stations has a current value, and the tool says so when both are.
 - `measurements_extremes` lists the first 5 stations by temperature or gust. For the wettest, it lists
   the first 5 rainy stations and counts the rainy stations in Switzerland and in each canton.
 - For the sunniest it groups the stations by their sun in the last 10 minutes with the sunshine terms of

@@ -240,6 +240,128 @@ async def test_read_history_refuses_days_out_of_range(measurement_service_fixtur
         await measurement_service_fixture.read_history("Zurich", date(2026, 9, 23), days)
 
 
+# --- read_snow ---
+
+def move_slf_now(mocker, later: timedelta) -> None:
+    datetime_mock = mocker.patch("swiss_weather_mcp.measurements.slf_source.datetime", wraps=datetime)
+    datetime_mock.now.return_value = MEASUREMENTS_NOW + later
+
+
+def lift_distance_limit(mocker) -> None:
+    # The fake SLF stations of the Matterhorn are all farther than the limit, so these tests lift it
+    mocker.patch("swiss_weather_mcp.measurements.service.MAX_SNOW_STATION_WEIGHTED_DISTANCE_M", 1e9)
+
+
+@pytest.mark.asyncio
+async def test_read_snow_from_two_stations(measurement_service_fixture):
+    # The MeteoSwiss station Davos suits the Seeli best, but only SLF stations have new snow
+    answer = await measurement_service_fixture.read_snow("Seeli", "Davos Dorf")
+
+    assert answer == {
+        "place": "Seeli",
+        "snow_depth": {
+            "data_from": (
+                "The snow depth for Seeli (1600 m) comes from the MeteoSwiss station Davos (1594 m), 0.7 km away "
+                "and 6 m lower. It was measured at 16:00 on 2026-09-25."
+            ),
+            "measured_at": "2026-09-25T16:00+02:00",
+            "snow_depth_cm": 12.0,
+        },
+        "new_snow": {
+            "data_from": (
+                "The new snow for Seeli (1600 m) was measured by an observer at Davos Flüelastr. (1560 m), 1.0 km "
+                "away and 40 m lower. It covers the 24 hours and the 3 days up to 08:00 on 2026-09-25."
+            ),
+            "measured_at": "2026-09-25T08:00+02:00",
+            "new_snow_24_hours_cm": 6.0,
+            "new_snow_3_days_cm": 16.0,
+        },
+    }
+
+
+@pytest.mark.asyncio
+async def test_read_snow_from_an_automatic_slf_station(mocker, measurement_service_fixture):
+    lift_distance_limit(mocker)
+    answer = await measurement_service_fixture.read_snow("Matterhorn")
+
+    assert answer["snow_depth"]["data_from"].startswith(
+        "The snow depth for Matterhorn (4478 m) comes from the automatic SLF station Gornergratsee (2953 m)"
+    )
+    assert answer["snow_depth"]["snow_depth_cm"] == 21.4
+    assert answer["new_snow"]["data_from"].startswith(
+        "The new snow for Matterhorn (4478 m) comes from the automatic SLF station Gornergratsee (2953 m)"
+    )
+
+
+@pytest.mark.asyncio
+async def test_read_snow_without_snow(measurement_service_fixture):
+    # 0 cm is a value: there is no snow at Fluntern
+    answer = await measurement_service_fixture.read_snow("Zurich")
+    assert answer["snow_depth"]["snow_depth_cm"] == 0.0
+
+
+@pytest.mark.asyncio
+async def test_read_snow_leaves_out_stations_too_far_away(measurement_service_fixture):
+    # The nearest new snow for Zürich is the observer in Davos, 117 km away and 1142 m higher
+    answer = await measurement_service_fixture.read_snow("Zurich")
+    assert answer["new_snow"] is None
+
+
+@pytest.mark.asyncio
+async def test_read_snow_without_a_station_close_enough(measurement_service_fixture):
+    # Gornergratsee, the closest SLF station to the Matterhorn, is 9.8 km away but 1525 m lower
+    with pytest.raises(CannotAnswerError):
+        await measurement_service_fixture.read_snow("Matterhorn")
+
+
+@pytest.mark.asyncio
+async def test_read_snow_skips_an_old_snow_depth(mocker, measurement_service_fixture):
+    # 3 hours later, the snow depth of Gornergratsee is too old, the one of Triftchumme not yet
+    lift_distance_limit(mocker)
+    move_slf_now(mocker, timedelta(hours=3))
+    answer = await measurement_service_fixture.read_snow("Matterhorn")
+    assert "automatic SLF station Triftchumme (2752 m)" in answer["snow_depth"]["data_from"]
+
+
+@pytest.mark.asyncio
+async def test_read_snow_tries_at_most_3_stations(mocker, measurement_service_fixture):
+    # 5 hours later, the first 3 stations for the Matterhorn have no current snow depth, and the
+    # MeteoSwiss stations, which do, are not tried; the new snow of the morning still counts
+    lift_distance_limit(mocker)
+    move_slf_now(mocker, timedelta(hours=5))
+    answer = await measurement_service_fixture.read_snow("Matterhorn")
+
+    assert answer["snow_depth"] is None
+    assert "Gornergratsee" in answer["new_snow"]["data_from"]
+
+
+@pytest.mark.asyncio
+async def test_read_snow_without_current_snow_measurements(mocker, measurement_service_fixture):
+    datetime_mock = mocker.patch("swiss_weather_mcp.measurements.meteoswiss_source.datetime", wraps=datetime)
+    datetime_mock.now.return_value = MEASUREMENTS_NOW + timedelta(days=3)
+    move_slf_now(mocker, timedelta(days=3))
+
+    with pytest.raises(CannotAnswerError) as raised:
+        await measurement_service_fixture.read_snow("Seeli", "Davos Dorf")
+    assert str(raised.value) == (
+        "There are no current snow measurements near Seeli (1600 m): no snow station close enough in distance "
+        "and height has a current value. The SLF observers measure the snow from November to April."
+    )
+
+
+@pytest.mark.asyncio
+async def test_read_snow_when_slf_cannot_be_reached(mocker, measurement_service_fixture):
+    mocker.patch.object(
+        measurement_service_fixture.slf_source,
+        "list_snow_stations",
+        side_effect=requests.ConnectionError("SLF is down"),
+    )
+    answer = await measurement_service_fixture.read_snow("Seeli", "Davos Dorf")
+
+    assert "MeteoSwiss station Davos (1594 m)" in answer["snow_depth"]["data_from"]
+    assert answer["new_snow"] is None
+
+
 # --- read_extremes ---
 
 @pytest.mark.asyncio
