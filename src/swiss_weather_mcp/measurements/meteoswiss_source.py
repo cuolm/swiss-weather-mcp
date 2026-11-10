@@ -97,11 +97,11 @@ from pathlib import Path
 from typing import Dict, List, NamedTuple, Optional, Sequence, Set
 
 from . import parameters
-from ..distance import calculate_weighted_distance_m
+from ..distance import rank_by_weighted_distance
 from ..errors import CannotAnswerError
 from ..downloads import ensure_recent_file
 from ..places import SwisstopoPlace
-from .snow_values import SnowDepth
+from .snow_values import SNOW_DEPTH_MAX_AGE, SnowDepth
 
 logger = logging.getLogger(__name__)
 
@@ -126,9 +126,6 @@ PERIOD_TO_MAX_AGE = {
 }
 # Older latest measurements mean the station stopped publishing
 LATEST_MEASUREMENTS_MAX_AGE = timedelta(hours=1)
-# SLF's map of measured values shows a station's latest value for up to 210 minutes, and snow
-# depth changes slowly, https://www.slf.ch/en/avalanche-bulletin-and-snow-situation/measured-values/information-about-snow-measurement/
-SNOW_DEPTH_MAX_AGE = timedelta(minutes=210)
 MAX_STATIONS_TRIED = 3
 
 MISSING_VALUE_MARKERS = {"", "-"}
@@ -317,13 +314,6 @@ class MeteoSwissMeasurementSource:
                 all_days.append(day_measurements)
         return all_days
 
-    def _rank_stations(self, place: SwisstopoPlace) -> List[MeteoSwissStation]:
-        """Rank the stations for a place by distance plus METRES_PER_HEIGHT_METRE times the height gap."""
-        abbreviation_to_station = self._load_stations()
-        return sorted(
-            abbreviation_to_station.values(), key=lambda station: calculate_weighted_distance_m(place, station)
-        )
-
     def find_station_measurements(self, place: SwisstopoPlace) -> List[MeteoSwissStationMeasurements]:
         """
         Find the measurements of the station for a place, the oldest first.
@@ -332,7 +322,8 @@ class MeteoSwissMeasurementSource:
         first one that published a temperature in the last hour is taken. Raise CannotAnswerError
         when none of the first MAX_STATIONS_TRIED stations did.
         """
-        ranked_stations = self._rank_stations(place)
+        abbreviation_to_station = self._load_stations()
+        ranked_stations = rank_by_weighted_distance(place, abbreviation_to_station.values())
         now = datetime.now(timezone.utc)
         for station in ranked_stations[:MAX_STATIONS_TRIED]:
             all_measurements = self._read_station_measurements(station)
@@ -374,7 +365,8 @@ class MeteoSwissMeasurementSource:
 
         periods = _list_periods(first_day, last_day, today)
         described_days = _describe_days(first_day, last_day)
-        ranked_stations = self._rank_stations(place)
+        abbreviation_to_station = self._load_stations()
+        ranked_stations = rank_by_weighted_distance(place, abbreviation_to_station.values())
         newest_published_days = []
         for station in ranked_stations[:MAX_STATIONS_TRIED]:
             # The station table says on which day each station started measuring. A station that started after

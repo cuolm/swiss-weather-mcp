@@ -1,5 +1,5 @@
 """The snow values both measurement sources return, so the snow tool compares their stations alike."""
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, NamedTuple, Optional, Union
 
 if TYPE_CHECKING:
@@ -9,6 +9,11 @@ if TYPE_CHECKING:
 
 # A station that measures snow, of either source
 SnowStation = Union["MeteoSwissStation", "SLFStation"]
+
+# How old a current snow depth may be. SLF's map of measured values shows a station's latest value for up
+# to 210 minutes, and snow depth changes slowly,
+# https://www.slf.ch/en/avalanche-bulletin-and-snow-situation/measured-values/information-about-snow-measurement/
+SNOW_DEPTH_MAX_AGE = timedelta(minutes=210)
 
 
 class SnowDepth(NamedTuple):

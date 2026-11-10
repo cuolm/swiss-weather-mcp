@@ -91,10 +91,10 @@ from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, NamedTuple, Optional
 
-from ..distance import calculate_weighted_distance_m
+from ..distance import rank_by_weighted_distance
 from ..downloads import ensure_recent_file
 from ..places import SwisstopoPlace
-from .snow_values import NewSnow, SnowDepth
+from .snow_values import SNOW_DEPTH_MAX_AGE, NewSnow, SnowDepth
 
 logger = logging.getLogger(__name__)
 
@@ -115,9 +115,6 @@ IMIS_DAILY_SNOW_MAX_AGE = timedelta(hours=1)
 MANUAL_SITE_DAILY_SNOW_MAX_AGE = timedelta(hours=1)
 # Older latest measurements mean the station stopped publishing
 LATEST_MEASUREMENTS_MAX_AGE = timedelta(hours=1)
-# SLF's map of measured values shows a station's latest value for up to 210 minutes, and snow
-# depth changes slowly, https://www.slf.ch/en/avalanche-bulletin-and-snow-situation/measured-values/information-about-snow-measurement/
-SNOW_DEPTH_MAX_AGE = timedelta(minutes=210)
 # A daily value counts when it is from today or yesterday, as today's arrives only in the morning
 DAILY_VALUE_MAX_AGE = timedelta(days=1)
 NEW_SNOW_DAYS = 3
@@ -409,16 +406,6 @@ class SLFMeasurementSource:
             return None
         return SnowDepth(manual_site, newest_day.measured_at, newest_day.snow_depth_cm)
 
-    def _rank_closer_slf_stations(
-        self, place: SwisstopoPlace, meteoswiss_station_weighted_distance_m: float
-    ) -> List[SLFStation]:
-        """Rank the stations with a smaller weighted distance to a place than the MeteoSwiss station's, the best first."""
-        closer_slf_stations = []
-        for station in self._load_stations():
-            if calculate_weighted_distance_m(place, station) < meteoswiss_station_weighted_distance_m:
-                closer_slf_stations.append(station)
-        return sorted(closer_slf_stations, key=lambda station: calculate_weighted_distance_m(place, station))
-
     def find_closer_slf_station_measurements(
         self, place: SwisstopoPlace, meteoswiss_station_weighted_distance_m: float
     ) -> Optional[SLFStationMeasurements]:
@@ -427,10 +414,11 @@ class SLFMeasurementSource:
 
         meteoswiss_station_weighted_distance_m is the MeteoSwiss station's distance to the place plus
         METRES_PER_HEIGHT_METRE times its height gap, from calculate_weighted_distance_m. Only stations
-        with a smaller one are tried, the best first, and the first one that published a temperature in
-        the last hour is taken. Return None when there is no such station among the first MAX_STATIONS_TRIED.
+        with a smaller or equal one are tried, the best first, and the first one that published a temperature
+        in the last hour is taken. Return None when there is no such station among the first MAX_STATIONS_TRIED.
         """
-        ranked_slf_stations = self._rank_closer_slf_stations(place, meteoswiss_station_weighted_distance_m)
+        slf_stations = self._load_stations()
+        ranked_slf_stations = rank_by_weighted_distance(place, slf_stations, meteoswiss_station_weighted_distance_m)
         now = datetime.now(timezone.utc)
         for station in ranked_slf_stations[:MAX_STATIONS_TRIED]:
             latest_measurements = self._read_latest_station_measurements(station)

@@ -1,10 +1,10 @@
 """Build the measurements_snow answer: the snow depth and the new snow for a place, each from its own station."""
 import logging
-from typing import Any, Dict, List, Optional, TypeVar
+from typing import Any, Dict, List, Optional
 
 import requests
 
-from ..distance import GridPosition, calculate_weighted_distance_m
+from ..distance import rank_by_weighted_distance
 from ..errors import CannotAnswerError
 from ..formatting import SWISS_TZ, describe_distance_and_height, format_swiss_time, round_to_tenth
 from ..places import SwisstopoPlace
@@ -21,9 +21,6 @@ MAX_SNOW_STATIONS_TRIED = 3
 # forecast points: 94 % of those between 1200 and 2000 m keep a new snow station, and 88 % of those below
 # 800 m, where the nearest SLF station is often 40 km away and 600 m higher, get none.
 MAX_SNOW_STATION_WEIGHTED_DISTANCE_M = 25000
-
-# Any station list, so ranking SLF stations alone still returns SLF stations
-SnowStationT = TypeVar("SnowStationT", bound=GridPosition)
 
 
 def _describe_snow_station(place: SwisstopoPlace, station: SnowStation, value_name: str) -> str:
@@ -64,15 +61,6 @@ def _build_new_snow_block(place: SwisstopoPlace, new_snow: NewSnow) -> Dict[str,
         "new_snow_24_hours_cm": round_to_tenth(new_snow.new_snow_24_hours_cm),
         "new_snow_3_days_cm": round_to_tenth(new_snow.new_snow_3_days_cm),
     }
-
-
-def _rank_close_snow_stations(place: SwisstopoPlace, snow_stations: List[SnowStationT]) -> List[SnowStationT]:
-    """Rank the stations within MAX_SNOW_STATION_WEIGHTED_DISTANCE_M of a place, the closest first."""
-    close_snow_stations = []
-    for station in snow_stations:
-        if calculate_weighted_distance_m(place, station) <= MAX_SNOW_STATION_WEIGHTED_DISTANCE_M:
-            close_snow_stations.append(station)
-    return sorted(close_snow_stations, key=lambda station: calculate_weighted_distance_m(place, station))
 
 
 def _list_slf_snow_stations(slf_source: SLFMeasurementSource) -> List[SLFStation]:
@@ -119,7 +107,7 @@ def _find_snow_depth(
     METRES_PER_HEIGHT_METRE times the height gap, and the first of the first MAX_SNOW_STATIONS_TRIED
     with a current snow depth is taken.
     """
-    ranked_snow_stations = _rank_close_snow_stations(place, snow_stations)
+    ranked_snow_stations = rank_by_weighted_distance(place, snow_stations, MAX_SNOW_STATION_WEIGHTED_DISTANCE_M)
     for station in ranked_snow_stations[:MAX_SNOW_STATIONS_TRIED]:
         snow_depth = _read_snow_depth(meteoswiss_source, slf_source, station)
         if snow_depth is not None:
@@ -137,7 +125,7 @@ def _find_new_snow(
     The stations are chosen and ranked as for the snow depth, and the first of the first
     MAX_SNOW_STATIONS_TRIED with new snow from today or yesterday is taken.
     """
-    ranked_snow_stations = _rank_close_snow_stations(place, slf_snow_stations)
+    ranked_snow_stations = rank_by_weighted_distance(place, slf_snow_stations, MAX_SNOW_STATION_WEIGHTED_DISTANCE_M)
     for station in ranked_snow_stations[:MAX_SNOW_STATIONS_TRIED]:
         new_snow = _read_new_snow(slf_source, station)
         if new_snow is not None:
