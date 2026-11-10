@@ -72,7 +72,6 @@ How we use it:
             ├── tre200h0.csv                 (temperature, all points)
             └── ...                          (one file per parameter asked for)
 """
-import csv
 import logging
 import math
 import shutil
@@ -85,7 +84,7 @@ import requests
 
 from . import parameters
 from ..errors import CannotAnswerError
-from ..downloads import REQUEST_TIMEOUT_SECONDS, download_file, ensure_recent_file
+from ..downloads import REQUEST_TIMEOUT_SECONDS, download_file, read_recent_csv_rows
 from ..places import SwisstopoPlace
 
 logger = logging.getLogger(__name__)
@@ -186,21 +185,20 @@ class ForecastSource:
             return self._points
 
         point_table_file = self.cache_dir / "ogd-local-forecasting_meta_point.csv"
-        point_table = ensure_recent_file(POINT_TABLE_URL, point_table_file, POINT_TABLE_MAX_AGE)
+        point_table_rows = read_recent_csv_rows(POINT_TABLE_URL, point_table_file, POINT_TABLE_MAX_AGE)
         points = []
-        with open(point_table, newline="", encoding="latin-1") as file:
-            for row in csv.DictReader(file, delimiter=";"):
-                point = MeteoSwissPoint(
-                    point_id=row["point_id"],
-                    point_type_id=row["point_type_id"],
-                    name=row["point_name"],
-                    postal_code=row["postal_code"],
-                    altitude_m=float(row["point_height_masl"]),
-                    east_m=float(row["point_coordinates_lv95_east"]),
-                    north_m=float(row["point_coordinates_lv95_north"]),
-                )
-                if (point.point_id, point.point_type_id) not in REGIONAL_POINT_IDS:
-                    points.append(point)
+        for row in point_table_rows:
+            point = MeteoSwissPoint(
+                point_id=row["point_id"],
+                point_type_id=row["point_type_id"],
+                name=row["point_name"],
+                postal_code=row["postal_code"],
+                altitude_m=float(row["point_height_masl"]),
+                east_m=float(row["point_coordinates_lv95_east"]),
+                north_m=float(row["point_coordinates_lv95_north"]),
+            )
+            if (point.point_id, point.point_type_id) not in REGIONAL_POINT_IDS:
+                points.append(point)
         # Published only once complete, so a parallel request never sees part of the points
         self._points = points
         logger.info(f"Loaded {len(points)} forecast points")

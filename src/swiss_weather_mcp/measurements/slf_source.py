@@ -78,14 +78,13 @@ How we use it, while the tools in current.py and snow.py choose the station:
     ├── manual_sites.json                (manual site list, downloaded again when older than 7 days)
     └── manual_site_5df0_daily_snow.json (daily snow per manual site, downloaded again after 1 hour)
 """
-import json
 import logging
 from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, NamedTuple, Optional
 
 from ..coordinates import calculate_lv95_east_m, calculate_lv95_north_m
-from ..downloads import ensure_recent_file
+from ..downloads import read_recent_json
 from .snow_values import SNOW_DEPTH_MAX_AGE, NewSnow, SnowDepth
 
 logger = logging.getLogger(__name__)
@@ -264,9 +263,7 @@ class SLFMeasurementSource:
             return self._stations
 
         station_list_file = self.cache_dir / "imis_stations.json"
-        station_list = ensure_recent_file(STATION_LIST_URL, station_list_file, STATION_LIST_MAX_AGE)
-        with open(station_list, encoding="utf-8") as file:
-            station_objects = json.load(file)
+        station_objects = read_recent_json(STATION_LIST_URL, station_list_file, STATION_LIST_MAX_AGE)
         stations = []
         for station_object in station_objects:
             station = _parse_station(station_object, is_manual_site=False)
@@ -282,9 +279,7 @@ class SLFMeasurementSource:
             return self._manual_sites
 
         manual_site_list_file = self.cache_dir / "manual_sites.json"
-        manual_site_list = ensure_recent_file(MANUAL_SITE_LIST_URL, manual_site_list_file, MANUAL_SITE_LIST_MAX_AGE)
-        with open(manual_site_list, encoding="utf-8") as file:
-            station_objects = json.load(file)
+        station_objects = read_recent_json(MANUAL_SITE_LIST_URL, manual_site_list_file, MANUAL_SITE_LIST_MAX_AGE)
         manual_sites = []
         for station_object in station_objects:
             manual_site = _parse_station(station_object, is_manual_site=True)
@@ -299,11 +294,7 @@ class SLFMeasurementSource:
         code = station.code.lower()
         station_measurements_url = STATION_MEASUREMENTS_URL.format(code=station.code)
         station_measurements_file = self.cache_dir / f"imis_{code}_measurements.json"
-        station_measurements = ensure_recent_file(
-            station_measurements_url, station_measurements_file, STATION_MEASUREMENTS_MAX_AGE
-        )
-        with open(station_measurements, encoding="utf-8") as file:
-            rows = json.load(file)
+        rows = read_recent_json(station_measurements_url, station_measurements_file, STATION_MEASUREMENTS_MAX_AGE)
         if not rows:
             return None
         return _parse_station_measurements(station, rows[-1])
@@ -311,9 +302,7 @@ class SLFMeasurementSource:
     def _read_all_imis_stations_daily_snow(self) -> Dict[str, List[SLFDailySnowMeasurements]]:
         """Read the daily snow of every IMIS snow station, keyed by station code, the oldest day first."""
         imis_daily_snow_file = self.cache_dir / "imis_daily_snow.json"
-        imis_daily_snow = ensure_recent_file(IMIS_DAILY_SNOW_URL, imis_daily_snow_file, IMIS_DAILY_SNOW_MAX_AGE)
-        with open(imis_daily_snow, encoding="utf-8") as file:
-            rows = json.load(file)
+        rows = read_recent_json(IMIS_DAILY_SNOW_URL, imis_daily_snow_file, IMIS_DAILY_SNOW_MAX_AGE)
 
         station_code_to_daily_snow: Dict[str, List[SLFDailySnowMeasurements]] = {}
         for row in rows:
@@ -329,11 +318,7 @@ class SLFMeasurementSource:
         code = manual_site.code.lower()
         manual_site_daily_snow_url = MANUAL_SITE_DAILY_SNOW_URL.format(code=manual_site.code)
         manual_site_daily_snow_file = self.cache_dir / f"manual_site_{code}_daily_snow.json"
-        manual_site_daily_snow = ensure_recent_file(
-            manual_site_daily_snow_url, manual_site_daily_snow_file, MANUAL_SITE_DAILY_SNOW_MAX_AGE
-        )
-        with open(manual_site_daily_snow, encoding="utf-8") as file:
-            rows = json.load(file)
+        rows = read_recent_json(manual_site_daily_snow_url, manual_site_daily_snow_file, MANUAL_SITE_DAILY_SNOW_MAX_AGE)
 
         all_days = []
         for row in rows:

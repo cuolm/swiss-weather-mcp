@@ -1,14 +1,17 @@
 """
 Download files and cache them on disk: from data.geo.admin.ch, the Swiss open data portal that
-publishes the MeteoSwiss and the swisstopo data, and from the SLF measurement API.
+publishes the MeteoSwiss and the swisstopo data, and from the SLF measurement API. Read the cached
+MeteoSwiss CSV files and SLF JSON answers.
 
 Shared by the forecast, the measurement and the places code.
 """
+import csv
+import json
 import logging
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import BinaryIO, Optional
+from typing import Any, BinaryIO, Dict, List, Optional
 
 import requests
 
@@ -64,3 +67,18 @@ def ensure_recent_file(file_url: str, target_file: Path, max_age: timedelta) -> 
     logger.info(f"Downloading {file_url}")
     download_file(file_url, target_file)
     return target_file
+
+
+def read_recent_csv_rows(file_url: str, target_file: Path, max_age: timedelta) -> List[Dict[str, str]]:
+    """Return the rows of a cached MeteoSwiss CSV file, downloaded again when missing or older than max_age."""
+    recent_file = ensure_recent_file(file_url, target_file, max_age)
+    # MeteoSwiss writes its files in Latin-1, with ";" between the columns
+    with open(recent_file, newline="", encoding="latin-1") as file:
+        return list(csv.DictReader(file, delimiter=";"))
+
+
+def read_recent_json(file_url: str, target_file: Path, max_age: timedelta) -> Any:
+    """Return the content of a cached JSON answer, downloaded again when missing or older than max_age."""
+    recent_file = ensure_recent_file(file_url, target_file, max_age)
+    with open(recent_file, encoding="utf-8") as file:
+        return json.load(file)
