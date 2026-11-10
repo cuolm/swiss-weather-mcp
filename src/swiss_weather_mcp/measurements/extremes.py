@@ -63,7 +63,7 @@ def _find_station_values(all_measurements: List[MeteoSwissStationMeasurements], 
     return station_values
 
 
-def _find_station_values_from(station_values: List[StationValue], minimum: float) -> List[StationValue]:
+def _find_station_values_at_least(station_values: List[StationValue], minimum: float) -> List[StationValue]:
     """Find the stations whose value is at least a minimum."""
     matching_values = []
     for station_value in station_values:
@@ -73,7 +73,7 @@ def _find_station_values_from(station_values: List[StationValue], minimum: float
 
 
 def _build_station_rows(station_values: List[StationValue], extreme: Extreme) -> List[Dict[str, Any]]:
-    """Build the answer rows of the first 5 stations in the order of an extreme."""
+    """Build the answer rows of the first STATION_COUNT stations in the order of an extreme."""
     ranked_values = sorted(
         station_values, key=lambda station_value: station_value.value, reverse=extreme.highest_first
     )
@@ -169,38 +169,38 @@ def _build_sunshine_canton_rows(station_values: List[StationValue]) -> List[Dict
     return rows
 
 
-def build_extremes_answer(meteoswiss_source: MeteoSwissMeasurementSource, extreme: str) -> Dict[str, Any]:
+def build_extremes_answer(meteoswiss_source: MeteoSwissMeasurementSource, extreme_name: str) -> Dict[str, Any]:
     """
     Build the measurements_extremes answer; run it in a worker thread, as it downloads.
 
-    extreme is one of EXTREME_NAME_TO_EXTREME. Raise CannotAnswerError for an unknown extreme or when
+    extreme_name is one of EXTREME_NAME_TO_EXTREME. Raise CannotAnswerError for an unknown extreme or when
     MeteoSwiss publishes no measurements.
     """
-    if extreme not in EXTREME_NAME_TO_EXTREME:
+    if extreme_name not in EXTREME_NAME_TO_EXTREME:
         extreme_names = ", ".join(EXTREME_NAME_TO_EXTREME)
-        raise CannotAnswerError(f"'{extreme}' is not a known extreme, use one of: {extreme_names}.")
+        raise CannotAnswerError(f"'{extreme_name}' is not a known extreme, use one of: {extreme_names}.")
 
     all_measurements = meteoswiss_source.read_all_stations_latest_measurements()
     if not all_measurements:
         raise CannotAnswerError("MeteoSwiss currently publishes no measurements, try again later.")
 
-    ranked_by = EXTREME_NAME_TO_EXTREME[extreme]
-    station_values = _find_station_values(all_measurements, ranked_by.parameter)
+    extreme = EXTREME_NAME_TO_EXTREME[extreme_name]
+    station_values = _find_station_values(all_measurements, extreme.parameter)
     answer: Dict[str, Any] = {
-        "extreme": extreme,
+        "extreme": extreme_name,
         # Every row of the all stations file has the same time
         "measured_at": format_swiss_time(all_measurements[0].measured_at),
     }
-    if extreme == "sunniest":
+    if extreme_name == "sunniest":
         answer["measuring_stations"] = len(station_values)
         answer["stations_by_sunshine"] = _count_stations_by_sunshine_class(station_values)
         answer["cantons"] = _build_sunshine_canton_rows(station_values)
-    elif extreme == "wettest":
-        rainy_values = _find_station_values_from(station_values, RAINY_MIN_RAIN_MM)
+    elif extreme_name == "wettest":
+        rainy_values = _find_station_values_at_least(station_values, RAINY_MIN_RAIN_MM)
         answer["rainy_stations"] = len(rainy_values)
         answer["measuring_stations"] = len(station_values)
         answer["cantons"] = _build_canton_rows(station_values, rainy_values, "rainy")
-        answer["stations"] = _build_station_rows(rainy_values, ranked_by)
+        answer["stations"] = _build_station_rows(rainy_values, extreme)
     else:
-        answer["stations"] = _build_station_rows(station_values, ranked_by)
+        answer["stations"] = _build_station_rows(station_values, extreme)
     return answer

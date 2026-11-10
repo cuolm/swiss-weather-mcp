@@ -1,7 +1,9 @@
 from datetime import date, datetime, timezone
 
 from swiss_weather_mcp.measurements import parameters
-from swiss_weather_mcp.measurements.current import _calculate_change, _find_highest_last_hour, _sum_last_hour
+from swiss_weather_mcp.measurements.current import (
+    _calculate_change_last_3_hours, _find_highest_last_hour, _sum_last_hour,
+)
 from swiss_weather_mcp.measurements.meteoswiss_source import MeteoSwissStation, MeteoSwissStationMeasurements
 
 FLUNTERN = MeteoSwissStation(
@@ -15,14 +17,14 @@ def build_measurements(utc_time: str, parameter_to_value: dict) -> MeteoSwissSta
     return MeteoSwissStationMeasurements(FLUNTERN, measured_at, parameter_to_value)
 
 
-# --- _calculate_change ---
+# --- _calculate_change_last_3_hours ---
 
 def test_calculate_change_without_a_value_3_hours_ago():
     all_measurements = [
         build_measurements("2026-09-25T11:00", {parameters.TEMPERATURE: None}),
         build_measurements("2026-09-25T14:00", {parameters.TEMPERATURE: 21.0}),
     ]
-    assert _calculate_change(all_measurements, parameters.TEMPERATURE) is None
+    assert _calculate_change_last_3_hours(all_measurements, parameters.TEMPERATURE) is None
 
 
 # --- _sum_last_hour and _find_highest_last_hour ---

@@ -278,9 +278,11 @@ def _sum_new_snow(all_days: List[SLFDailySnowMeasurements], last_day: date) -> O
     return round(total_cm, 1)
 
 
-def _build_new_snow(station: SLFStation, all_days: List[SLFDailySnowMeasurements], today: date) -> Optional[NewSnow]:
+def _calculate_new_snow(
+    station: SLFStation, all_days: List[SLFDailySnowMeasurements], today: date
+) -> Optional[NewSnow]:
     """
-    Build the new snow of the newest day, or None when it has none or is older than yesterday.
+    Calculate the new snow of the newest day, or None when it has none or is older than yesterday.
 
     all_days come oldest first.
     """
@@ -476,4 +478,4 @@ class SLFMeasurementSource:
             station_code_to_daily_snow = self._read_all_imis_stations_daily_snow()
             all_days = station_code_to_daily_snow.get(station.code, [])
         today = datetime.now(timezone.utc).date()
-        return _build_new_snow(station, all_days, today)
+        return _calculate_new_snow(station, all_days, today)

@@ -197,7 +197,7 @@ def _parse_reference_timestamp(timestamp_text: str) -> datetime:
     return datetime.strptime(timestamp_text, "%d.%m.%Y %H:%M").replace(tzinfo=timezone.utc)
 
 
-def _parse_stamp(stamp_text: str) -> datetime:
+def _parse_all_stations_timestamp(stamp_text: str) -> datetime:
     """Read an all stations file timestamp such as "202609281020", which is always UTC."""
     return datetime.strptime(stamp_text, "%Y%m%d%H%M").replace(tzinfo=timezone.utc)
 
@@ -446,7 +446,7 @@ class MeteoSwissMeasurementSource:
                 station = abbreviation_to_station.get(row["Station/Location"])
                 if station is None:
                     continue  # a station without a row in the station table has no name and no canton
-                measured_at = _parse_stamp(row["Date"])
+                measured_at = _parse_all_stations_timestamp(row["Date"])
                 parameter_to_value = _parse_values(row, parameters.ALL_NOW_PARAMETERS)
                 measurements = MeteoSwissStationMeasurements(station, measured_at, parameter_to_value)
                 all_measurements.append(measurements)

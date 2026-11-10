@@ -26,24 +26,23 @@ MAX_SNOW_STATION_WEIGHTED_DISTANCE_M = 25000
 SnowStationT = TypeVar("SnowStationT", bound=GridPosition)
 
 
-def _describe_snow_station(station: SnowStation) -> str:
-    """Say where a snow value comes from, such as "comes from the MeteoSwiss station Davos (1594 m)"."""
+def _describe_snow_station(place: SwisstopoPlace, station: SnowStation, value_name: str) -> str:
+    """Say which station a snow value of a place comes from, how far away and how much higher or lower."""
+    distance_and_height = describe_distance_and_height(place, station)
     if isinstance(station, MeteoSwissStation):
-        return f"comes from the MeteoSwiss station {station.display_name}"
-    if station.is_manual_site:
-        return f"was measured by an observer at {station.display_name}"
-    return f"comes from the automatic SLF station {station.display_name}"
+        source = f"comes from the MeteoSwiss station {station.display_name}"
+    elif station.is_manual_site:
+        source = f"was measured by an observer at {station.display_name}"
+    else:
+        source = f"comes from the automatic SLF station {station.display_name}"
+    return f"The {value_name} for {place.display_name} {source}, {distance_and_height}."
 
 
 def _build_snow_depth_block(place: SwisstopoPlace, snow_depth: SnowDepth) -> Dict[str, Any]:
     """Build the snow_depth block of the snow answer."""
-    station_source = _describe_snow_station(snow_depth.station)
-    distance_and_height = describe_distance_and_height(place, snow_depth.station)
-    measured_at = snow_depth.measured_at.astimezone(SWISS_TZ)
-    data_from = (
-        f"The snow depth for {place.display_name} {station_source}, {distance_and_height}. "
-        f"It was measured at {measured_at:%H:%M} on {measured_at:%Y-%m-%d}."
-    )
+    station_sentence = _describe_snow_station(place, snow_depth.station, "snow depth")
+    swiss_measured_at = snow_depth.measured_at.astimezone(SWISS_TZ)
+    data_from = f"{station_sentence} It was measured at {swiss_measured_at:%H:%M} on {swiss_measured_at:%Y-%m-%d}."
     return {
         "data_from": data_from,
         "measured_at": format_swiss_time(snow_depth.measured_at),
@@ -53,12 +52,11 @@ def _build_snow_depth_block(place: SwisstopoPlace, snow_depth: SnowDepth) -> Dic
 
 def _build_new_snow_block(place: SwisstopoPlace, new_snow: NewSnow) -> Dict[str, Any]:
     """Build the new_snow block of the snow answer."""
-    station_source = _describe_snow_station(new_snow.station)
-    distance_and_height = describe_distance_and_height(place, new_snow.station)
-    measured_at = new_snow.measured_at.astimezone(SWISS_TZ)
+    station_sentence = _describe_snow_station(place, new_snow.station, "new snow")
+    swiss_measured_at = new_snow.measured_at.astimezone(SWISS_TZ)
     data_from = (
-        f"The new snow for {place.display_name} {station_source}, {distance_and_height}. "
-        f"It covers the 24 hours and the 3 days up to {measured_at:%H:%M} on {measured_at:%Y-%m-%d}."
+        f"{station_sentence} It covers the 24 hours and the 3 days up to {swiss_measured_at:%H:%M} on "
+        f"{swiss_measured_at:%Y-%m-%d}."
     )
     return {
         "data_from": data_from,

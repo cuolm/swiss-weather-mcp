@@ -35,25 +35,28 @@ MEASURED_FIELDS = (
 )
 
 
-def _build_data_from_sentence(place: SwisstopoPlace, measurements: MeteoSwissStationMeasurements) -> str:
-    """Build the data_from sentence: the station that measured the values, and when it measured them."""
-    station = measurements.station
+def _describe_meteoswiss_station(
+    place: SwisstopoPlace, meteoswiss_station_measurements: MeteoSwissStationMeasurements
+) -> str:
+    """Say which station measured the values for a place, how far away and how much higher or lower, and when."""
+    station = meteoswiss_station_measurements.station
     distance_and_height = describe_distance_and_height(place, station)
-    measured_at = measurements.measured_at.astimezone(SWISS_TZ)
+    swiss_measured_at = meteoswiss_station_measurements.measured_at.astimezone(SWISS_TZ)
     return (
         f"The measurements for {place.display_name} are those of the MeteoSwiss station {station.display_name}, "
-        f"{distance_and_height}. It measured the following values at {measured_at:%H:%M}."
+        f"{distance_and_height}. It measured the following values at {swiss_measured_at:%H:%M}."
     )
 
 
-def _build_slf_data_from_sentence(place: SwisstopoPlace, slf_measurements: SLFStationMeasurements) -> str:
-    """Build the data_from sentence of the SLF block: the station, and the time its values cover."""
-    station = slf_measurements.station
+def _describe_slf_station(place: SwisstopoPlace, slf_station_measurements: SLFStationMeasurements) -> str:
+    """Say which SLF station suits a place better than the MeteoSwiss station, and when its values end."""
+    station = slf_station_measurements.station
     distance_and_height = describe_distance_and_height(place, station)
-    measured_at = slf_measurements.measured_at.astimezone(SWISS_TZ)
+    swiss_measured_at = slf_station_measurements.measured_at.astimezone(SWISS_TZ)
     return (
         f"The SLF station {station.display_name}, {distance_and_height}, suits {place.display_name} better in "
-        f"distance and height than the MeteoSwiss station. Its values cover the 30 minutes up to {measured_at:%H:%M}."
+        f"distance and height than the MeteoSwiss station. Its values cover the 30 minutes up to "
+        f"{swiss_measured_at:%H:%M}."
     )
 
 
@@ -64,22 +67,22 @@ def _convert_m_per_s_to_kmh(speed_m_per_s: Optional[float]) -> Optional[float]:
     return round(speed_m_per_s * KMH_PER_M_PER_S, 1)
 
 
-def _build_slf_block(place: SwisstopoPlace, slf_measurements: SLFStationMeasurements) -> Dict[str, Any]:
+def _build_slf_station_block(place: SwisstopoPlace, slf_station_measurements: SLFStationMeasurements) -> Dict[str, Any]:
     """Build the slf_station block of the weather now: the latest measurements of an SLF station."""
-    wind_direction_degrees = round_to_tenth(slf_measurements.wind_direction_degrees)
+    wind_direction_degrees = round_to_tenth(slf_station_measurements.wind_direction_degrees)
     if wind_direction_degrees is None:
         compass_point = None
     else:
         compass_point = find_compass_point(wind_direction_degrees)
     return {
-        "data_from": _build_slf_data_from_sentence(place, slf_measurements),
-        "measured_at": format_swiss_time(slf_measurements.measured_at),
-        "temperature_c": round_to_tenth(slf_measurements.temperature_c),
-        "humidity_percent": round_to_tenth(slf_measurements.humidity_percent),
-        "wind_speed_kmh": _convert_m_per_s_to_kmh(slf_measurements.wind_speed_m_per_s),
+        "data_from": _describe_slf_station(place, slf_station_measurements),
+        "measured_at": format_swiss_time(slf_station_measurements.measured_at),
+        "temperature_c": round_to_tenth(slf_station_measurements.temperature_c),
+        "humidity_percent": round_to_tenth(slf_station_measurements.humidity_percent),
+        "wind_speed_kmh": _convert_m_per_s_to_kmh(slf_station_measurements.wind_speed_m_per_s),
         "wind_direction_degrees": wind_direction_degrees,
         "compass_point": compass_point,
-        "strongest_gust_last_30_minutes_kmh": _convert_m_per_s_to_kmh(slf_measurements.strongest_gust_m_per_s),
+        "strongest_gust_last_30_minutes_kmh": _convert_m_per_s_to_kmh(slf_station_measurements.strongest_gust_m_per_s),
     }
 
 
@@ -92,7 +95,9 @@ def _find_measurements_at(all_measurements: List[MeteoSwissStationMeasurements],
     return None
 
 
-def _calculate_change(all_measurements: List[MeteoSwissStationMeasurements], parameter: str) -> Optional[float]:
+def _calculate_change_last_3_hours(
+    all_measurements: List[MeteoSwissStationMeasurements], parameter: str
+) -> Optional[float]:
     """Return how much a value changed over the last 3 hours, or None when either value is missing."""
     latest_measurements = all_measurements[-1]
     earlier_measurements = _find_measurements_at(all_measurements, latest_measurements.measured_at - CHANGE_PERIOD)
@@ -168,7 +173,7 @@ def build_current_answer(
     latest_measurements = all_measurements[-1]
 
     answer: Dict[str, Any] = {
-        "data_from": _build_data_from_sentence(place, latest_measurements),
+        "data_from": _describe_meteoswiss_station(place, latest_measurements),
         "place": place.name,
         "measured_at": format_swiss_time(latest_measurements.measured_at),
     }
@@ -181,14 +186,20 @@ def build_current_answer(
     else:
         answer["compass_point"] = find_compass_point(wind_direction_degrees)
 
-    answer["temperature_change_last_3_hours_c"] = _calculate_change(all_measurements, parameters.TEMPERATURE)
-    answer["pressure_change_last_3_hours_hpa"] = _calculate_change(all_measurements, parameters.PRESSURE_SEA_LEVEL)
+    answer["temperature_change_last_3_hours_c"] = _calculate_change_last_3_hours(
+        all_measurements, parameters.TEMPERATURE
+    )
+    answer["pressure_change_last_3_hours_hpa"] = _calculate_change_last_3_hours(
+        all_measurements, parameters.PRESSURE_SEA_LEVEL
+    )
     answer["sunshine_last_hour_min"] = _sum_last_hour(all_measurements, parameters.SUNSHINE)
     answer["rain_last_hour_mm"] = _sum_last_hour(all_measurements, parameters.PRECIPITATION)
     answer["strongest_gust_last_hour_kmh"] = _find_highest_last_hour(all_measurements, parameters.WIND_GUSTS)
 
     meteoswiss_station_weighted_distance_m = calculate_weighted_distance_m(place, latest_measurements.station)
-    slf_measurements = _find_closer_slf_station_measurements(slf_source, place, meteoswiss_station_weighted_distance_m)
-    if slf_measurements is not None:
-        answer["slf_station"] = _build_slf_block(place, slf_measurements)
+    slf_station_measurements = _find_closer_slf_station_measurements(
+        slf_source, place, meteoswiss_station_weighted_distance_m
+    )
+    if slf_station_measurements is not None:
+        answer["slf_station"] = _build_slf_station_block(place, slf_station_measurements)
     return answer

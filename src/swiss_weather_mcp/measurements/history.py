@@ -13,8 +13,8 @@ MINUTES_PER_HOUR = 60
 MAX_HISTORY_DAYS = 366
 
 
-def _build_data_from_sentence(place: SwisstopoPlace, station: MeteoSwissStation) -> str:
-    """Build the data_from sentence: which station measured the values, how far away and how much higher or lower."""
+def _describe_meteoswiss_station(place: SwisstopoPlace, station: MeteoSwissStation) -> str:
+    """Say which station measured the values for a place, how far away and how much higher or lower."""
     distance_and_height = describe_distance_and_height(place, station)
     return (
         f"The measurements for {place.display_name} are those of the MeteoSwiss station {station.display_name}, "
@@ -68,7 +68,7 @@ def build_history_answer(
         day_row = _build_day_row(day_measurements)
         day_rows.append(day_row)
     return {
-        "data_from": _build_data_from_sentence(place, station_days[0].station),
+        "data_from": _describe_meteoswiss_station(place, station_days[0].station),
         "place": place.name,
         "days": day_rows,
     }
