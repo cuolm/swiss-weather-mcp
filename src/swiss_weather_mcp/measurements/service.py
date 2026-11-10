@@ -423,11 +423,11 @@ class MeasurementService:
     def __init__(
         self,
         place_finder: PlaceFinder,
-        measurement_source: MeteoSwissMeasurementSource,
+        meteoswiss_source: MeteoSwissMeasurementSource,
         slf_source: SLFMeasurementSource,
     ):
         self.place_finder = place_finder
-        self.measurement_source = measurement_source
+        self.meteoswiss_source = meteoswiss_source
         self.slf_source = slf_source
 
     async def _find_place(self, location: str, nearby_location: Optional[str]) -> SwisstopoPlace:
@@ -436,7 +436,7 @@ class MeasurementService:
 
     async def _find_station_measurements(self, place: SwisstopoPlace) -> List[MeteoSwissStationMeasurements]:
         """Find a place's station measurements in a worker thread, so a download does not block other requests."""
-        return await asyncio.to_thread(self.measurement_source.find_station_measurements, place)
+        return await asyncio.to_thread(self.meteoswiss_source.find_station_measurements, place)
 
     async def _find_closer_slf_station_measurements(
         self, place: SwisstopoPlace, meteoswiss_station_weighted_distance_m: float
@@ -459,11 +459,11 @@ class MeasurementService:
         self, place: SwisstopoPlace, first_day: date, last_day: date
     ) -> List[MeteoSwissStationMeasurements]:
         """Find a place's daily station measurements in a worker thread, so a download does not block other requests."""
-        return await asyncio.to_thread(self.measurement_source.find_station_days, place, first_day, last_day)
+        return await asyncio.to_thread(self.meteoswiss_source.find_station_days, place, first_day, last_day)
 
     async def _read_all_stations_latest_measurements(self) -> List[MeteoSwissStationMeasurements]:
         """Read every station's latest measurements in a worker thread, so a download does not block other requests."""
-        return await asyncio.to_thread(self.measurement_source.read_all_stations_latest_measurements)
+        return await asyncio.to_thread(self.meteoswiss_source.read_all_stations_latest_measurements)
 
     def _list_slf_snow_stations(self) -> List[SLFStation]:
         """List the SLF snow stations, or none when SLF cannot be reached, as the MeteoSwiss stations answer alone."""
@@ -476,7 +476,7 @@ class MeasurementService:
     def _read_snow_depth(self, station: SnowStation) -> Optional[SnowDepth]:
         """Read a station's current snow depth from its source, or None when it has none or SLF cannot be reached."""
         if isinstance(station, MeteoSwissStation):
-            return self.measurement_source.read_snow_depth(station)
+            return self.meteoswiss_source.read_snow_depth(station)
         try:
             return self.slf_source.read_snow_depth(station)
         except requests.RequestException as error:
@@ -501,7 +501,7 @@ class MeasurementService:
         METRES_PER_HEIGHT_METRE times the height gap, and the first of the first MAX_SNOW_STATIONS_TRIED
         with a current snow depth is taken.
         """
-        meteoswiss_snow_stations = self.measurement_source.list_snow_stations()
+        meteoswiss_snow_stations = self.meteoswiss_source.list_snow_stations()
         snow_stations: List[SnowStation] = [*meteoswiss_snow_stations, *slf_snow_stations]
         ranked_snow_stations = _rank_close_snow_stations(place, snow_stations)
         for station in ranked_snow_stations[:MAX_SNOW_STATIONS_TRIED]:

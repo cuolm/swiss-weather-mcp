@@ -537,9 +537,9 @@ def _build_server(args: argparse.Namespace) -> SwissWeatherMCPServer:
     place_finder.start_loading_places()
     forecast_source = ForecastSource(CACHE_DIR, cache_all_forecast_points=args.cache_all_forecast_points)
     forecast_service = ForecastService(place_finder, forecast_source)
-    measurement_source = MeteoSwissMeasurementSource(CACHE_DIR)
+    meteoswiss_source = MeteoSwissMeasurementSource(CACHE_DIR)
     slf_source = SLFMeasurementSource(CACHE_DIR)
-    measurement_service = MeasurementService(place_finder, measurement_source, slf_source)
+    measurement_service = MeasurementService(place_finder, meteoswiss_source, slf_source)
     astronomy_service = AstronomyService(place_finder)
     return SwissWeatherMCPServer(forecast_service, measurement_service, astronomy_service, args.log_level)
 

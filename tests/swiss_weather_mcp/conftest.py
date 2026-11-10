@@ -109,7 +109,7 @@ def service_fixture(place_finder_fixture, source_fixture):
 
 
 @pytest.fixture
-def measurement_source_fixture(mocker, source_fixture, tmp_path):
+def meteoswiss_source_fixture(mocker, source_fixture, tmp_path):
     """
     Return a MeteoSwissMeasurementSource reading the fake station files, served by the same fake HTTP responses,
     at a time when their latest rows are 5 minutes old.
@@ -123,7 +123,7 @@ def measurement_source_fixture(mocker, source_fixture, tmp_path):
 def slf_source_fixture(mocker, source_fixture, tmp_path):
     """
     Return an SLFMeasurementSource reading the fake SLF station list and measurements, served by the same fake HTTP
-    responses, at the time of measurement_source_fixture.
+    responses, at the time of meteoswiss_source_fixture.
     """
     datetime_mock = mocker.patch("swiss_weather_mcp.measurements.slf_source.datetime", wraps=datetime)
     datetime_mock.now.return_value = MEASUREMENTS_NOW
@@ -131,9 +131,9 @@ def slf_source_fixture(mocker, source_fixture, tmp_path):
 
 
 @pytest.fixture
-def measurement_service_fixture(place_finder_fixture, measurement_source_fixture, slf_source_fixture):
+def measurement_service_fixture(place_finder_fixture, meteoswiss_source_fixture, slf_source_fixture):
     """Return a MeasurementService reading from the fake MeteoSwiss and SLF files."""
-    return MeasurementService(place_finder_fixture, measurement_source_fixture, slf_source_fixture)
+    return MeasurementService(place_finder_fixture, meteoswiss_source_fixture, slf_source_fixture)
 
 
 @pytest.fixture

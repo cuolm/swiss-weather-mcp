@@ -394,7 +394,7 @@ async def test_read_extremes_lists_5_stations(mocker, measurement_service_fixtur
     for temperature_c in (11.0, 12.0, 13.0, 14.0, 15.0, 16.0):
         all_measurements.append(build_measurements("2026-09-25T14:00", {parameters.TEMPERATURE: temperature_c}))
     mocker.patch.object(
-        measurement_service_fixture.measurement_source, "read_all_stations_latest_measurements",
+        measurement_service_fixture.meteoswiss_source, "read_all_stations_latest_measurements",
         return_value=all_measurements,
     )
     answer = await measurement_service_fixture.read_extremes("warmest")
@@ -446,7 +446,7 @@ async def test_read_extremes_wettest(measurement_service_fixture):
 async def test_read_extremes_wettest_when_dry(mocker, measurement_service_fixture):
     dry_fluntern = build_measurements("2026-09-25T14:00", {parameters.PRECIPITATION: 0.0})
     mocker.patch.object(
-        measurement_service_fixture.measurement_source, "read_all_stations_latest_measurements",
+        measurement_service_fixture.meteoswiss_source, "read_all_stations_latest_measurements",
         return_value=[dry_fluntern],
     )
     answer = await measurement_service_fixture.read_extremes("wettest")
@@ -468,7 +468,7 @@ async def test_read_extremes_unknown_extreme(measurement_service_fixture):
 @pytest.mark.asyncio
 async def test_read_extremes_without_measurements(mocker, measurement_service_fixture):
     mocker.patch.object(
-        measurement_service_fixture.measurement_source, "read_all_stations_latest_measurements", return_value=[],
+        measurement_service_fixture.meteoswiss_source, "read_all_stations_latest_measurements", return_value=[],
     )
     with pytest.raises(CannotAnswerError, match="publishes no measurements"):
         await measurement_service_fixture.read_extremes("warmest")
