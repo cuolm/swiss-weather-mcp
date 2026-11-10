@@ -14,7 +14,6 @@ from .slf_source import SLFMeasurementSource, SLFStationMeasurements
 
 logger = logging.getLogger(__name__)
 
-KMH_PER_M_PER_S = 3.6
 # The usual period for a pressure tendency
 CHANGE_PERIOD = timedelta(hours=3)
 LAST_HOUR = timedelta(hours=1)
@@ -60,13 +59,6 @@ def _describe_slf_station(place: SwisstopoPlace, slf_station_measurements: SLFSt
     )
 
 
-def _convert_m_per_s_to_kmh(speed_m_per_s: Optional[float]) -> Optional[float]:
-    """Turn a speed in m/s into km/h rounded to a tenth, or return None for None."""
-    if speed_m_per_s is None:
-        return None
-    return round(speed_m_per_s * KMH_PER_M_PER_S, 1)
-
-
 def _build_slf_station_block(place: SwisstopoPlace, slf_station_measurements: SLFStationMeasurements) -> Dict[str, Any]:
     """Build the slf_station block of the weather now: the latest measurements of an SLF station."""
     wind_direction_degrees = round_to_tenth(slf_station_measurements.wind_direction_degrees)
@@ -79,10 +71,10 @@ def _build_slf_station_block(place: SwisstopoPlace, slf_station_measurements: SL
         "measured_at": format_swiss_time(slf_station_measurements.measured_at),
         "temperature_c": round_to_tenth(slf_station_measurements.temperature_c),
         "humidity_percent": round_to_tenth(slf_station_measurements.humidity_percent),
-        "wind_speed_kmh": _convert_m_per_s_to_kmh(slf_station_measurements.wind_speed_m_per_s),
+        "wind_speed_kmh": round_to_tenth(slf_station_measurements.wind_speed_kmh),
         "wind_direction_degrees": wind_direction_degrees,
         "compass_point": compass_point,
-        "strongest_gust_last_30_minutes_kmh": _convert_m_per_s_to_kmh(slf_station_measurements.strongest_gust_m_per_s),
+        "strongest_gust_last_30_minutes_kmh": round_to_tenth(slf_station_measurements.strongest_gust_kmh),
     }
 
 

@@ -59,8 +59,9 @@ def test_find_closer_slf_station_measurements_skips_stations_without_a_recent_te
     assert measurements.station.display_name == "La Cassorte (3300 m)"
     assert measurements.measured_at == datetime(2026, 9, 25, 14, tzinfo=timezone.utc)
     assert measurements.temperature_c == -0.713
-    assert measurements.wind_speed_m_per_s == 2.318
-    assert measurements.strongest_gust_m_per_s == 4.557
+    # SLF publishes 2.318 and 4.557 m/s
+    assert measurements.wind_speed_kmh == pytest.approx(8.3448)
+    assert measurements.strongest_gust_kmh == pytest.approx(16.4052)
 
 
 def test_find_closer_slf_station_measurements_takes_only_stations_better_than_meteoswiss(source_fixture, slf_source_fixture):

@@ -62,7 +62,8 @@ How we use it for the weather at one place:
    by their distance plus METRES_PER_HEIGHT_METRE times their height gap, as for the
    MeteoSwiss stations. The others would say less about the place than it does.
 3. Read the measurements of the first station; the file is downloaded again when it is
-   older than 5 minutes. Its last row holds the latest measurements.
+   older than 5 minutes. Its last row holds the latest measurements. The wind speeds are
+   turned from m/s into km/h, the unit MeteoSwiss uses.
 4. Take the next station when the latest measurements have no temperature or are older
    than 1 hour, at most 3 stations. A station without a temperature would answer without
    the main value, and a station that stopped publishing would answer with old values.
@@ -133,6 +134,8 @@ NEW_SNOW = "HN_1D"                # height of new snow during the last 24 hours,
 # In the daily IMIS snow, HS is the "median over last 24h at 6 UTC" and HN_1D "modeled by SNOWPACK at 6 UTC",
 # https://measurement-data.slf.ch/
 
+KMH_PER_M_PER_S = 3.6
+
 # The swisstopo approximate formulas from WGS84 to LV95, section 1 of "Approximate formulas for the
 # transformation between Swiss projection coordinates and WGS84" (December 2016),
 # https://www.swisstopo.admin.ch/dam/en/sd-web/KLRCX9XIdXDu/ch1903wgs84-EN.pdf
@@ -165,8 +168,8 @@ class SLFStationMeasurements(NamedTuple):
     measured_at: datetime
     temperature_c: Optional[float]
     humidity_percent: Optional[float]
-    wind_speed_m_per_s: Optional[float]
-    strongest_gust_m_per_s: Optional[float]  # the highest 5-second wind
+    wind_speed_kmh: Optional[float]
+    strongest_gust_kmh: Optional[float]  # the highest 5-second wind
     wind_direction_degrees: Optional[float]
     snow_depth_cm: Optional[float]  # at measured_at
 
@@ -224,6 +227,13 @@ def _parse_station(station_object: Dict[str, Any], is_manual_site: bool) -> SLFS
     )
 
 
+def _convert_m_per_s_to_kmh(speed_m_per_s: Optional[float]) -> Optional[float]:
+    """Turn a speed in m/s into km/h, or return None for None."""
+    if speed_m_per_s is None:
+        return None
+    return speed_m_per_s * KMH_PER_M_PER_S
+
+
 def _parse_station_measurements(station: SLFStation, row: Dict[str, Any]) -> SLFStationMeasurements:
     """Read the values the server uses from one row of a station's measurements."""
     # Such as "2026-11-09T12:00:00Z", which fromisoformat reads as UTC
@@ -233,8 +243,8 @@ def _parse_station_measurements(station: SLFStation, row: Dict[str, Any]) -> SLF
         measured_at=measured_at,
         temperature_c=row[TEMPERATURE],
         humidity_percent=row[HUMIDITY],
-        wind_speed_m_per_s=row[WIND_SPEED],
-        strongest_gust_m_per_s=row[WIND_GUSTS],
+        wind_speed_kmh=_convert_m_per_s_to_kmh(row[WIND_SPEED]),
+        strongest_gust_kmh=_convert_m_per_s_to_kmh(row[WIND_GUSTS]),
         wind_direction_degrees=row[WIND_DIRECTION],
         snow_depth_cm=row[SNOW_DEPTH],
     )
