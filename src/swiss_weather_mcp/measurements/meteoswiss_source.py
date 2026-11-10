@@ -101,7 +101,7 @@ from ..distance import calculate_weighted_distance_m
 from ..errors import CannotAnswerError
 from ..downloads import ensure_recent_file
 from ..places import SwisstopoPlace
-from .snow import SnowDepth
+from .snow_values import SnowDepth
 
 logger = logging.getLogger(__name__)
 

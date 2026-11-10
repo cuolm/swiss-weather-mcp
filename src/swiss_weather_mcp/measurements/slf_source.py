@@ -94,7 +94,7 @@ from typing import Any, Dict, List, NamedTuple, Optional
 from ..distance import calculate_weighted_distance_m
 from ..downloads import ensure_recent_file
 from ..places import SwisstopoPlace
-from .snow import NewSnow, SnowDepth
+from .snow_values import NewSnow, SnowDepth
 
 logger = logging.getLogger(__name__)
 

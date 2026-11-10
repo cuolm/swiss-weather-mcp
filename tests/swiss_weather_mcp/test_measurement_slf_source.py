@@ -4,7 +4,7 @@ import pytest
 
 from fakes import MEASUREMENTS_NOW, SLF_STATION_CODE_TO_ROWS
 from swiss_weather_mcp.measurements.slf_source import MAX_STATIONS_TRIED, _calculate_east_m, _calculate_north_m
-from swiss_weather_mcp.measurements.snow import NewSnow, SnowDepth
+from swiss_weather_mcp.measurements.snow_values import NewSnow, SnowDepth
 from swiss_weather_mcp.places.place_source import SwisstopoPlace
 
 MATTERHORN = SwisstopoPlace(

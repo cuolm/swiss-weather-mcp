@@ -12,7 +12,7 @@ from ..formatting import SWISS_TZ, describe_height_difference, find_compass_poin
 from ..places import PlaceFinder, SwisstopoPlace
 from .meteoswiss_source import MeteoSwissMeasurementSource, MeteoSwissStation, MeteoSwissStationMeasurements
 from .slf_source import SLFMeasurementSource, SLFStation, SLFStationMeasurements
-from .snow import NewSnow, SnowDepth, SnowStation
+from .snow_values import NewSnow, SnowDepth, SnowStation
 
 logger = logging.getLogger(__name__)
 
