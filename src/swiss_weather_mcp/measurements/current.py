@@ -1,19 +1,22 @@
 """Build the measurements_current answer: the latest measurements of the station for a place."""
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 import requests
 
 from . import parameters
-from ..distance import calculate_weighted_distance_m, is_close_to_place
+from ..distance import MAX_STATIONS_TRIED, calculate_weighted_distance_m, is_close_to_place, rank_by_weighted_distance
+from ..errors import CannotAnswerError
 from ..formatting import SWISS_TZ, describe_distance_and_height, find_compass_point, format_swiss_time, round_to_tenth
 from ..places import SwisstopoPlace
 from .meteoswiss_source import MeteoSwissMeasurementSource, MeteoSwissStationMeasurements
-from .slf_source import SLFMeasurementSource, SLFStationMeasurements
+from .slf_source import SLFMeasurementSource, SLFStation, SLFStationMeasurements
 
 logger = logging.getLogger(__name__)
 
+# Older latest measurements mean the station stopped publishing
+LATEST_MEASUREMENTS_MAX_AGE = timedelta(hours=1)
 # The usual period for a pressure tendency
 CHANGE_PERIOD = timedelta(hours=3)
 LAST_HOUR = timedelta(hours=1)
@@ -139,16 +142,67 @@ def _find_highest_last_hour(all_measurements: List[MeteoSwissStationMeasurements
     return max(values)
 
 
+def _find_meteoswiss_station_measurements(
+    meteoswiss_source: MeteoSwissMeasurementSource, place: SwisstopoPlace
+) -> List[MeteoSwissStationMeasurements]:
+    """
+    Find the measurements of the MeteoSwiss station for a place, the oldest first.
+
+    The stations are ranked by weighted distance, and the first of the first MAX_STATIONS_TRIED that
+    published a temperature in the last hour is taken. Raise CannotAnswerError when none did.
+    """
+    meteoswiss_stations = meteoswiss_source.list_stations()
+    ranked_meteoswiss_stations = rank_by_weighted_distance(place, meteoswiss_stations)
+    now = datetime.now(timezone.utc)
+    for station in ranked_meteoswiss_stations[:MAX_STATIONS_TRIED]:
+        all_measurements = meteoswiss_source.read_station_measurements(station)
+        # Some stations measure only a few values, such as wind on a tower, and would answer
+        # with almost every value None; a temperature marks a station that measures the usual set
+        if not all_measurements or all_measurements[-1].parameter_to_value[parameters.TEMPERATURE] is None:
+            logger.info(f"Station {station.abbr} has no current temperature, trying the next station")
+            continue
+        latest_measurements = all_measurements[-1]
+        if now - latest_measurements.measured_at > LATEST_MEASUREMENTS_MAX_AGE:
+            logger.info(f"Station {station.abbr} has no measurements in the last hour, trying the next station")
+            continue
+        return all_measurements
+
+    raise CannotAnswerError(
+        f"None of the {MAX_STATIONS_TRIED} stations tried for {place.display_name} published a "
+        f"temperature in the last hour, try again later."
+    )
+
+
+def _find_recent_slf_station_measurements(
+    slf_source: SLFMeasurementSource, ranked_slf_stations: List[SLFStation]
+) -> Optional[SLFStationMeasurements]:
+    """Find the latest measurements of the first of the first MAX_STATIONS_TRIED stations with a recent temperature."""
+    now = datetime.now(timezone.utc)
+    for station in ranked_slf_stations[:MAX_STATIONS_TRIED]:
+        latest_measurements = slf_source.read_latest_station_measurements(station)
+        if latest_measurements is None or latest_measurements.temperature_c is None:
+            logger.info(f"SLF station {station.code} has no current temperature, trying the next station")
+            continue
+        if now - latest_measurements.measured_at > LATEST_MEASUREMENTS_MAX_AGE:
+            logger.info(f"SLF station {station.code} has no measurements in the last hour, trying the next station")
+            continue
+        return latest_measurements
+    return None
+
+
 def _find_closer_slf_station_measurements(
     slf_source: SLFMeasurementSource, place: SwisstopoPlace, meteoswiss_station_weighted_distance_m: float
 ) -> Optional[SLFStationMeasurements]:
     """
     Find the measurements of an SLF station that suits a place better than the MeteoSwiss station.
 
-    Return None when there is none, and when SLF cannot be reached, as the MeteoSwiss values answer alone.
+    Only SLF stations with a weighted distance up to the MeteoSwiss station's are tried. Return None
+    when there is none, and when SLF cannot be reached, as the MeteoSwiss values answer alone.
     """
     try:
-        return slf_source.find_closer_slf_station_measurements(place, meteoswiss_station_weighted_distance_m)
+        slf_stations = slf_source.list_stations()
+        ranked_slf_stations = rank_by_weighted_distance(place, slf_stations, meteoswiss_station_weighted_distance_m)
+        return _find_recent_slf_station_measurements(slf_source, ranked_slf_stations)
     except requests.RequestException as error:
         logger.warning(f"Could not download the SLF measurements for {place.display_name}, answering without: {error}")
         return None
@@ -163,7 +217,7 @@ def build_current_answer(
     Add the slf_station block when an SLF station suits the place better than the MeteoSwiss station.
     Raise CannotAnswerError when no station publishes a temperature.
     """
-    all_measurements = meteoswiss_source.find_station_measurements(place)
+    all_measurements = _find_meteoswiss_station_measurements(meteoswiss_source, place)
     latest_measurements = all_measurements[-1]
 
     answer: Dict[str, Any] = {}

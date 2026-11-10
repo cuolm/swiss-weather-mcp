@@ -15,6 +15,8 @@ METRES_PER_KILOMETRE = 1000
 # data_from. 50 m of height changes the temperature by about 0.3 °C.
 CLOSE_MAX_DISTANCE_KM = 1.0
 CLOSE_MAX_HEIGHT_DIFFERENCE_M = 50
+# How many of the closest stations a tool tries before it gives up, so a question downloads only a few files
+MAX_STATIONS_TRIED = 3
 
 
 class GridPosition(Protocol):

@@ -3,7 +3,7 @@ from datetime import date, datetime, timedelta, timezone
 import pytest
 import requests
 
-from fakes import MEASUREMENTS_NOW
+from fakes import MEASUREMENTS_NOW, SLF_STATION_CODE_TO_ROWS
 from swiss_weather_mcp.errors import CannotAnswerError
 from swiss_weather_mcp.measurements import parameters
 from swiss_weather_mcp.measurements.meteoswiss_source import MeteoSwissStation, MeteoSwissStationMeasurements
@@ -106,9 +106,8 @@ async def test_read_current_without_an_slf_station_in_the_lowlands(measurement_s
 
 @pytest.mark.asyncio
 async def test_read_current_without_recent_slf_measurements(mocker, measurement_service_fixture):
-    # An hour later for SLF only: La Cassorte's last row is then more than 1 hour old as well
-    datetime_mock = mocker.patch("swiss_weather_mcp.measurements.slf_source.datetime", wraps=datetime)
-    datetime_mock.now.return_value = MEASUREMENTS_NOW + timedelta(hours=1)
+    # With La Cassorte's rows as old as Gornergratsee's, none of the first 3 SLF stations has a recent temperature
+    mocker.patch.dict(SLF_STATION_CODE_TO_ROWS, {"ARO1": SLF_STATION_CODE_TO_ROWS["GOR2"]})
     answer = await measurement_service_fixture.read_current("Matterhorn")
 
     assert "slf_station" not in answer
@@ -118,7 +117,7 @@ async def test_read_current_without_recent_slf_measurements(mocker, measurement_
 @pytest.mark.asyncio
 async def test_read_current_when_slf_cannot_be_reached(mocker, measurement_service_fixture):
     mocker.patch.object(
-        measurement_service_fixture.slf_source, "find_closer_slf_station_measurements",
+        measurement_service_fixture.slf_source, "list_stations",
         side_effect=requests.ConnectionError("SLF is down"),
     )
     answer = await measurement_service_fixture.read_current("Matterhorn")

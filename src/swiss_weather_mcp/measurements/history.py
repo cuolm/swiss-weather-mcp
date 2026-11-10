@@ -1,13 +1,16 @@
 """Build the measurements_history answer: the daily measurements of the station for a place."""
-from datetime import date, timedelta
-from typing import Any, Dict, Optional
+import logging
+from datetime import date, datetime, timedelta, timezone
+from typing import Any, Dict, List, Optional
 
 from . import parameters
-from ..distance import is_close_to_place
+from ..distance import MAX_STATIONS_TRIED, is_close_to_place, rank_by_weighted_distance
 from ..errors import CannotAnswerError
 from ..formatting import describe_distance_and_height
 from ..places import SwisstopoPlace
 from .meteoswiss_source import MeteoSwissMeasurementSource, MeteoSwissStation, MeteoSwissStationMeasurements
+
+logger = logging.getLogger(__name__)
 
 MINUTES_PER_HOUR = 60
 # Up to a whole year, a leap year too
@@ -47,6 +50,83 @@ def _build_day_row(day_measurements: MeteoSwissStationMeasurements) -> Dict[str,
     }
 
 
+def _describe_days(first_day: date, last_day: date) -> str:
+    """Say one day or a period of days for a message, such as "2026-11-04" or "2026-11-01 to 2026-11-04"."""
+    if first_day == last_day:
+        return first_day.isoformat()
+    return f"{first_day.isoformat()} to {last_day.isoformat()}"
+
+
+def _find_days_between(
+    all_days: List[MeteoSwissStationMeasurements], first_day: date, last_day: date
+) -> List[MeteoSwissStationMeasurements]:
+    """Find the daily rows from first_day to last_day."""
+    days_between = []
+    for day_measurements in all_days:
+        if first_day <= day_measurements.measured_at.date() <= last_day:
+            days_between.append(day_measurements)
+    return days_between
+
+
+def _check_days_before_today(first_day: date, last_day: date) -> None:
+    """Raise CannotAnswerError for today or a later day, which has no daily measurements yet."""
+    today = datetime.now(timezone.utc).date()
+    if last_day >= today:
+        unmeasured_day = max(first_day, today)
+        raise CannotAnswerError(
+            f"There are no daily measurements for {unmeasured_day.isoformat()} yet. MeteoSwiss publishes "
+            f"the values of a day the next morning, so use measurements_current for now and forecast_daily "
+            f"for today and the days ahead."
+        )
+
+
+def _find_meteoswiss_station_daily_measurements(
+    meteoswiss_source: MeteoSwissMeasurementSource, place: SwisstopoPlace, first_day: date, last_day: date
+) -> List[MeteoSwissStationMeasurements]:
+    """
+    Find the daily measurements of the MeteoSwiss station for a place from first_day to last_day, the oldest first.
+
+    The stations are ranked by weighted distance, and the first of the first MAX_STATIONS_TRIED with a
+    temperature on one of the days is taken; a day it has no row for is left out. Raise
+    CannotAnswerError for days MeteoSwiss has not published yet, and when none of the stations has a
+    temperature on the days.
+    """
+    described_days = _describe_days(first_day, last_day)
+    meteoswiss_stations = meteoswiss_source.list_stations()
+    ranked_meteoswiss_stations = rank_by_weighted_distance(place, meteoswiss_stations)
+    newest_published_days = []
+    for station in ranked_meteoswiss_stations[:MAX_STATIONS_TRIED]:
+        # The station table says on which day each station started measuring. A station that started after
+        # the asked days has no values for them, so it is skipped without downloading its files.
+        if station.data_since > last_day:
+            logger.info(f"Station {station.abbr} started on {station.data_since}, trying the next station")
+            continue
+
+        all_days = meteoswiss_source.read_station_daily_measurements(station, first_day, last_day)
+        if all_days:
+            newest_published_days.append(all_days[-1].measured_at.date())
+
+        asked_days = _find_days_between(all_days, first_day, last_day)
+        has_temperature = any(
+            day_measurements.parameter_to_value[parameters.TEMPERATURE_DAY_MEAN] is not None
+            for day_measurements in asked_days
+        )
+        if has_temperature:
+            return asked_days
+        logger.info(f"Station {station.abbr} has no temperature for {described_days}, trying the next station")
+
+    # MeteoSwiss publishes the days of all stations together, so days after the newest row of every
+    # station tried are not published yet
+    if newest_published_days and max(newest_published_days) < first_day:
+        raise CannotAnswerError(
+            f"MeteoSwiss has not published the daily measurements for {described_days} yet, try again later."
+        )
+    raise CannotAnswerError(
+        f"None of the {MAX_STATIONS_TRIED} stations tried for {place.display_name} has a daily temperature "
+        f"for {described_days}."
+    )
+
+
 def check_day_count(days: int) -> None:
     """Raise CannotAnswerError when days is not between 1 and MAX_HISTORY_DAYS."""
     if not 1 <= days <= MAX_HISTORY_DAYS:
@@ -62,14 +142,15 @@ def build_history_answer(
     Raise CannotAnswerError for today or later, and when no station has measurements for the days.
     """
     last_day = first_day + timedelta(days=days - 1)
-    station_days = meteoswiss_source.find_station_days(place, first_day, last_day)
+    _check_days_before_today(first_day, last_day)
+    daily_measurements = _find_meteoswiss_station_daily_measurements(meteoswiss_source, place, first_day, last_day)
 
     day_rows = []
-    for day_measurements in station_days:
+    for day_measurements in daily_measurements:
         day_row = _build_day_row(day_measurements)
         day_rows.append(day_row)
     answer: Dict[str, Any] = {}
-    station = station_days[0].station
+    station = daily_measurements[0].station
     # A station next to the place stands for it, so the answer does not name it
     if not is_close_to_place(place, station):
         answer["data_from"] = _describe_meteoswiss_station(place, station)

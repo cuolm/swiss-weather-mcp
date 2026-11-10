@@ -47,35 +47,19 @@ What MeteoSwiss publishes:
     │ ...                                                            │  about 160 rows
     └────────────────────────────────────────────────────────────────┘
 
-How we use it for the weather at one place:
+How we use it, while the tools in current.py, history.py and snow.py choose the station:
 1. Read the station table on the first question and keep it in memory for as long as
    the process runs; the file is downloaded first when it is missing or older than 7 days.
-2. Rank the stations by their distance to the requested place plus METRES_PER_HEIGHT_METRE
-   times their height gap, as the weather changes faster with height than with distance.
-3. Read the now file of the first station; the file is downloaded again when it is
+2. For the weather now, read a station's now file; the file is downloaded again when it is
    older than 5 minutes. Its last row holds the latest measurements, and its earlier rows
    show how the values changed.
-4. Take the next station when the latest measurements have no temperature or are older
-   than 1 hour, at most 3 stations. Stations without a temperature, such as a wind tower,
-   would answer with almost every value missing, and a station that stopped publishing
-   would answer with old values.
-
-How we use it for past days at one place:
-1. Refuse today and later days, which have no daily row yet.
-2. Rank the stations as for the weather now, and read the daily files of the first
-   station: the recent file for days of this year, downloaded again when older than
-   1 hour, and the historical file for earlier days, downloaded again when older than
-   30 days.
-3. Take the next station when the station started after the days, as the station
-   table says, or has no temperature on any of the days, at most 3 stations. Stations
-   started in different years, and some measured the temperature only years later.
-
-How we use it for the snow depth at one place:
-1. Read the data inventory on the first question and keep the stations that measure the
-   snow depth now in memory; the file is downloaded first when it is missing or older than
-   7 days. The service ranks them together with the SLF snow stations.
-2. Read the last row of a station's now file, as for the weather now. Its snow depth counts
-   when it is at most 210 minutes old, as on SLF's map of measured values.
+3. For past days, read the daily files of a station that hold the days: the recent file
+   for days of this year, downloaded again when older than 1 hour, and the historical file
+   for earlier days, downloaded again when older than 30 days.
+4. For the snow depth, read the data inventory on the first question and keep the stations
+   that measure it now in memory; the file is downloaded first when it is missing or older
+   than 7 days. A station's snow depth is the one of the last row of its now file, when it
+   is at most 210 minutes old, as on SLF's map of measured values.
 
 How we use it to compare all stations:
 1. Read the all stations file; it is downloaded again when it is older than 5 minutes.
@@ -97,10 +81,7 @@ from pathlib import Path
 from typing import Dict, List, NamedTuple, Optional, Sequence, Set
 
 from . import parameters
-from ..distance import rank_by_weighted_distance
-from ..errors import CannotAnswerError
 from ..downloads import ensure_recent_file
-from ..places import SwisstopoPlace
 from .snow_values import SNOW_DEPTH_MAX_AGE, SnowDepth
 
 logger = logging.getLogger(__name__)
@@ -109,7 +90,7 @@ STATION_TABLE_URL = "https://data.geo.admin.ch/ch.meteoschweiz.ogd-smn/ogd-smn_m
 DATA_INVENTORY_URL = "https://data.geo.admin.ch/ch.meteoschweiz.ogd-smn/ogd-smn_meta_datainventory.csv"
 STATION_NOW_VALUES_URL = "https://data.geo.admin.ch/ch.meteoschweiz.ogd-smn/{abbr}/ogd-smn_{abbr}_t_now.csv"
 # The period is RECENT_DAYS or HISTORICAL_DAYS
-STATION_DAYS_URL = "https://data.geo.admin.ch/ch.meteoschweiz.ogd-smn/{abbr}/ogd-smn_{abbr}_d_{period}.csv"
+STATION_DAILY_VALUES_URL = "https://data.geo.admin.ch/ch.meteoschweiz.ogd-smn/{abbr}/ogd-smn_{abbr}_d_{period}.csv"
 ALL_STATIONS_LATEST_VALUES_URL = "https://data.geo.admin.ch/ch.meteoschweiz.messwerte-aktuell/VQHA80.csv"
 RECENT_DAYS = "recent"
 HISTORICAL_DAYS = "historical"
@@ -124,9 +105,6 @@ PERIOD_TO_MAX_AGE = {
     RECENT_DAYS: timedelta(hours=1),
     HISTORICAL_DAYS: timedelta(days=30),
 }
-# Older latest measurements mean the station stopped publishing
-LATEST_MEASUREMENTS_MAX_AGE = timedelta(hours=1)
-MAX_STATIONS_TRIED = 3
 
 MISSING_VALUE_MARKERS = {"", "-"}
 
@@ -199,24 +177,6 @@ def _parse_all_stations_timestamp(stamp_text: str) -> datetime:
     return datetime.strptime(stamp_text, "%Y%m%d%H%M").replace(tzinfo=timezone.utc)
 
 
-def _describe_days(first_day: date, last_day: date) -> str:
-    """Write one day or a period of days for a message, such as "2026-11-04" or "2026-11-01 to 2026-11-04"."""
-    if first_day == last_day:
-        return first_day.isoformat()
-    return f"{first_day.isoformat()} to {last_day.isoformat()}"
-
-
-def _find_days_between(
-    all_days: List[MeteoSwissStationMeasurements], first_day: date, last_day: date
-) -> List[MeteoSwissStationMeasurements]:
-    """Find the daily rows from first_day to last_day."""
-    days_between = []
-    for day_measurements in all_days:
-        if first_day <= day_measurements.measured_at.date() <= last_day:
-            days_between.append(day_measurements)
-    return days_between
-
-
 def _list_periods(first_day: date, last_day: date, today: date) -> List[str]:
     """List the daily files that hold the days, the older one first: historical before this year, recent in it."""
     this_year_start = date(today.year, 1, 1)
@@ -229,7 +189,7 @@ def _list_periods(first_day: date, last_day: date, today: date) -> List[str]:
 
 
 class MeteoSwissMeasurementSource:
-    """Read the latest SwissMetNet measurements and find the station for a place."""
+    """Read the SwissMetNet stations and their measurements: now, on past days, the snow depth and all stations."""
 
     def __init__(self, cache_dir: Path):
         self.cache_dir = cache_dir / "measurements"
@@ -279,7 +239,7 @@ class MeteoSwissMeasurementSource:
         logger.info(f"Loaded {len(snow_station_abbreviations)} stations that measure the snow depth")
         return snow_station_abbreviations
 
-    def _read_station_measurements(self, station: MeteoSwissStation) -> List[MeteoSwissStationMeasurements]:
+    def read_station_measurements(self, station: MeteoSwissStation) -> List[MeteoSwissStationMeasurements]:
         """Read every row of a station's now file, the oldest first."""
         abbr = station.abbr.lower()
         station_now_values_url = STATION_NOW_VALUES_URL.format(abbr=abbr)
@@ -297,15 +257,17 @@ class MeteoSwissMeasurementSource:
                 all_measurements.append(measurements)
         return all_measurements
 
-    def _read_station_days(self, station: MeteoSwissStation, period: str) -> List[MeteoSwissStationMeasurements]:
+    def _read_station_daily_file(self, station: MeteoSwissStation, period: str) -> List[MeteoSwissStationMeasurements]:
         """Read every row of one of a station's daily files, RECENT_DAYS or HISTORICAL_DAYS, the oldest first."""
         abbr = station.abbr.lower()
-        station_days_url = STATION_DAYS_URL.format(abbr=abbr, period=period)
-        station_days_file = self.cache_dir / f"ogd-smn_{abbr}_d_{period}.csv"
-        station_days = ensure_recent_file(station_days_url, station_days_file, PERIOD_TO_MAX_AGE[period])
+        station_daily_values_url = STATION_DAILY_VALUES_URL.format(abbr=abbr, period=period)
+        station_daily_values_file = self.cache_dir / f"ogd-smn_{abbr}_d_{period}.csv"
+        station_daily_values = ensure_recent_file(
+            station_daily_values_url, station_daily_values_file, PERIOD_TO_MAX_AGE[period]
+        )
 
         all_days = []
-        with open(station_days, newline="", encoding="latin-1") as file:
+        with open(station_daily_values, newline="", encoding="latin-1") as file:
             for row in csv.DictReader(file, delimiter=";"):
                 # A daily row is stamped 00:00 UTC at the start of its day
                 measured_at = _parse_reference_timestamp(row["reference_timestamp"])
@@ -314,93 +276,26 @@ class MeteoSwissMeasurementSource:
                 all_days.append(day_measurements)
         return all_days
 
-    def find_station_measurements(self, place: SwisstopoPlace) -> List[MeteoSwissStationMeasurements]:
-        """
-        Find the measurements of the station for a place, the oldest first.
-
-        Stations are ranked by distance plus METRES_PER_HEIGHT_METRE times the height gap, and the
-        first one that published a temperature in the last hour is taken. Raise CannotAnswerError
-        when none of the first MAX_STATIONS_TRIED stations did.
-        """
+    def list_stations(self) -> List[MeteoSwissStation]:
+        """List the stations of the station table."""
         abbreviation_to_station = self._load_stations()
-        ranked_stations = rank_by_weighted_distance(place, abbreviation_to_station.values())
-        now = datetime.now(timezone.utc)
-        for station in ranked_stations[:MAX_STATIONS_TRIED]:
-            all_measurements = self._read_station_measurements(station)
-            # Some stations measure only a few values, such as wind on a tower, and would answer
-            # with almost every value None; a temperature marks a station that measures the usual set
-            if not all_measurements or all_measurements[-1].parameter_to_value[parameters.TEMPERATURE] is None:
-                logger.info(f"Station {station.abbr} has no current temperature, trying the next station")
-                continue
-            latest_measurements = all_measurements[-1]
-            if now - latest_measurements.measured_at > LATEST_MEASUREMENTS_MAX_AGE:
-                logger.info(f"Station {station.abbr} has no measurements in the last hour, trying the next station")
-                continue
-            return all_measurements
+        return list(abbreviation_to_station.values())
 
-        raise CannotAnswerError(
-            f"None of the {MAX_STATIONS_TRIED} stations tried for {place.display_name} published a "
-            f"temperature in the last hour, try again later."
-        )
-
-    def find_station_days(
-        self, place: SwisstopoPlace, first_day: date, last_day: date
+    def read_station_daily_measurements(
+        self, station: MeteoSwissStation, first_day: date, last_day: date
     ) -> List[MeteoSwissStationMeasurements]:
         """
-        Find the daily measurements of the station for a place from first_day to last_day, the oldest first.
+        Read the rows of a station's daily files that hold the days from first_day to last_day, the oldest first.
 
-        The days are UTC days. Stations are ranked as in find_station_measurements, and the first one
-        with a temperature on one of the days is taken; a day it has no row for is left out. Raise
-        CannotAnswerError for today or a later day, for days MeteoSwiss has not published yet, and when
-        none of the first MAX_STATIONS_TRIED stations has a temperature on the days.
+        The files may hold other days too; a day MeteoSwiss has not published yet is missing.
         """
         today = datetime.now(timezone.utc).date()
-        if last_day >= today:
-            unmeasured_day = max(first_day, today)
-            raise CannotAnswerError(
-                f"There are no daily measurements for {unmeasured_day.isoformat()} yet. MeteoSwiss publishes "
-                f"the values of a day the next morning, so use measurements_current for now and forecast_daily "
-                f"for today and the days ahead."
-            )
-
         periods = _list_periods(first_day, last_day, today)
-        described_days = _describe_days(first_day, last_day)
-        abbreviation_to_station = self._load_stations()
-        ranked_stations = rank_by_weighted_distance(place, abbreviation_to_station.values())
-        newest_published_days = []
-        for station in ranked_stations[:MAX_STATIONS_TRIED]:
-            # The station table says on which day each station started measuring. A station that started after
-            # the asked days has no values for them, so it is skipped without downloading its files.
-            if station.data_since > last_day:
-                logger.info(f"Station {station.abbr} started on {station.data_since}, trying the next station")
-                continue
-
-            all_days = []
-            for period in periods:
-                period_days = self._read_station_days(station, period)
-                all_days.extend(period_days)
-            if all_days:
-                newest_published_days.append(all_days[-1].measured_at.date())
-
-            asked_days = _find_days_between(all_days, first_day, last_day)
-            has_temperature = any(
-                day_measurements.parameter_to_value[parameters.TEMPERATURE_DAY_MEAN] is not None
-                for day_measurements in asked_days
-            )
-            if has_temperature:
-                return asked_days
-            logger.info(f"Station {station.abbr} has no temperature for {described_days}, trying the next station")
-
-        # MeteoSwiss publishes the days of all stations together, so days after the newest row of every
-        # station tried are not published yet
-        if newest_published_days and max(newest_published_days) < first_day:
-            raise CannotAnswerError(
-                f"MeteoSwiss has not published the daily measurements for {described_days} yet, try again later."
-            )
-        raise CannotAnswerError(
-            f"None of the {MAX_STATIONS_TRIED} stations tried for {place.display_name} has a daily temperature "
-            f"for {described_days}."
-        )
+        all_days = []
+        for period in periods:
+            period_days = self._read_station_daily_file(station, period)
+            all_days.extend(period_days)
+        return all_days
 
     def list_snow_stations(self) -> List[MeteoSwissStation]:
         """List the stations that measure the snow depth now."""
@@ -414,7 +309,7 @@ class MeteoSwissMeasurementSource:
 
     def read_snow_depth(self, station: MeteoSwissStation) -> Optional[SnowDepth]:
         """Read a station's current snow depth, or None when it has none or it is older than SNOW_DEPTH_MAX_AGE."""
-        all_measurements = self._read_station_measurements(station)
+        all_measurements = self.read_station_measurements(station)
         if not all_measurements:
             return None
         latest_measurements = all_measurements[-1]

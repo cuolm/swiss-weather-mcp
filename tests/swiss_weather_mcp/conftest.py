@@ -7,7 +7,7 @@ from fakes import (
     build_boundaries_archive, build_boundaries_editions, build_parameter_csv, build_place_names_archive,
     build_place_names_editions, build_point_table_csv, build_slf_daily_snow_json, build_slf_measurements_json,
     build_slf_stations_json, build_slf_manual_site_days_json, build_slf_manual_sites_json, build_stac_item,
-    build_station_days_csv, build_station_now_values_csv, build_station_table_csv,
+    build_station_daily_values_csv, build_station_now_values_csv, build_station_table_csv,
 )
 from swiss_weather_mcp.forecast.service import ForecastService
 from swiss_weather_mcp.forecast.source import ForecastSource
@@ -69,7 +69,7 @@ def source_fixture(mocker, tmp_path, tmp_path_factory):
         if url.endswith(("_d_recent.csv", "_d_historical.csv")):
             abbr = url.rsplit("/", 2)[-2]
             period = url.removesuffix(".csv").rsplit("_", 1)[-1]
-            return FakeResponse(body=build_station_days_csv(abbr, period))
+            return FakeResponse(body=build_station_daily_values_csv(abbr, period))
         if url.endswith("swissnames3d/items"):
             return FakeResponse(payload=build_place_names_editions())
         if url.endswith(".csv.zip"):
@@ -131,7 +131,17 @@ def slf_source_fixture(mocker, source_fixture, tmp_path):
 
 
 @pytest.fixture
-def measurement_service_fixture(place_finder_fixture, meteoswiss_source_fixture, slf_source_fixture):
+def measurement_tools_now_fixture(mocker):
+    """Set the clock of the measurement tools to the time of the fake sources, 5 minutes after their latest rows."""
+    for module in ("current", "history"):
+        datetime_mock = mocker.patch(f"swiss_weather_mcp.measurements.{module}.datetime", wraps=datetime)
+        datetime_mock.now.return_value = MEASUREMENTS_NOW
+
+
+@pytest.fixture
+def measurement_service_fixture(
+    place_finder_fixture, meteoswiss_source_fixture, slf_source_fixture, measurement_tools_now_fixture
+):
     """Return a MeasurementService reading from the fake MeteoSwiss and SLF files."""
     return MeasurementService(place_finder_fixture, meteoswiss_source_fixture, slf_source_fixture)
 

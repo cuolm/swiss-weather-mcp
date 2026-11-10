@@ -54,29 +54,21 @@ What SLF publishes:
     │  ...]                                                                  │  about 200 stations
     └────────────────────────────────────────────────────────────────────────┘
 
-How we use it for the weather at one place:
+How we use it, while the tools in current.py and snow.py choose the station:
 1. Read the station list on the first question and keep it in memory for as long as
    the process runs; the file is downloaded first when it is missing or older than 7 days.
    Each WGS84 position is turned into LV95 with swisstopo's approximate formulas.
-2. Rank the stations that suit the place better than the MeteoSwiss station that answers,
-   by their distance plus METRES_PER_HEIGHT_METRE times their height gap, as for the
-   MeteoSwiss stations. The others would say less about the place than it does.
-3. Read the measurements of the first station; the file is downloaded again when it is
-   older than 5 minutes. Its last row holds the latest measurements. The wind speeds are
-   turned from m/s into km/h, the unit MeteoSwiss uses.
-4. Take the next station when the latest measurements have no temperature or are older
-   than 1 hour, at most 3 stations. A station without a temperature would answer without
-   the main value, and a station that stopped publishing would answer with old values.
-
-How we use it for the snow at one place:
-1. List the IMIS stations that have daily snow, and the manual sites; both lists are kept as
-   the station list. The daily snow file is downloaded again when it is older than 1 hour.
-   The service ranks them together with the MeteoSwiss snow stations.
-2. The snow depth of an IMIS station is the one of its last 30-minute row, when it is at
+2. For the weather now, read a station's measurements; the file is downloaded again when
+   it is older than 5 minutes. Its last row holds the latest measurements. The wind speeds
+   are turned from m/s into km/h, the unit MeteoSwiss uses.
+3. For the snow, list the IMIS stations that have daily snow, and the manual sites; both
+   lists are kept as the station list. The daily snow file is downloaded again when it is
+   older than 1 hour.
+4. The snow depth of an IMIS station is the one of its last 30-minute row, when it is at
    most 210 minutes old, as on SLF's map of measured values. The snow depth of a manual site
    is the one of its newest day, when it is from today or yesterday; today's arrives only
    in the morning. A manual site's file is downloaded again when it is older than 1 hour.
-3. The new snow is the one of a station's newest day, when it is from today or yesterday,
+5. The new snow is the one of a station's newest day, when it is from today or yesterday,
    and the new snow of the 3 days up to it is their sum, as SLF adds them for its maps.
 
     <cache dir>/slf/
@@ -93,9 +85,7 @@ from pathlib import Path
 from typing import Any, Dict, List, NamedTuple, Optional
 
 from ..coordinates import calculate_lv95_east_m, calculate_lv95_north_m
-from ..distance import rank_by_weighted_distance
 from ..downloads import ensure_recent_file
-from ..places import SwisstopoPlace
 from .snow_values import SNOW_DEPTH_MAX_AGE, NewSnow, SnowDepth
 
 logger = logging.getLogger(__name__)
@@ -115,14 +105,11 @@ STATION_MEASUREMENTS_MAX_AGE = timedelta(minutes=5)
 # The daily values arrive once in the morning, so a file is at most 1 hour behind
 IMIS_DAILY_SNOW_MAX_AGE = timedelta(hours=1)
 MANUAL_SITE_DAILY_SNOW_MAX_AGE = timedelta(hours=1)
-# Older latest measurements mean the station stopped publishing
-LATEST_MEASUREMENTS_MAX_AGE = timedelta(hours=1)
 # A daily value counts when it is from today or yesterday, as today's arrives only in the morning
 DAILY_VALUE_MAX_AGE = timedelta(days=1)
 NEW_SNOW_DAYS = 3
 # SLF gives the daily IMIS values "at 6 UTC", but stamps them with their day at 00:00 without a time zone
 DAILY_SNOW_TIME = time(6, tzinfo=timezone.utc)
-MAX_STATIONS_TRIED = 3
 
 # The SLF description of each value, from https://measurement-api.slf.ch/openapi.json
 TEMPERATURE = "TA_30MIN_MEAN"     # air temperature, mean over last 30 minute, °C
@@ -264,7 +251,7 @@ def _calculate_new_snow(
 
 
 class SLFMeasurementSource:
-    """Read the latest SLF measurements: the weather of a station that suits a place better, and the snow."""
+    """Read the SLF stations and their latest measurements: the weather and the snow."""
 
     def __init__(self, cache_dir: Path):
         self.cache_dir = cache_dir / "slf"
@@ -307,7 +294,7 @@ class SLFMeasurementSource:
         logger.info(f"Loaded {len(manual_sites)} SLF manual sites")
         return manual_sites
 
-    def _read_latest_station_measurements(self, station: SLFStation) -> Optional[SLFStationMeasurements]:
+    def read_latest_station_measurements(self, station: SLFStation) -> Optional[SLFStationMeasurements]:
         """Read the last row of a station's measurements, or None when it has no rows."""
         code = station.code.lower()
         station_measurements_url = STATION_MEASUREMENTS_URL.format(code=station.code)
@@ -323,9 +310,9 @@ class SLFMeasurementSource:
 
     def _read_all_imis_stations_daily_snow(self) -> Dict[str, List[SLFDailySnowMeasurements]]:
         """Read the daily snow of every IMIS snow station, keyed by station code, the oldest day first."""
-        daily_snow_file = self.cache_dir / "imis_daily_snow.json"
-        daily_snow = ensure_recent_file(IMIS_DAILY_SNOW_URL, daily_snow_file, IMIS_DAILY_SNOW_MAX_AGE)
-        with open(daily_snow, encoding="utf-8") as file:
+        imis_daily_snow_file = self.cache_dir / "imis_daily_snow.json"
+        imis_daily_snow = ensure_recent_file(IMIS_DAILY_SNOW_URL, imis_daily_snow_file, IMIS_DAILY_SNOW_MAX_AGE)
+        with open(imis_daily_snow, encoding="utf-8") as file:
             rows = json.load(file)
 
         station_code_to_daily_snow: Dict[str, List[SLFDailySnowMeasurements]] = {}
@@ -357,7 +344,7 @@ class SLFMeasurementSource:
 
     def _read_imis_snow_depth(self, station: SLFStation) -> Optional[SnowDepth]:
         """Read an IMIS station's latest snow depth, or None when it is missing or older than SNOW_DEPTH_MAX_AGE."""
-        latest_measurements = self._read_latest_station_measurements(station)
+        latest_measurements = self.read_latest_station_measurements(station)
         if latest_measurements is None or latest_measurements.snow_depth_cm is None:
             return None
         now = datetime.now(timezone.utc)
@@ -376,30 +363,9 @@ class SLFMeasurementSource:
             return None
         return SnowDepth(manual_site, newest_day.measured_at, newest_day.snow_depth_cm)
 
-    def find_closer_slf_station_measurements(
-        self, place: SwisstopoPlace, meteoswiss_station_weighted_distance_m: float
-    ) -> Optional[SLFStationMeasurements]:
-        """
-        Find the latest measurements of an SLF station that suits a place better than the MeteoSwiss station.
-
-        meteoswiss_station_weighted_distance_m is the MeteoSwiss station's distance to the place plus
-        METRES_PER_HEIGHT_METRE times its height gap, from calculate_weighted_distance_m. Only stations
-        with a smaller or equal one are tried, the best first, and the first one that published a temperature
-        in the last hour is taken. Return None when there is no such station among the first MAX_STATIONS_TRIED.
-        """
-        slf_stations = self._load_stations()
-        ranked_slf_stations = rank_by_weighted_distance(place, slf_stations, meteoswiss_station_weighted_distance_m)
-        now = datetime.now(timezone.utc)
-        for station in ranked_slf_stations[:MAX_STATIONS_TRIED]:
-            latest_measurements = self._read_latest_station_measurements(station)
-            if latest_measurements is None or latest_measurements.temperature_c is None:
-                logger.info(f"SLF station {station.code} has no current temperature, trying the next station")
-                continue
-            if now - latest_measurements.measured_at > LATEST_MEASUREMENTS_MAX_AGE:
-                logger.info(f"SLF station {station.code} has no measurements in the last hour, trying the next station")
-                continue
-            return latest_measurements
-        return None
+    def list_stations(self) -> List[SLFStation]:
+        """List the IMIS stations of the station list."""
+        return self._load_stations()
 
     def list_snow_stations(self) -> List[SLFStation]:
         """List the IMIS stations that have daily snow, and the manual sites."""

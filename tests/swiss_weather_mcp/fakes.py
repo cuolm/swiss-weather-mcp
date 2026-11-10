@@ -153,7 +153,9 @@ MEASUREMENTS_NOW = datetime(2026, 9, 25, 14, 5, tzinfo=timezone.utc)
 # Some columns of the daily files, with real rows. SMA has the days up to yesterday, 2026-09-24, and
 # a few earlier ones; on 1975-07-01 it has only the rain from 6 to 6 UTC, rre150d0, as the rain from 0 to 0
 # UTC starts in 1981. UEB has no thermometer, and the other stations have no rows.
-STATION_DAYS_COLUMNS = "station_abbr;reference_timestamp;tre200d0;tre200dx;tre200dn;rka150d0;rre150d0;sre000d0;fu3010d1"
+STATION_DAILY_VALUES_COLUMNS = (
+    "station_abbr;reference_timestamp;tre200d0;tre200dx;tre200dn;rka150d0;rre150d0;sre000d0;fu3010d1"
+)
 STATION_AND_PERIOD_TO_DAYS_ROWS = {
     ("sma", "historical"): (
         "SMA;01.07.1975 00:00;9.8;13;8.4;;9.5;90;",
@@ -185,10 +187,10 @@ def build_station_now_values_csv(abbr: str) -> bytes:
     return ("\r\n".join(lines) + "\r\n").encode("latin-1")
 
 
-def build_station_days_csv(abbr: str, period: str) -> bytes:
+def build_station_daily_values_csv(abbr: str, period: str) -> bytes:
     """Build a station's daily file of a period, "recent" or "historical", the way MeteoSwiss publishes it."""
     rows = STATION_AND_PERIOD_TO_DAYS_ROWS.get((abbr, period), ())
-    lines = [STATION_DAYS_COLUMNS, *rows]
+    lines = [STATION_DAILY_VALUES_COLUMNS, *rows]
     return ("\r\n".join(lines) + "\r\n").encode("latin-1")
 
 
