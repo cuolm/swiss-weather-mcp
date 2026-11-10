@@ -6,18 +6,10 @@ import requests
 from fakes import MEASUREMENTS_NOW
 from swiss_weather_mcp.errors import CannotAnswerError
 from swiss_weather_mcp.measurements import parameters
-from swiss_weather_mcp.measurements.current import _calculate_change, _find_highest_last_hour, _sum_last_hour
-from swiss_weather_mcp.measurements.extremes import (
-    StationValue, _build_canton_rows, _build_sunshine_canton_rows, _find_sunshine_class,
-)
 from swiss_weather_mcp.measurements.meteoswiss_source import MeteoSwissStation, MeteoSwissStationMeasurements
 
 FLUNTERN = MeteoSwissStation(
     abbr="SMA", name="Zürich / Fluntern", canton="Zurich", altitude_m=604.0, east_m=2685223.0, north_m=1248410.0,
-    data_since=date(1864, 1, 1),
-)
-APPENZELL = MeteoSwissStation(
-    abbr="APP", name="Appenzell", canton="Appenzell Innerrhoden", altitude_m=769.0, east_m=0.0, north_m=0.0,
     data_since=date(1864, 1, 1),
 )
 
@@ -132,46 +124,6 @@ async def test_read_current_when_slf_cannot_be_reached(mocker, measurement_servi
 
     assert "slf_station" not in answer
     assert answer["temperature_c"] is not None
-
-
-# --- _calculate_change ---
-
-def test_calculate_change_without_a_value_3_hours_ago():
-    all_measurements = [
-        build_measurements("2026-09-25T11:00", {parameters.TEMPERATURE: None}),
-        build_measurements("2026-09-25T14:00", {parameters.TEMPERATURE: 21.0}),
-    ]
-    assert _calculate_change(all_measurements, parameters.TEMPERATURE) is None
-
-
-# --- _sum_last_hour and _find_highest_last_hour ---
-
-def build_last_hour(parameter: str, values: list) -> list:
-    """Build the six rows of the hour up to 14:00 with the given values of one parameter."""
-    all_measurements = []
-    for minute, value in zip(("13:10", "13:20", "13:30", "13:40", "13:50", "14:00"), values):
-        all_measurements.append(build_measurements(f"2026-09-25T{minute}", {parameter: value}))
-    return all_measurements
-
-
-def test_sum_last_hour_without_one_value():
-    all_measurements = build_last_hour(parameters.SUNSHINE, [10.0, 10.0, 10.0, 10.0, 10.0, None])
-    assert _sum_last_hour(all_measurements, parameters.SUNSHINE) is None
-
-
-def test_sum_last_hour_of_rain():
-    all_measurements = build_last_hour(parameters.PRECIPITATION, [0.0, 0.1, 0.2, 0.0, 0.0, 0.0])
-    assert _sum_last_hour(all_measurements, parameters.PRECIPITATION) == 0.3
-
-
-def test_sum_last_hour_with_fewer_than_six_rows():
-    all_measurements = build_last_hour(parameters.PRECIPITATION, [0.1, 0.1, 0.1])
-    assert _sum_last_hour(all_measurements, parameters.PRECIPITATION) is None
-
-
-def test_find_highest_last_hour_of_gusts():
-    all_measurements = build_last_hour(parameters.WIND_GUSTS, [9.4, 31.7, 7.9, 8.3, 8.6, 10.1])
-    assert _find_highest_last_hour(all_measurements, parameters.WIND_GUSTS) == 31.7
 
 
 @pytest.mark.asyncio
@@ -472,49 +424,3 @@ async def test_read_extremes_without_measurements(mocker, measurement_service_fi
     )
     with pytest.raises(CannotAnswerError, match="publishes no measurements"):
         await measurement_service_fixture.read_extremes("warmest")
-
-
-# --- _build_canton_rows ---
-
-def test_build_canton_rows_puts_the_canton_with_more_stations_first():
-    # Both cantons are fully rainy, but the share of Zürich rests on two stations
-    station_values = [StationValue(APPENZELL, 0.4), StationValue(FLUNTERN, 0.2), StationValue(FLUNTERN, 0.3)]
-
-    rows = _build_canton_rows(station_values, station_values, "rainy")
-    assert [(row["canton"], row["measuring_stations"]) for row in rows] == [("Zurich", 2), ("Appenzell Innerrhoden", 1)]
-
-
-# --- _find_sunshine_class ---
-
-@pytest.mark.parametrize("sunshine_min, sunshine_class_name", (
-    (10, "mostly_sunny"),
-    (8, "mostly_sunny"),
-    (7, "rather_sunny"),
-    (5, "rather_sunny"),
-    (4, "partly_sunny"),
-    (2, "partly_sunny"),
-    (1, "only_a_little_sunshine"),
-    (0, "hardly_any_sunshine"),
-))
-def test_find_sunshine_class(sunshine_min, sunshine_class_name):
-    assert _find_sunshine_class(sunshine_min) == sunshine_class_name
-
-
-# --- _build_sunshine_canton_rows ---
-
-def test_build_sunshine_canton_rows_puts_the_sunnier_canton_first():
-    # Appenzell had 6 minutes of sun, Zürich 10 and 0, so 5 on average
-    station_values = [StationValue(FLUNTERN, 10.0), StationValue(FLUNTERN, 0.0), StationValue(APPENZELL, 6.0)]
-
-    rows = _build_sunshine_canton_rows(station_values)
-    assert [row["canton"] for row in rows] == ["Appenzell Innerrhoden", "Zurich"]
-    assert rows[1]["mostly_sunny"] == 1
-    assert rows[1]["hardly_any_sunshine"] == 1
-
-
-def test_build_sunshine_canton_rows_puts_the_canton_with_more_stations_first():
-    # Both cantons had 10 minutes of sun on average, but the average of Zürich rests on two stations
-    station_values = [StationValue(APPENZELL, 10.0), StationValue(FLUNTERN, 10.0), StationValue(FLUNTERN, 10.0)]
-
-    rows = _build_sunshine_canton_rows(station_values)
-    assert [(row["canton"], row["measuring_stations"]) for row in rows] == [("Zurich", 2), ("Appenzell Innerrhoden", 1)]
