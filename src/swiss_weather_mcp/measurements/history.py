@@ -3,6 +3,7 @@ from datetime import date, timedelta
 from typing import Any, Dict, Optional
 
 from . import parameters
+from ..distance import is_close_to_place
 from ..errors import CannotAnswerError
 from ..formatting import describe_distance_and_height
 from ..places import SwisstopoPlace
@@ -67,8 +68,11 @@ def build_history_answer(
     for day_measurements in station_days:
         day_row = _build_day_row(day_measurements)
         day_rows.append(day_row)
-    return {
-        "data_from": _describe_meteoswiss_station(place, station_days[0].station),
-        "place": place.name,
-        "days": day_rows,
-    }
+    answer: Dict[str, Any] = {}
+    station = station_days[0].station
+    # A station next to the place stands for it, so the answer does not name it
+    if not is_close_to_place(place, station):
+        answer["data_from"] = _describe_meteoswiss_station(place, station)
+    answer["place"] = place.name
+    answer["days"] = day_rows
+    return answer

@@ -347,21 +347,23 @@ class SwissWeatherMCPServer:
             Get the latest measurements of a MeteoSwiss station near a place.
 
             Use this for "how warm is it now" or "is it raining now". The values are those of the
-            station named in data_from. MeteoSwiss publishes new values about every 10 minutes.
-            When a station of the SLF, the WSL Institute for Snow and Avalanche Research, is closer
-            to the place in distance and height, mostly in the mountains, slf_station adds its
-            temperature, humidity and wind over the last 30 minutes, with its own data_from.
+            station named in data_from; without data_from, the station is next to the place.
+            MeteoSwiss publishes new values about every 10 minutes. When a station of the SLF, the
+            WSL Institute for Snow and Avalanche Research, is closer to the place in distance and
+            height, mostly in the mountains, slf_station adds its temperature, humidity and wind
+            over the last 30 minutes, with its own data_from.
 
             Args:
                 location (str): Name of a place in Switzerland, e.g. "Zürich".
 
             Returns:
-                dict: data_from, the place, the time of the measurements, temperature, humidity, dew
-                    point and sea-level pressure; wind speed, gust and direction of the last 10 minutes;
-                    rain and sunshine of the last 10 minutes and the last hour; strongest gust of the last
-                    hour; temperature and pressure change over 3 hours. A value is None when the station
-                    has not published it. slf_station, only when an SLF station is closer: its data_from,
-                    time, temperature, humidity, wind speed, direction and gust over 30 minutes.
+                dict: data_from when the station is not next to the place, the place, the time of the
+                    measurements, temperature, humidity, dew point and sea-level pressure; wind speed, gust
+                    and direction of the last 10 minutes; rain and sunshine of the last 10 minutes and the
+                    last hour; strongest gust of the last hour; temperature and pressure change over 3
+                    hours. A value is None when the station has not published it. slf_station, only when
+                    an SLF station is closer: its data_from, time, temperature, humidity, wind speed,
+                    direction and gust over 30 minutes.
 
             Examples:
                 measurements_current("Zürich")
@@ -375,7 +377,8 @@ class SwissWeatherMCPServer:
             Get what a MeteoSwiss station near a place measured on past days, for one day or several days in a row.
 
             Use this for "how warm was it yesterday" or "how much did it rain last week". The values are
-            the daily values of the station named in data_from. Each day covers a UTC day, 00:00 to 24:00
+            the daily values of the station named in data_from; without data_from, the station is next to
+            the place. Each day covers a UTC day, 00:00 to 24:00
             UTC, which is 01:00 to 01:00 Swiss time in winter and 02:00 to 02:00 in summer. MeteoSwiss
             publishes a day's values the next morning. The days go back to when the station started, at
             some stations to the 1860s. For the warmest day of a year, ask for all its days.
@@ -386,7 +389,8 @@ class SwissWeatherMCPServer:
                 days (int): How many days in a row, from 1 to 366, so up to a whole year. Default 1.
 
             Returns:
-                dict: data_from, the place and per day: date, weekday, mean, lowest and highest
+                dict: data_from when the station is not next to the place, the place and per day: date,
+                    weekday, mean, lowest and highest
                     temperature, rain, sunshine hours and strongest gust. A value is None when the
                     station did not measure it.
 
@@ -407,20 +411,22 @@ class SwissWeatherMCPServer:
 
             Use this for "how much snow is there in Davos" or "how much new snow fell in Zermatt".
             Snow depth and new snow can come from two different stations, each named in its own
-            data_from. The snow depth comes from a MeteoSwiss station, an automatic SLF station or
-            an SLF observer; the new snow only from SLF, the WSL Institute for Snow and Avalanche
-            Research. An observer measures the new snow by hand each morning, from November to
-            April; at automatic stations, SLF calculates it from the snow depth. Only stations close
+            data_from unless it is next to the place. The snow depth comes from a MeteoSwiss station,
+            an automatic SLF station or an SLF observer; the new snow only from SLF, the WSL
+            Institute for Snow and Avalanche Research. An observer measures the new snow by hand each
+            morning, from November to April; at automatic stations, SLF calculates it from the snow
+            depth. Only stations close
             enough in distance and height are used, so in the lowlands there is often no new snow.
-            Always say which station each value comes from, how far away it is and how much higher
-            or lower.
+            When a block has data_from, always say which station the value comes from, how far away it
+            is and how much higher or lower.
 
             Args:
                 location (str): Name of a place in Switzerland, e.g. "Davos Dorf".
 
             Returns:
-                dict: the place, snow_depth and new_snow. snow_depth: data_from, time and snow depth.
-                    new_snow: data_from, time, new snow of the last 24 hours and of the last 3 days.
+                dict: the place, snow_depth and new_snow. snow_depth: data_from when its station is not
+                    next to the place, time and snow depth. new_snow: the same with the new snow of the
+                    last 24 hours and of the last 3 days.
                     A block is null when no station close enough has a current value.
 
             Examples:

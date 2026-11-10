@@ -57,7 +57,8 @@ async def test_read_current_values_the_station_lacks(measurement_service_fixture
 
     assert answer["rain_last_10_minutes_mm"] is None
     assert (answer["wind_direction_degrees"], answer["compass_point"]) == (None, None)
-    assert "station Davos (1594 m), 0.5 km away and 30 m higher" in answer["data_from"]
+    # The station, 0.5 km away and 30 m higher, stands for the place, so the answer does not name it
+    assert "data_from" not in answer
 
 
 @pytest.mark.asyncio
@@ -205,29 +206,42 @@ def lift_distance_limit(mocker) -> None:
 
 
 @pytest.mark.asyncio
-async def test_read_snow_from_two_stations(measurement_service_fixture):
-    # The MeteoSwiss station Davos suits the Seeli best, but only SLF stations have new snow
-    answer = await measurement_service_fixture.read_snow("Seeli", "Davos Dorf")
+async def test_read_snow_from_two_stations(mocker, measurement_service_fixture):
+    # Without the distance limit, Fluntern suits Zürich best, but only SLF stations have new snow
+    lift_distance_limit(mocker)
+    answer = await measurement_service_fixture.read_snow("Zurich")
 
     assert answer == {
-        "place": "Seeli",
+        "place": "Zürich",
         "snow_depth": {
             "data_from": (
-                "The snow depth for Seeli (1600 m) comes from the MeteoSwiss station Davos (1594 m), 0.7 km away "
-                "and 6 m lower. It was measured at 16:00 on 2026-09-25."
+                "The snow depth for Zürich (418 m) comes from the MeteoSwiss station Zürich / Fluntern (604 m), "
+                "2.1 km away and 186 m higher. It was measured at 16:00 on 2026-09-25."
             ),
             "measured_at": "2026-09-25T16:00+02:00",
-            "snow_depth_cm": 12.0,
+            "snow_depth_cm": 0.0,
         },
         "new_snow": {
             "data_from": (
-                "The new snow for Seeli (1600 m) was measured by an observer at Davos Flüelastr. (1560 m), 1.0 km "
-                "away and 40 m lower. It covers the 24 hours and the 3 days up to 08:00 on 2026-09-25."
+                "The new snow for Zürich (418 m) was measured by an observer at Davos Flüelastr. (1560 m), "
+                "116.8 km away and 1142 m higher. It covers the 24 hours and the 3 days up to 08:00 on 2026-09-25."
             ),
             "measured_at": "2026-09-25T08:00+02:00",
             "new_snow_24_hours_cm": 6.0,
             "new_snow_3_days_cm": 16.0,
         },
+    }
+
+
+@pytest.mark.asyncio
+async def test_read_snow_from_stations_next_to_the_place(measurement_service_fixture):
+    # The MeteoSwiss station Davos is 0.7 km away and 6 m lower, the observer 1.0 km away and 40 m lower
+    answer = await measurement_service_fixture.read_snow("Seeli", "Davos Dorf")
+
+    assert answer == {
+        "place": "Seeli",
+        "snow_depth": {"measured_at": "2026-09-25T16:00+02:00", "snow_depth_cm": 12.0},
+        "new_snow": {"measured_at": "2026-09-25T08:00+02:00", "new_snow_24_hours_cm": 6.0, "new_snow_3_days_cm": 16.0},
     }
 
 
@@ -308,9 +322,9 @@ async def test_read_snow_when_slf_cannot_be_reached(mocker, measurement_service_
         "list_snow_stations",
         side_effect=requests.ConnectionError("SLF is down"),
     )
-    answer = await measurement_service_fixture.read_snow("Seeli", "Davos Dorf")
+    answer = await measurement_service_fixture.read_snow("Zurich")
 
-    assert "MeteoSwiss station Davos (1594 m)" in answer["snow_depth"]["data_from"]
+    assert "MeteoSwiss station Zürich / Fluntern (604 m)" in answer["snow_depth"]["data_from"]
     assert answer["new_snow"] is None
 
 

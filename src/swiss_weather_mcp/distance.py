@@ -10,6 +10,11 @@ from .places import SwisstopoPlace
 
 # Weather changes more with height than with distance: 1 m of height gap counts like 20 m farther away
 METRES_PER_HEIGHT_METRE = 20
+METRES_PER_KILOMETRE = 1000
+# A station or forecast point this close stands for the place itself, so the answers do not name it in
+# data_from. 50 m of height changes the temperature by about 0.3 °C.
+CLOSE_MAX_DISTANCE_KM = 1.0
+CLOSE_MAX_HEIGHT_DIFFERENCE_M = 50
 
 
 class GridPosition(Protocol):
@@ -39,6 +44,14 @@ def calculate_weighted_distance_m(place: SwisstopoPlace, position: GridPosition)
     """Return the distance to a position plus METRES_PER_HEIGHT_METRE times the height gap."""
     height_gap_m = abs(position.altitude_m - place.altitude_m)
     return calculate_distance_m(place, position) + METRES_PER_HEIGHT_METRE * height_gap_m
+
+
+def is_close_to_place(place: SwisstopoPlace, position: GridPosition) -> bool:
+    """Tell whether a position is within CLOSE_MAX_DISTANCE_KM and CLOSE_MAX_HEIGHT_DIFFERENCE_M of a place."""
+    # Rounded as the answers show them, to 0.1 km and 1 m
+    distance_km = round(calculate_distance_m(place, position) / METRES_PER_KILOMETRE, 1)
+    difference_m = round(position.altitude_m - place.altitude_m)
+    return distance_km <= CLOSE_MAX_DISTANCE_KM and abs(difference_m) <= CLOSE_MAX_HEIGHT_DIFFERENCE_M
 
 
 def rank_by_weighted_distance(

@@ -189,7 +189,8 @@ Answers name the forecast point when it is not next to the place (see [Forecast 
   Stations are far fewer than forecast points, so the station can still be far from the place and
   higher or lower.
 - Every answer starts with a sentence that says so, such as "The measurements for Braunwald (1290 m)
-  are those of the MeteoSwiss station Elm (958 m), 13.5 km away and 332 m lower."
+  are those of the MeteoSwiss station Elm (958 m), 13.5 km away and 332 m lower." As for the forecast
+  points, a station at most 1 km away and 50 m higher or lower stands for the place, so it is not named.
 - It gives the temperature, humidity, dew point, rain and sunshine in the last 10 minutes, wind, gust,
   direction and sea-level pressure, plus the temperature and pressure change over the last 3 hours and
   the rain, sunshine and strongest gust of the last hour.
@@ -208,7 +209,7 @@ Answers name the forecast point when it is not next to the place (see [Forecast 
   measure is None. Days before this year come from a file of up to about 6.4 MB per station.
 - `measurements_snow` gives the snow depth and the new snow, each from its own station: of the 3 with
   the smallest distance plus 20 times the height gap, the first with a current value. Each has its own
-  data_from, which names the station, its distance and height.
+  data_from, which names the station, its distance and height, unless the station is next to the place.
   - The snow depth comes from one of about 75 MeteoSwiss stations, one of about 130 automatic SLF
     stations or one of about 100 SLF manual measuring sites, where an observer measures the snow by hand each
     morning from November to April. A depth measured every 10 or 30 minutes counts for 210 minutes, as

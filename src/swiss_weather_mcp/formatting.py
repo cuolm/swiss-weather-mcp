@@ -3,11 +3,10 @@ from datetime import datetime
 from typing import Optional
 from zoneinfo import ZoneInfo
 
-from .distance import GridPosition, calculate_distance_m
+from .distance import METRES_PER_KILOMETRE, GridPosition, calculate_distance_m
 from .places import SwisstopoPlace
 
 SWISS_TZ = ZoneInfo("Europe/Zurich")
-METRES_PER_KILOMETRE = 1000
 
 # Compass points the wind direction in degrees is reported as, clockwise from north
 COMPASS_POINTS = ("N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",

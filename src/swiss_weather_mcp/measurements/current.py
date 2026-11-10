@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 import requests
 
 from . import parameters
-from ..distance import calculate_weighted_distance_m
+from ..distance import calculate_weighted_distance_m, is_close_to_place
 from ..formatting import SWISS_TZ, describe_distance_and_height, find_compass_point, format_swiss_time, round_to_tenth
 from ..places import SwisstopoPlace
 from .meteoswiss_source import MeteoSwissMeasurementSource, MeteoSwissStationMeasurements
@@ -66,16 +66,18 @@ def _build_slf_station_block(place: SwisstopoPlace, slf_station_measurements: SL
         compass_point = None
     else:
         compass_point = find_compass_point(wind_direction_degrees)
-    return {
-        "data_from": _describe_slf_station(place, slf_station_measurements),
-        "measured_at": format_swiss_time(slf_station_measurements.measured_at),
-        "temperature_c": round_to_tenth(slf_station_measurements.temperature_c),
-        "humidity_percent": round_to_tenth(slf_station_measurements.humidity_percent),
-        "wind_speed_kmh": round_to_tenth(slf_station_measurements.wind_speed_kmh),
-        "wind_direction_degrees": wind_direction_degrees,
-        "compass_point": compass_point,
-        "strongest_gust_last_30_minutes_kmh": round_to_tenth(slf_station_measurements.strongest_gust_kmh),
-    }
+    block: Dict[str, Any] = {}
+    # A station next to the place stands for it, so the block does not name it
+    if not is_close_to_place(place, slf_station_measurements.station):
+        block["data_from"] = _describe_slf_station(place, slf_station_measurements)
+    block["measured_at"] = format_swiss_time(slf_station_measurements.measured_at)
+    block["temperature_c"] = round_to_tenth(slf_station_measurements.temperature_c)
+    block["humidity_percent"] = round_to_tenth(slf_station_measurements.humidity_percent)
+    block["wind_speed_kmh"] = round_to_tenth(slf_station_measurements.wind_speed_kmh)
+    block["wind_direction_degrees"] = wind_direction_degrees
+    block["compass_point"] = compass_point
+    block["strongest_gust_last_30_minutes_kmh"] = round_to_tenth(slf_station_measurements.strongest_gust_kmh)
+    return block
 
 
 def _find_measurements_at(all_measurements: List[MeteoSwissStationMeasurements],
@@ -164,11 +166,12 @@ def build_current_answer(
     all_measurements = meteoswiss_source.find_station_measurements(place)
     latest_measurements = all_measurements[-1]
 
-    answer: Dict[str, Any] = {
-        "data_from": _describe_meteoswiss_station(place, latest_measurements),
-        "place": place.name,
-        "measured_at": format_swiss_time(latest_measurements.measured_at),
-    }
+    answer: Dict[str, Any] = {}
+    # A station next to the place stands for it, so the answer does not name it
+    if not is_close_to_place(place, latest_measurements.station):
+        answer["data_from"] = _describe_meteoswiss_station(place, latest_measurements)
+    answer["place"] = place.name
+    answer["measured_at"] = format_swiss_time(latest_measurements.measured_at)
     for field, parameter in MEASURED_FIELDS:
         answer[field] = latest_measurements.parameter_to_value[parameter]
 

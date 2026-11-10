@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional
 
 import requests
 
-from ..distance import rank_by_weighted_distance
+from ..distance import is_close_to_place, rank_by_weighted_distance
 from ..errors import CannotAnswerError
 from ..formatting import SWISS_TZ, describe_distance_and_height, format_swiss_time, round_to_tenth
 from ..places import SwisstopoPlace
@@ -37,30 +37,34 @@ def _describe_snow_station(place: SwisstopoPlace, station: SnowStation, value_na
 
 def _build_snow_depth_block(place: SwisstopoPlace, snow_depth: SnowDepth) -> Dict[str, Any]:
     """Build the snow_depth block of the snow answer."""
-    station_sentence = _describe_snow_station(place, snow_depth.station, "snow depth")
-    swiss_measured_at = snow_depth.measured_at.astimezone(SWISS_TZ)
-    data_from = f"{station_sentence} It was measured at {swiss_measured_at:%H:%M} on {swiss_measured_at:%Y-%m-%d}."
-    return {
-        "data_from": data_from,
-        "measured_at": format_swiss_time(snow_depth.measured_at),
-        "snow_depth_cm": round_to_tenth(snow_depth.snow_depth_cm),
-    }
+    block: Dict[str, Any] = {}
+    # A station next to the place stands for it, so the block does not name it
+    if not is_close_to_place(place, snow_depth.station):
+        station_sentence = _describe_snow_station(place, snow_depth.station, "snow depth")
+        swiss_measured_at = snow_depth.measured_at.astimezone(SWISS_TZ)
+        block["data_from"] = (
+            f"{station_sentence} It was measured at {swiss_measured_at:%H:%M} on {swiss_measured_at:%Y-%m-%d}."
+        )
+    block["measured_at"] = format_swiss_time(snow_depth.measured_at)
+    block["snow_depth_cm"] = round_to_tenth(snow_depth.snow_depth_cm)
+    return block
 
 
 def _build_new_snow_block(place: SwisstopoPlace, new_snow: NewSnow) -> Dict[str, Any]:
     """Build the new_snow block of the snow answer."""
-    station_sentence = _describe_snow_station(place, new_snow.station, "new snow")
-    swiss_measured_at = new_snow.measured_at.astimezone(SWISS_TZ)
-    data_from = (
-        f"{station_sentence} It covers the 24 hours and the 3 days up to {swiss_measured_at:%H:%M} on "
-        f"{swiss_measured_at:%Y-%m-%d}."
-    )
-    return {
-        "data_from": data_from,
-        "measured_at": format_swiss_time(new_snow.measured_at),
-        "new_snow_24_hours_cm": round_to_tenth(new_snow.new_snow_24_hours_cm),
-        "new_snow_3_days_cm": round_to_tenth(new_snow.new_snow_3_days_cm),
-    }
+    block: Dict[str, Any] = {}
+    # A station next to the place stands for it, so the block does not name it
+    if not is_close_to_place(place, new_snow.station):
+        station_sentence = _describe_snow_station(place, new_snow.station, "new snow")
+        swiss_measured_at = new_snow.measured_at.astimezone(SWISS_TZ)
+        block["data_from"] = (
+            f"{station_sentence} It covers the 24 hours and the 3 days up to {swiss_measured_at:%H:%M} on "
+            f"{swiss_measured_at:%Y-%m-%d}."
+        )
+    block["measured_at"] = format_swiss_time(new_snow.measured_at)
+    block["new_snow_24_hours_cm"] = round_to_tenth(new_snow.new_snow_24_hours_cm)
+    block["new_snow_3_days_cm"] = round_to_tenth(new_snow.new_snow_3_days_cm)
+    return block
 
 
 def _list_slf_snow_stations(slf_source: SLFMeasurementSource) -> List[SLFStation]:

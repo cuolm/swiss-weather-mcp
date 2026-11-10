@@ -4,6 +4,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from . import parameters
+from ..distance import is_close_to_place
 from ..errors import CannotAnswerError
 from ..formatting import describe_height_difference, find_compass_point, format_swiss_time
 from ..places import PlaceFinder, SwisstopoPlace
@@ -14,10 +15,6 @@ logger = logging.getLogger(__name__)
 # MeteoSwiss publishes today and the next 8 days
 MAX_DAYS = 9
 METRES_PER_KILOMETRE = 1000
-# A forecast point this close forecasts the place itself, so the answer does not name it in data_from.
-# 50 m of height changes the temperature by about 0.3 °C.
-CLOSE_POINT_MAX_DISTANCE_KM = 1.0
-CLOSE_POINT_MAX_HEIGHT_DIFFERENCE_M = 50
 
 HOUR = timedelta(hours=1)
 RAIN_BLOCK = timedelta(hours=3)
@@ -96,14 +93,13 @@ def _build_forecast_point_fields(place: SwisstopoPlace, point: MeteoSwissPoint) 
     """
     Build the answer fields that name the place, and the forecast point when it is not next to it.
 
-    Only a point more than CLOSE_POINT_MAX_DISTANCE_KM away or more than
-    CLOSE_POINT_MAX_HEIGHT_DIFFERENCE_M higher or lower gets data_from. A model given any word about
-    a close point mentions it anyway.
+    Only a point that is_close_to_place says is not next to the place gets data_from. A model given
+    any word about a close point mentions it anyway.
     """
+    if is_close_to_place(place, point):
+        return {"place": place.name}
     distance_km = round(calculate_distance_m(place, point) / METRES_PER_KILOMETRE, 1)
     difference_m = round(point.altitude_m - place.altitude_m)
-    if distance_km <= CLOSE_POINT_MAX_DISTANCE_KM and abs(difference_m) <= CLOSE_POINT_MAX_HEIGHT_DIFFERENCE_M:
-        return {"place": place.name}
     return {
         "data_from": (
             f"The forecast for {place.display_name} is the one MeteoSwiss makes for its forecast point "
