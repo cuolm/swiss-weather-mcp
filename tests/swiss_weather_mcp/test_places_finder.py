@@ -6,11 +6,20 @@ import pytest
 import requests
 
 from swiss_weather_mcp.errors import CannotAnswerError
+from swiss_weather_mcp.places.finder import _find_obvious_place
+from swiss_weather_mcp.places.place_source import SwisstopoPlace
 
 # Long enough that a request comes while the background load is still downloading
 SLOW_DOWNLOAD_SECONDS = 0.2
 # A held back download goes on after this at the latest, so a failing test does not hang
 HELD_BACK_DOWNLOAD_MAX_SECONDS = 5
+
+
+def build_place(object_type: str, population_band: int) -> SwisstopoPlace:
+    return SwisstopoPlace(
+        name="Krone", object_types=(object_type,), population_band=population_band, is_exonym=False,
+        altitude_m=500.0, east_m=2600000.0, north_m=1200000.0,
+    )
 
 
 def count_archive_downloads(source_fixture) -> int:
@@ -67,6 +76,18 @@ def test_find_place_lists_every_place(place_finder_fixture):
     assert option_lines[1] == '  location="Wil", near="Oerlikon": district, 2,000 to 9,999 people, 440 m'
 
 
+def test_find_place_takes_the_obvious_place(place_finder_fixture):
+    # The village of 2,000 to 9,999 people, not the hamlet of fewer than 20 in canton Luzern
+    grindelwald = place_finder_fixture.find_place("Grindelwald")
+    assert (grindelwald.population_band, grindelwald.altitude_m) == (6, 1040.0)
+
+
+def test_find_place_takes_no_obvious_place_when_near_is_far_from_every_place(place_finder_fixture):
+    # A near no Grindelwald lies close to may point to the hamlet, so the village is not taken
+    with pytest.raises(CannotAnswerError, match="No 'Grindelwald' lies near 'Davos Dorf'"):
+        place_finder_fixture.find_place("Grindelwald", nearby_location="Davos Dorf")
+
+
 def test_find_place_chooses_the_place_closest_to_near(place_finder_fixture):
     # near need not be a listed settlement: Zürich chooses the Blausee next to it too
     assert place_finder_fixture.find_place("Blausee", nearby_location="Oerlikon").object_types == ("See",)
@@ -112,6 +133,26 @@ def test_find_place_unknown_name(place_finder_fixture):
     with pytest.raises(CannotAnswerError) as raised:
         place_finder_fixture.find_place("Tessin")
     assert str(raised.value) == "Location 'Tessin' was not found. Check the spelling, or try a nearby town or village."
+
+
+# --- _find_obvious_place ---
+
+def test_find_obvious_place_with_only_small_settlements_besides():
+    town = build_place("Ort", 5)
+    assert _find_obvious_place([build_place("Ort", 3), town, build_place("Quartier", 1)]) == town
+
+
+def test_find_obvious_place_not_beside_a_peak():
+    # Like Krone, a district of 2,000 to 9,999 people and a peak of 3188 m
+    assert _find_obvious_place([build_place("Quartier", 6), build_place("Gipfel", 0)]) is None
+
+
+def test_find_obvious_place_not_beside_a_settlement_of_100_people_or_more():
+    assert _find_obvious_place([build_place("Ort", 7), build_place("Ort", 4)]) is None
+
+
+def test_find_obvious_place_not_when_the_biggest_has_fewer_than_1000_people():
+    assert _find_obvious_place([build_place("Ort", 4), build_place("Ort", 1)]) is None
 
 
 # --- start_loading_places ---

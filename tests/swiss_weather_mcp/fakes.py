@@ -423,6 +423,7 @@ def build_avalanche_bulletins_geojson() -> bytes:
 # smaller districts are called Wil. Biel/Bienne has a name in two languages, like its railway
 # station, and the shooting range of Küsnacht a name with slashes. No row is called Davos: Davos
 # Dorf and Davos Platz are. No row is called Flims either, and Flums is a bigger town spelled alike.
+# Grindelwald is a village and a hamlet in canton Luzern, so the village is the obvious one.
 # The rows from Zürich on are exactly as swisstopo publishes them.
 PLACE_NAMES_COLUMNS = "UUID;NAME;STATUS;NAMEN_TYP;OBJEKTART;EINWOHNERKATEGORIE;E;N;Z"
 PLACE_NAMES_FILE_TO_ROWS = {
@@ -455,6 +456,8 @@ PLACE_NAMES_FILE_TO_ROWS = {
         "{31};Küsnacht Im Holletsmoos 300/50/25m;offiziell;Endonym;Offenes Gebaeude;k_W;2688055;1240889;542",
         "{32};Flims Dorf;offiziell;einfacher Name;Ort;1'000 bis 1'999;2740808;1188878;1079",
         "{33};Flums;offiziell;einfacher Name;Ort;2'000 bis 9'999;2744605;1217332;454",
+        "{35};Grindelwald;offiziell;einfacher Name;Ort;2'000 bis 9'999;2645921;1163748;1040",
+        "{36};Grindelwald;offiziell;einfacher Name;Ort;< 20;2649992;1209309;892",
     ),
     "swissNAMES3D_PLY.csv": (
         "{5};Oerlikon;offiziell;einfacher Name;Quartier;10'000 bis 49'999;2683539;1251401;448",

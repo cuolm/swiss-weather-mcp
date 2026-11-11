@@ -5,11 +5,15 @@ swisstopo place the user means.
 The location is looked up among the places of swissNAMES3D, see lookup.py:
 - One place has the name: that place.
 - Several places have the name: nearby_location chooses the one closest to it, within 10 km.
-  Without it, or when no place lies near it, we refuse and list every place, biggest first,
-  so the model can choose with the user. Each comes with a settlement to give as near: the
-  nearest settlement of 100 or more people whose name leads back to that place. Each also
-  names the municipality and canton it lies in, from swissBOUNDARIES3D, see boundary_source.py,
-  so a user who answers with a canton can be matched to its line.
+  Without it, the biggest place is taken when it is obvious: it has 1,000 or more people and
+  every other place is a settlement of fewer than 100, such as the village Grindelwald and a
+  hamlet of that name. A peak, lake or pass among the others has no people and may well be the
+  one meant, so it is never passed over. Otherwise, or when no place lies near nearby_location,
+  we refuse and list every place, biggest first, so the model can choose with the user. Each
+  comes with a settlement to give as near: the nearest settlement of 100 or more people whose
+  name leads back to that place. Each also names the municipality and canton it lies in, from
+  swissBOUNDARIES3D, see boundary_source.py, so a user who answers with a canton can be matched
+  to its line.
 - No place has the name: we refuse and suggest up to 10 similar names, see suggestions.py, so the
   model can call again with one of them.
 
@@ -23,9 +27,10 @@ The location is looked up among the places of swissNAMES3D, see lookup.py:
        └── several
               │
               ▼
-           nearby_location given, and a place of the name within 10 km of it?
-              ├── yes ─► the place closest to it
-              └── no ──► refuse, with one line per place, the biggest first:
+           nearby_location given?
+              ├── yes, and a place of the name within 10 km of it ─► the place closest to it
+              ├── no, and the biggest place is obvious ──────────────► the biggest place
+              └── otherwise ─► refuse, with one line per place, the biggest first:
                            'Blausee' is the name of 6 places. Call again with location
                            'Blausee' and near set to the village next to the place the user
                            means, or ask the user which one they mean. The biggest first:
@@ -60,14 +65,38 @@ logger = logging.getLogger(__name__)
 MAX_NEAR_DISTANCE_M = 10000
 # How many of the nearest settlements are tried to find one that leads back to a place
 MAX_NEAR_SETTLEMENTS_TRIED = 20
+# Without near, the biggest place of a name is the one meant when it has 1,000 or more people and every
+# other place is a settlement of fewer than 100, so at least ten times smaller
+OBVIOUS_PLACE_MIN_BAND = 5
+OBVIOUS_OTHER_PLACE_MAX_BAND = 3
+
+
+def _find_obvious_place(places: List[SwisstopoPlace]) -> Optional[SwisstopoPlace]:
+    """
+    Return the place a name of several places obviously means, or None when it is not obvious.
+
+    That is the biggest place, when it has 1,000 or more people and every other place is a settlement
+    of fewer than 100. A place without people, such as a peak, a lake or a pass, may well be the one
+    meant, so none is obvious then.
+    """
+    places_biggest_first = sorted(places, key=lambda place: place.population_band, reverse=True)
+    biggest_place = places_biggest_first[0]
+    if biggest_place.population_band < OBVIOUS_PLACE_MIN_BAND:
+        return None
+    for other_place in places_biggest_first[1:]:
+        has_no_people = other_place.population_band == 0
+        is_too_big = other_place.population_band > OBVIOUS_OTHER_PLACE_MAX_BAND
+        if has_no_people or is_too_big:
+            return None
+    return biggest_place
 
 
 class PlaceFinder:
     """
     Find the swisstopo place a user means.
 
-    A name of several places needs near, a settlement next to the one the user means. For an unknown
-    name, suggest similar names, see SwisstopoPlaceLookup.find_places_named_alike.
+    A name of several places needs near, a settlement next to the one the user means, unless one place
+    is obvious. For an unknown name, suggest similar names, see SwisstopoPlaceLookup.find_places_named_alike.
     """
 
     def __init__(self, cache_dir: Path):
@@ -177,10 +206,10 @@ class PlaceFinder:
         """
         Find the place a user means.
 
-        nearby_location is only used for a name of several places. Case, accents and periods are
-        ignored. Raise CannotAnswerError for an unknown name, suggesting similar names, and for a
-        name of several places that nearby_location does not tell apart, listing every place to call
-        again with.
+        nearby_location is only used for a name of several places; without it, the obvious place is
+        taken, see _find_obvious_place. Case, accents and periods are ignored. Raise CannotAnswerError
+        for an unknown name, suggesting similar names, and for a name of several places that neither
+        nearby_location nor an obvious place tells apart, listing every place to call again with.
         """
         places = self.place_lookup.find_places_named(location)
         if not places:
@@ -192,4 +221,9 @@ class PlaceFinder:
             place_near = self._choose_place_near(places, nearby_location)
             if place_near is not None:
                 return place_near
+        else:
+            # Only without near: a near no place lies close to may well point to one of the small places
+            obvious_place = _find_obvious_place(places)
+            if obvious_place is not None:
+                return obvious_place
         raise self._build_options_error(location, places, nearby_location)

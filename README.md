@@ -163,7 +163,10 @@ Answers name the forecast point when it is not next to the place (see [Forecast 
 - A location is a place name from swissNAMES3D: a town, village, city district, peak, pass, lake,
   glacier, valley or railway station, such as `Zürich`, `Oerlikon`, `Titlis` or `Zürichsee`.
 - Case and accents don't matter, and a few English names such as `Geneva` work too.
-- A name of several places, such as `Blausee`, needs `near`: a village next to the one the user means,
+- A name of several places takes the biggest one without `near` when that is obvious: it has 1,000 or more
+  people and every other place is a settlement of fewer than 100, such as the village `Grindelwald` and a
+  hamlet in canton Luzern. A peak, lake or pass of the same name is never passed over.
+- Any other name of several places, such as `Blausee`, needs `near`: a village next to the one the user means,
   such as `near="Riederalp"`. Without it, the tool lists all places of the name, the biggest first,
   each with the call that chooses it and the municipality and canton it lies in:
   ```
