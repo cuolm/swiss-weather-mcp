@@ -6,15 +6,14 @@ from typing import Any, Dict, List, Optional, Tuple
 from . import parameters
 from ..distance import is_close_to_place
 from ..errors import CannotAnswerError
-from ..formatting import describe_height_difference, find_compass_point, format_swiss_time
+from ..formatting import describe_distance_and_height, find_compass_point, format_swiss_time
 from ..places import PlaceFinder, SwisstopoPlace
-from .source import ForecastSeries, ForecastSource, MeteoSwissPoint, calculate_distance_m
+from .source import ForecastSeries, ForecastSource, MeteoSwissPoint
 
 logger = logging.getLogger(__name__)
 
 # MeteoSwiss publishes today and the next 8 days
 MAX_DAYS = 9
-METRES_PER_KILOMETRE = 1000
 
 HOUR = timedelta(hours=1)
 RAIN_BLOCK = timedelta(hours=3)
@@ -98,12 +97,11 @@ def _build_forecast_point_fields(place: SwisstopoPlace, point: MeteoSwissPoint) 
     """
     if is_close_to_place(place, point):
         return {"place": place.name}
-    distance_km = round(calculate_distance_m(place, point) / METRES_PER_KILOMETRE, 1)
-    difference_m = round(point.altitude_m - place.altitude_m)
+    distance_and_height = describe_distance_and_height(place, point)
     return {
         "data_from": (
             f"The forecast for {place.display_name} is the one MeteoSwiss makes for its forecast point "
-            f"{point.display_name}, {distance_km} km away and {describe_height_difference(difference_m)}."
+            f"{point.display_name}, {distance_and_height}."
         ),
         "place": place.name,
     }

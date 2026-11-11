@@ -73,7 +73,6 @@ How we use it:
             └── ...                          (one file per parameter asked for)
 """
 import logging
-import math
 import shutil
 import threading
 from datetime import date, datetime, timedelta, timezone
@@ -83,6 +82,7 @@ from typing import Dict, List, NamedTuple, Optional, Tuple
 import requests
 
 from . import parameters
+from ..distance import calculate_distance_m, rank_by_weighted_distance
 from ..errors import CannotAnswerError
 from ..downloads import REQUEST_TIMEOUT_SECONDS, download_file, read_recent_csv_rows
 from ..places import SwisstopoPlace
@@ -97,8 +97,6 @@ POINT_TABLE_URL = "https://data.geo.admin.ch/ch.meteoschweiz.ogd-local-forecasti
 POINT_TABLE_MAX_AGE = timedelta(days=7)
 # Only a point this close to a place is chosen for its height; farther, the nearest point is taken
 FORECAST_POINT_RADIUS_M = 5000
-# Weather changes more with height than with distance: 1 m of height gap counts like 20 m farther away
-METRES_PER_HEIGHT_METRE = 20
 # Regional forecasts listed among the points, by point_id and point_type_id: Ouest romand,
 # Flachland Deutschschweiz and Basso Ticino. They carry only part of the parameters and stand on or
 # next to a station, such as Basso Ticino on Lugano, so they are never the point for a place.
@@ -126,18 +124,6 @@ class ForecastSeries(NamedTuple):
     """One parameter over the whole forecast window at one point, with the run it came from."""
     run_time: datetime
     time_to_value: Dict[datetime, float]
-
-
-def calculate_distance_m(place: SwisstopoPlace, point: MeteoSwissPoint) -> float:
-    """Return the distance in metres between a place and a forecast point."""
-    # LV95 is a flat grid in metres, so Pythagoras is exact enough within Switzerland
-    return math.hypot(place.east_m - point.east_m, place.north_m - point.north_m)
-
-
-def _calculate_weighted_distance_m(place: SwisstopoPlace, point: MeteoSwissPoint) -> float:
-    """Return the distance to a forecast point plus METRES_PER_HEIGHT_METRE times the height gap."""
-    height_gap_m = abs(point.altitude_m - place.altitude_m)
-    return calculate_distance_m(place, point) + METRES_PER_HEIGHT_METRE * height_gap_m
 
 
 def _find_newest_complete_run_id(run_to_csv_file_urls: Dict[str, Dict[str, str]]) -> Optional[str]:
@@ -218,7 +204,8 @@ class ForecastSource:
                 close_points.append(point)
         if not close_points:
             return min(points, key=lambda point: calculate_distance_m(place, point))
-        return min(close_points, key=lambda point: _calculate_weighted_distance_m(place, point))
+        ranked_close_points = rank_by_weighted_distance(place, close_points)
+        return ranked_close_points[0]
 
     def _fetch_run_to_csv_file_urls(self, day: date) -> Dict[str, Dict[str, str]]:
         """
