@@ -93,6 +93,7 @@ async def test_read_current_adds_an_slf_station_in_the_mountains(measurement_ser
         "wind_direction_degrees": 198.8,
         "compass_point": "SSW",
         "strongest_gust_last_30_minutes_kmh": 16.4,
+        "snow_surface_temperature_c": None,
     }
 
 

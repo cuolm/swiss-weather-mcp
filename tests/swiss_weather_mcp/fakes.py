@@ -208,8 +208,10 @@ SLF_STATIONS = (
 )
 
 
-# The temperature, humidity, wind, gust, direction and snow depth of a row of an IMIS station
-SLF_ROW_KEYS = ("TA_30MIN_MEAN", "RH_30MIN_MEAN", "VW_30MIN_MEAN", "VW_30MIN_MAX", "DW_30MIN_MEAN", "HS")
+# The temperature, humidity, wind, gust, direction, snow depth and snow surface temperature of a row of an IMIS station
+SLF_ROW_KEYS = (
+    "TA_30MIN_MEAN", "RH_30MIN_MEAN", "VW_30MIN_MEAN", "VW_30MIN_MAX", "DW_30MIN_MEAN", "HS", "TSS_30MIN_MEAN",
+)
 
 
 def build_slf_row(code: str, utc_time: str, values: tuple) -> dict:
@@ -223,23 +225,23 @@ def build_slf_row(code: str, utc_time: str, values: tuple) -> dict:
 # The last two rows of each station's measurements, with real values of 2026-11-09 moved to the time of
 # the MeteoSwiss now files. Platthorn's temperature is left out, and Gornergratsee's last row is from
 # 12:30 UTC, more than 1 hour before MEASUREMENTS_NOW. The WIND stations Platthorn and La Cassorte
-# measure no snow depth.
+# measure no snow depth and no snow surface temperature.
 SLF_STATION_CODE_TO_ROWS = {
     "ZER1": (
-        build_slf_row("ZER1", "13:30", (None, 77.1, 3.394, 8.12, 223.7, None)),
-        build_slf_row("ZER1", "14:00", (None, 71.3, 4.584, 11.28, 235.8, None)),
+        build_slf_row("ZER1", "13:30", (None, 77.1, 3.394, 8.12, 223.7, None, None)),
+        build_slf_row("ZER1", "14:00", (None, 71.3, 4.584, 11.28, 235.8, None, None)),
     ),
     "GOR2": (
-        build_slf_row("GOR2", "12:00", (0.663, 63.36, 3.352, 8.02, 236.5, 21.422)),
-        build_slf_row("GOR2", "12:30", (0.216, 63.08, 4.325, 7.922, 227.6, 21.412)),
+        build_slf_row("GOR2", "12:00", (0.663, 63.36, 3.352, 8.02, 236.5, 21.422, -2.078)),
+        build_slf_row("GOR2", "12:30", (0.216, 63.08, 4.325, 7.922, 227.6, 21.412, -4.002)),
     ),
     "ARO1": (
-        build_slf_row("ARO1", "13:30", (-1.009, 76.1, 3.033, 6.277, 199.2, None)),
-        build_slf_row("ARO1", "14:00", (-0.713, 73.6, 2.318, 4.557, 198.8, None)),
+        build_slf_row("ARO1", "13:30", (-1.009, 76.1, 3.033, 6.277, 199.2, None, None)),
+        build_slf_row("ARO1", "14:00", (-0.713, 73.6, 2.318, 4.557, 198.8, None, None)),
     ),
     "ZER2": (
-        build_slf_row("ZER2", "13:30", (1.762, 65.83, 0.16, 1.897, 75.6, 7.75)),
-        build_slf_row("ZER2", "14:00", (2.345, 61.94, 0.507, 2.836, 22.92, 6.98)),
+        build_slf_row("ZER2", "13:30", (1.762, 65.83, 0.16, 1.897, 75.6, 7.75, -1.848)),
+        build_slf_row("ZER2", "14:00", (2.345, 61.94, 0.507, 2.836, 22.92, 6.98, -2.339)),
     ),
 }
 

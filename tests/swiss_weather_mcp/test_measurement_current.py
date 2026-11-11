@@ -8,7 +8,7 @@ from swiss_weather_mcp.errors import CannotAnswerError
 from swiss_weather_mcp.measurements import parameters
 from swiss_weather_mcp.measurements.current import (
     _calculate_change_last_3_hours, _find_closer_slf_station_measurements, _find_highest_last_hour,
-    _find_meteoswiss_station_measurements, _sum_last_hour,
+    _find_meteoswiss_station_measurements, _find_snow_surface_temperature_c, _sum_last_hour,
 )
 from swiss_weather_mcp.measurements.meteoswiss_source import MeteoSwissStation, MeteoSwissStationMeasurements
 from swiss_weather_mcp.places.place_source import SwisstopoPlace
@@ -182,3 +182,40 @@ def test_find_closer_slf_station_measurements_downloads_once(
 
     assert count_downloads(source_fixture, "/imis/stations") == 1
     assert count_downloads(source_fixture, "/ARO1/") == 1
+
+
+# --- _find_snow_surface_temperature_c ---
+
+def read_latest_slf_measurements(slf_source_fixture, code: str):
+    for station in slf_source_fixture.list_stations():
+        if station.code == code:
+            return slf_source_fixture.read_latest_station_measurements(station)
+    raise ValueError(f"No SLF station {code} in the fakes")
+
+
+def test_find_snow_surface_temperature_with_enough_snow(slf_source_fixture):
+    # Gornergratsee has 21 cm of snow
+    measurements = read_latest_slf_measurements(slf_source_fixture, "GOR2")
+    assert _find_snow_surface_temperature_c(measurements) == -4.002
+
+
+def test_find_snow_surface_temperature_at_10_cm_of_snow(slf_source_fixture):
+    measurements = read_latest_slf_measurements(slf_source_fixture, "GOR2")._replace(snow_depth_cm=10.0)
+    assert _find_snow_surface_temperature_c(measurements) == -4.002
+
+
+def test_find_snow_surface_temperature_below_10_cm_of_snow(slf_source_fixture):
+    # Triftchumme has 7 cm of snow
+    measurements = read_latest_slf_measurements(slf_source_fixture, "ZER2")
+    assert _find_snow_surface_temperature_c(measurements) is None
+
+
+def test_find_snow_surface_temperature_without_a_snow_depth(slf_source_fixture):
+    # The WIND station La Cassorte measures no snow depth
+    measurements = read_latest_slf_measurements(slf_source_fixture, "ARO1")
+    assert _find_snow_surface_temperature_c(measurements) is None
+
+
+def test_find_snow_surface_temperature_without_a_value(slf_source_fixture):
+    measurements = read_latest_slf_measurements(slf_source_fixture, "GOR2")._replace(snow_surface_temperature_c=None)
+    assert _find_snow_surface_temperature_c(measurements) is None

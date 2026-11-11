@@ -24,12 +24,13 @@ What SLF publishes:
 - All answers are JSON. A station code, such as DAV2, links a station list to the
   station's measurements.
 
-    imis/station/DAV2/measurements?period_in_days=1  (measurements of Bärentälli, 15 fields, the server reads 6 values)
+    imis/station/DAV2/measurements?period_in_days=1  (measurements of Bärentälli, 15 fields, the server reads 7 values)
     ┌────────────────────────────────────────────────────────────────────┐
     │ [{"station_code": "DAV2", "measure_date": "2026-11-09T12:00:00Z",  │  station, time in UTC
     │   "TA_30MIN_MEAN": -0.338, "RH_30MIN_MEAN": 79.5,                  │  -0.3 °C, 79.5 %
     │   "VW_30MIN_MEAN": 0.652, "VW_30MIN_MAX": 2.933,                   │  wind and 5-second peak in m/s
-    │   "DW_30MIN_MEAN": 58.52, "HS": 1.0, ...},                         │  direction, snow depth in cm
+    │   "DW_30MIN_MEAN": 58.52, "HS": 1.0,                               │  direction, snow depth in cm
+    │   "TSS_30MIN_MEAN": 1.382, ...},                                   │  snow surface temperature in °C
     │  ...]                                                              │  one row every 30 minutes
     └────────────────────────────────────────────────────────────────────┘
 
@@ -117,6 +118,8 @@ WIND_SPEED = "VW_30MIN_MEAN"      # wind speed, vectorial mean over last 30 minu
 WIND_GUSTS = "VW_30MIN_MAX"       # wind speed, max 5sec measurement within last 30 minutes, m/s
 WIND_DIRECTION = "DW_30MIN_MEAN"  # wind direction, vectorial mean over last 30 minutes, °
 SNOW_DEPTH = "HS"                 # height of snowpack, total thickness of snowpack, instantaneous, cm
+# snow surface temperature, mean over last 30 minutes, °C
+SNOW_SURFACE_TEMPERATURE = "TSS_30MIN_MEAN"
 NEW_SNOW = "HN_1D"                # height of new snow during the last 24 hours, cm
 # In the daily IMIS snow, HS is the "median over last 24h at 6 UTC" and HN_1D "modeled by SNOWPACK at 6 UTC",
 # https://measurement-data.slf.ch/
@@ -150,6 +153,7 @@ class SLFStationMeasurements(NamedTuple):
     strongest_gust_kmh: Optional[float]  # the highest 5-second wind
     wind_direction_degrees: Optional[float]
     snow_depth_cm: Optional[float]  # at measured_at
+    snow_surface_temperature_c: Optional[float]
 
 
 class SLFDailySnowMeasurements(NamedTuple):
@@ -193,6 +197,7 @@ def _parse_station_measurements(station: SLFStation, row: Dict[str, Any]) -> SLF
         strongest_gust_kmh=_convert_m_per_s_to_kmh(row[WIND_GUSTS]),
         wind_direction_degrees=row[WIND_DIRECTION],
         snow_depth_cm=row[SNOW_DEPTH],
+        snow_surface_temperature_c=row[SNOW_SURFACE_TEMPERATURE],
     )
 
 

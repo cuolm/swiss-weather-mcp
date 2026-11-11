@@ -209,6 +209,7 @@ Answers name the forecast point when it is not next to the place (see [Forecast 
   published a temperature in the last hour (of the 3 best, the first that did). On the real data that is
   no place below 800 m and most places above 2000 m. Its own data_from names the station, its distance
   and height. When SLF cannot be reached, the answer comes without the block.
+- The block also gives the snow surface temperature of the 30 minutes, only with at least 10 cm of snow.
 - `measurements_history` gives MeteoSwiss's daily values of the station chosen the same way: of the 3
   first stations, the first with a temperature on the days asked. A day runs from 00:00 to 24:00 UTC,
   which is 01:00 to 01:00 Swiss time in winter and 02:00 to 02:00 in summer, and MeteoSwiss publishes

@@ -369,7 +369,8 @@ class SwissWeatherMCPServer:
                     last hour; strongest gust of the last hour; temperature and pressure change over 3
                     hours. A value is None when the station has not published it. slf_station, only when
                     an SLF station is closer: its data_from, time, temperature, humidity, wind speed,
-                    direction and gust over 30 minutes.
+                    direction and gust over 30 minutes, and the snow surface temperature, None with less
+                    than 10 cm of snow.
 
             Examples:
                 measurements_current("Zürich")

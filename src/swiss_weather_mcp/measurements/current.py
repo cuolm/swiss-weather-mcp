@@ -22,6 +22,8 @@ CHANGE_PERIOD = timedelta(hours=3)
 LAST_HOUR = timedelta(hours=1)
 # A station publishes a row every 10 minutes
 MEASUREMENTS_PER_HOUR = 6
+# On 2026-11-11, more than half of the SLF stations with less snow measured a snow surface above 0 °C
+SNOW_SURFACE_MIN_SNOW_DEPTH_CM = 10
 
 # The field each measured value fills in the answer
 MEASURED_FIELDS = (
@@ -62,6 +64,14 @@ def _describe_slf_station(place: SwisstopoPlace, slf_station_measurements: SLFSt
     )
 
 
+def _find_snow_surface_temperature_c(slf_station_measurements: SLFStationMeasurements) -> Optional[float]:
+    """Return the snow surface temperature, or None with less than 10 cm of snow or no snow depth."""
+    snow_depth_cm = slf_station_measurements.snow_depth_cm
+    if snow_depth_cm is None or snow_depth_cm < SNOW_SURFACE_MIN_SNOW_DEPTH_CM:
+        return None
+    return slf_station_measurements.snow_surface_temperature_c
+
+
 def _build_slf_station_block(place: SwisstopoPlace, slf_station_measurements: SLFStationMeasurements) -> Dict[str, Any]:
     """Build the slf_station block of the weather now: the latest measurements of an SLF station."""
     wind_direction_degrees = round_to_tenth(slf_station_measurements.wind_direction_degrees)
@@ -80,6 +90,8 @@ def _build_slf_station_block(place: SwisstopoPlace, slf_station_measurements: SL
     block["wind_direction_degrees"] = wind_direction_degrees
     block["compass_point"] = compass_point
     block["strongest_gust_last_30_minutes_kmh"] = round_to_tenth(slf_station_measurements.strongest_gust_kmh)
+    snow_surface_temperature_c = _find_snow_surface_temperature_c(slf_station_measurements)
+    block["snow_surface_temperature_c"] = round_to_tenth(snow_surface_temperature_c)
     return block
 
 
