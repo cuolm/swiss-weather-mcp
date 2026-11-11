@@ -2,18 +2,13 @@ import os
 import time
 
 from fakes import BOUNDARY_EDITION_IDS, build_boundaries_geopackage, build_square_geometry
-from swiss_weather_mcp.places.boundary_source import Area, SwisstopoBoundarySource, _polygons_contain, _read_polygons
+from swiss_weather_mcp.places.boundary_source import Area, SwisstopoBoundarySource, _read_polygons
 
 # How far back a cached GeoPackage is dated to make the last look for a newer edition older than 30 days
 OLD_CHECK_AGE_SECONDS = 31 * 24 * 60 * 60
 
 OLDER_EDITION_ID = BOUNDARY_EDITION_IDS[0]
 NEWEST_EDITION_ID = BOUNDARY_EDITION_IDS[1]
-# A square with a square hole, as a list of polygons, each its outer ring followed by its holes
-SQUARE_WITH_HOLE = [[
-    [(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0), (0.0, 0.0)],
-    [(4.0, 4.0), (6.0, 4.0), (6.0, 6.0), (4.0, 6.0), (4.0, 4.0)],
-]]
 
 
 def count_requests(source_fixture, url_end: str) -> int:
@@ -65,20 +60,6 @@ def test_read_polygons_of_a_multipolygon_with_heights():
     geometry = build_square_geometry(1.0, 3.0, 2.0, 5.0)
     polygons = _read_polygons(geometry)
     assert polygons == [[[(1.0, 2.0), (3.0, 2.0), (3.0, 5.0), (1.0, 5.0), (1.0, 2.0)]]]
-
-
-# --- _polygons_contain ---
-
-def test_polygons_contain_a_position_inside():
-    assert _polygons_contain(SQUARE_WITH_HOLE, 2.0, 2.0)
-
-
-def test_polygons_contain_not_a_position_in_a_hole():
-    assert not _polygons_contain(SQUARE_WITH_HOLE, 5.0, 5.0)
-
-
-def test_polygons_contain_not_a_position_outside():
-    assert not _polygons_contain(SQUARE_WITH_HOLE, 12.0, 5.0)
 
 
 # --- load_geopackage ---

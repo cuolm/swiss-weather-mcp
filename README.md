@@ -42,6 +42,7 @@ swiss-weather-mcp/
 │   ├── astronomy/          # Sunrise, sunset, moonrise, moonset and phase
 │   ├── downloads.py        # Downloads and caches files from data.geo.admin.ch and SLF
 │   ├── distance.py         # Distance plus height gap, to choose a station for a place
+│   ├── polygons.py         # Whether a position lies inside polygons with holes
 │   ├── coordinates.py      # WGS84 latitude and longitude to LV95 and back
 │   ├── formatting.py       # Times, wind directions and height differences in the answers
 │   ├── errors.py           # The error for questions the data cannot answer

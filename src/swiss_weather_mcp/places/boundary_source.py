@@ -44,6 +44,7 @@ from typing import List, NamedTuple, Optional, Tuple
 import requests
 
 from ..downloads import REQUEST_TIMEOUT_SECONDS, download_file
+from ..polygons import Polygon, polygons_contain
 
 logger = logging.getLogger(__name__)
 
@@ -82,10 +83,6 @@ WKB_MULTIPOLYGON = 6
 # A WKB type above 1000, or with this flag, has a height (z) for each point, which is skipped
 WKB_THREE_DIMENSIONS_FROM = 1000
 WKB_Z_FLAG = 0x80000000
-
-# A ring is a list of (east, north) in metres; a polygon is its outer ring followed by its holes
-Ring = List[Tuple[float, float]]
-Polygon = List[Ring]
 
 
 class Area(NamedTuple):
@@ -160,33 +157,6 @@ def _read_polygons(geometry: bytes) -> List[Polygon]:
     wkb = memoryview(geometry)[wkb_start:]
     polygons, _ = _read_wkb(wkb, 0)
     return polygons
-
-
-def _ring_contains(ring: Ring, east_m: float, north_m: float) -> bool:
-    """Tell whether a position lies inside a closed ring, by counting the ring's edges a line to the east crosses."""
-    is_inside = False
-    # Each edge runs from one corner to the next; a closed ring ends at its first corner
-    edges = zip(ring, ring[1:])
-    for (first_east_m, first_north_m), (second_east_m, second_north_m) in edges:
-        crosses_the_line_north = (first_north_m > north_m) != (second_north_m > north_m)
-        if not crosses_the_line_north:
-            continue
-        share_of_edge = (north_m - first_north_m) / (second_north_m - first_north_m)
-        crossing_east_m = first_east_m + share_of_edge * (second_east_m - first_east_m)
-        if east_m < crossing_east_m:
-            is_inside = not is_inside
-    return is_inside
-
-
-def _polygons_contain(polygons: List[Polygon], east_m: float, north_m: float) -> bool:
-    """Tell whether a position lies inside one of the polygons, inside its outer ring and outside its holes."""
-    for outer_ring, *holes in polygons:
-        if not _ring_contains(outer_ring, east_m, north_m):
-            continue
-        is_in_a_hole = any(_ring_contains(hole, east_m, north_m) for hole in holes)
-        if not is_in_a_hole:
-            return True
-    return False
 
 
 class SwisstopoBoundarySource:
@@ -290,6 +260,6 @@ class SwisstopoBoundarySource:
 
         for area_name, area_kind, canton_name, geometry in areas:
             polygons = _read_polygons(geometry)
-            if _polygons_contain(polygons, east_m, north_m):
+            if polygons_contain(polygons, east_m, north_m):
                 return Area(area_name, area_kind, canton_name)
         return None
