@@ -11,6 +11,7 @@ A **Model Context Protocol ([MCP](https://modelcontextprotocol.io/))** server th
 - Forecasts for today and the next 8 days from the [MeteoSwiss local forecasts](https://opendatadocs.meteoswiss.ch/e-forecast-data/e4-local-forecast-data), updated every hour
 - Measurements from about 160 [SwissMetNet weather stations](https://opendatadocs.meteoswiss.ch/a-data-groundbased/a1-automatic-weather-stations), updated every 10 minutes
 - Snow depth and new snow from MeteoSwiss and [SLF](https://www.slf.ch) stations and observers
+- The [SLF avalanche bulletin](https://www.slf.ch/en/avalanche-bulletin-and-snow-situation/) valid now for a place: danger level, avalanche problems and SLF's texts
 - Places on the Swiss national map, such as towns, districts, lakes and peaks, from [swissNAMES3D](https://www.swisstopo.admin.ch/en/landscape-model-swissnames3d)
 - When the Sun and the Moon rise and set at a place, the civil twilight, the Moon's phase and how much of it is lit, calculated for any day
 - A bundled MCP client for testing
@@ -18,6 +19,7 @@ A **Model Context Protocol ([MCP](https://modelcontextprotocol.io/))** server th
 > **Data sources.** This project is not an official MeteoSwiss product.
 > - Weather forecasts and measurements: [MeteoSwiss Open Data](https://opendata.swiss/en/organization/bundesamt-fur-meteorologie-und-klimatologie-meteoschweiz). Source: MeteoSwiss
 > - Measurements of the IMIS mountain stations and the snow measured by observers: [SLF](https://www.slf.ch), the WSL Institute for Snow and Avalanche Research, under [CC BY 4.0](https://www.slf.ch/en/services-and-products/slf-data-service/). Source: SLF
+> - Avalanche bulletin: [SLF](https://www.slf.ch) under [CC BY 4.0](https://www.slf.ch/en/services-and-products/slf-data-service/). Source: SLF. Report your observations with the [SLF feedback tool](https://pro.slf.ch/reply/public/#/)
 > - Place names: [swissNAMES3D](https://www.swisstopo.admin.ch/en/landscape-model-swissnames3d). Source: Federal Office of Topography swisstopo
 > - Municipalities and cantons: [swissBOUNDARIES3D](https://www.swisstopo.admin.ch/en/landscape-model-swissboundaries3d). Source: Federal Office of Topography swisstopo
 
@@ -39,6 +41,7 @@ swiss-weather-mcp/
 │   ├── places/             # swisstopo place lookup
 │   ├── forecast/           # MeteoSwiss local forecasts
 │   ├── measurements/       # MeteoSwiss SwissMetNet and SLF IMIS measurements
+│   ├── avalanche/          # SLF avalanche bulletin
 │   ├── astronomy/          # Sunrise, sunset, moonrise, moonset and phase
 │   ├── downloads.py        # Downloads and caches files from data.geo.admin.ch and SLF
 │   ├── distance.py         # Distance plus height gap, to choose a station for a place
@@ -140,6 +143,7 @@ Answers name the forecast point when it is not next to the place (see [Forecast 
 | `measurements_history(location, start_date, days)` | 1 to 366 past days: lowest, mean and highest temperature, rain, sunshine, strongest gust |
 | `measurements_snow(location)` | Snow depth now, and new snow of the last 24 hours and 3 days (see [Measurements](#measurements)) |
 | `measurements_extremes(extreme)` | Where it is `warmest`, `coldest`, `windiest`, `wettest` or `sunniest` now |
+| `avalanche_bulletin(location)` | SLF avalanche bulletin valid now: danger level, avalanche problems and texts (see [Avalanche Bulletin](#avalanche-bulletin)) |
 | `astronomy_sun(location, date)` | Sunrise, sunset and civil twilight |
 | `astronomy_moon(location, date)` | Moonrise, moonset, phase and how much is lit |
 | `current_date_and_time()` | Today's weekday and the Swiss time now |
@@ -234,6 +238,25 @@ Answers name the forecast point when it is not next to the place (see [Forecast 
   sunshine (1) and hardly any sunshine (0). MeteoSwiss's ranges meet at 20, 50 and 80 %; a station
   exactly there counts for the sunnier term, so 2 minutes (20 %) is partly sunny. The cantons come in
   the order of their stations' average sun.
+
+### Avalanche Bulletin
+- `avalanche_bulletin` gives the [SLF avalanche bulletin](https://www.slf.ch/en/avalanche-bulletin-and-snow-situation/)
+  valid now. In winter SLF publishes it every day at 17:00, valid until 17:00 the next day, with an update
+  at 08:00 when needed; in summer and autumn only after heavy snowfall. When none is valid, the tool says so.
+- SLF groups its warning regions with the same danger into areas, and each area is one bulletin with an
+  outline. The tool takes the bulletin whose outline the place lies in. The bulletin covers the Alps and
+  the Jura, never the Plateau, so for a place such as Zürich the tool says it lies in no region.
+- The danger level goes from 1 low to 5 very high, from level 2 with a
+  [subdivision](https://www.slf.ch/en/avalanche-bulletin-and-snow-situation/about-the-avalanche-bulletin/danger-levels/):
+  `-` near the bottom, `=` in the middle and `+` near the top of the level, such as `considerable (3-)`. In
+  spring a second level, `danger_level_later`, is the danger of the wet snow later in the day.
+- Each avalanche problem, such as wind slab, has its own danger level, heights and aspects, the directions
+  the slopes face. The answer gives the place's altitude to compare, but keeps every problem, as people go
+  up from a village.
+- The problems have SLF's summary and description. The snowpack, outlook, weather forecast and weather
+  review are SLF's texts for all of Switzerland; the weather texts are missing on some days.
+- The bulletins, about 80 KB, are downloaded again when the cached copy is older than 10 minutes.
+- Every answer names SLF as its source and links SLF's feedback tool, as SLF asks.
 
 ### Forecast Values Are Medians
 - Temperature and rain are the median of the many possible outcomes MeteoSwiss calculates, not the

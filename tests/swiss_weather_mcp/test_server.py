@@ -25,6 +25,7 @@ EXPECTED_TOOLS = {
     "measurements_history": ["location", "start_date", "days", "near"],
     "measurements_snow": ["location", "near"],
     "measurements_extremes": ["extreme"],
+    "avalanche_bulletin": ["location", "near"],
     "astronomy_sun": ["location", "date", "near"],
     "astronomy_moon": ["location", "date", "near"],
     "current_date_and_time": [],
@@ -39,7 +40,8 @@ def server_fixture(mocker):
     forecast_service = mocker.AsyncMock()
     measurement_service = mocker.AsyncMock()
     astronomy_service = mocker.AsyncMock()
-    return SwissWeatherMCPServer(forecast_service, measurement_service, astronomy_service, "INFO")
+    avalanche_service = mocker.AsyncMock()
+    return SwissWeatherMCPServer(forecast_service, measurement_service, astronomy_service, avalanche_service, "INFO")
 
 
 # --- _parse_swiss_time ---
@@ -128,6 +130,14 @@ async def test_measurements_extremes_refuses_an_unknown_extreme(server_fixture):
     with pytest.raises(ToolError, match="'warmest', 'coldest', 'windiest', 'wettest' or 'sunniest'"):
         await server_fixture.mcp.call_tool("measurements_extremes", {"extreme": "hottest"})
     server_fixture.measurement_service.read_extremes.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_avalanche_bulletin_passes_near_on(server_fixture):
+    server_fixture.avalanche_service.read_bulletin.return_value = {"place": "Blausee"}
+
+    await server_fixture.mcp.call_tool("avalanche_bulletin", {"location": "Blausee", "near": "Wallisellen"})
+    server_fixture.avalanche_service.read_bulletin.assert_awaited_once_with("Blausee", "Wallisellen")
 
 
 @pytest.mark.asyncio

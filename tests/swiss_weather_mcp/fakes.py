@@ -300,6 +300,119 @@ def build_slf_manual_site_days_json(code: str) -> bytes:
     return json.dumps(rows).encode("utf-8")
 
 
+# Two real bulletins of the SLF bulletin API V4, with fewer regions, shorter texts and square outlines.
+# The first is the one of Braunwald on 2026-02-14 at 08:00; its outline has a hole around Flims Dorf.
+# The second is the one of Davos on 2026-04-25, with a later danger level for the wet snow, a wet-snow
+# problem without heights, aspects or summary, and no weather forecast or review, as SLF leaves them out
+# on some days. Its outline has a part around Davos and one around the Matterhorn.
+AVALANCHE_BULLETINS = (
+    {
+        "type": "Feature",
+        "geometry": {
+            "type": "Polygon",
+            "coordinates": [
+                [[8.8, 46.7], [9.5, 46.7], [9.5, 47.1], [8.8, 47.1], [8.8, 46.7]],
+                [[9.2, 46.78], [9.4, 46.78], [9.4, 46.88], [9.2, 46.88], [9.2, 46.78]],
+            ],
+        },
+        "properties": {
+            "validTime": {"startTime": "2026-02-14T07:00:00Z", "endTime": "2026-02-14T16:00:00Z"},
+            "nextUpdate": "2026-02-14T16:00:00Z",
+            "unscheduled": False,
+            "regions": [
+                {"regionID": "CH-3112", "name": "Southern Glarus-Grosstal"},
+                {"regionID": "CH-2122", "name": "Engelberg"},
+                {"regionID": "CH-5121", "name": "Calanda"},
+            ],
+            "dangerRatings": [
+                {"mainValue": "considerable", "validTimePeriod": "all_day", "customData": {"CH": {"subdivision": "neutral"}}},
+            ],
+            "avalancheProblems": [
+                {
+                    "problemType": "wind_slab",
+                    "comment": "Avalanches can be released, even by a single winter sport participant. <br/> "
+                               "Backcountry touring calls for experience in the assessment of avalanche danger and caution.",
+                    "dangerRatingValue": "considerable",
+                    "validTimePeriod": "all_day",
+                    "elevation": {"lowerBound": "1800"},
+                    "aspects": ["N", "NE", "E", "SE", "W", "NW"],
+                    "customData": {"CH": {
+                        "subdivision": "neutral",
+                        "coreZoneText": "Danger level \"considerable\" (3=) in west to northeast to southeast facing "
+                                        "aspects above 1800m.",
+                    }},
+                },
+            ],
+            "publicationTime": "2026-02-14T07:00:00Z",
+            "weatherForecast": {"comment": "<h1>Weather forecast to Saturday</h1><p>On Saturday, it will be very cloudy."
+                                           "</p><h2 contenteditable=\"false\">Fresh snow</h2><ul><li>Simplon area, "
+                                           "western Ticino: 5 to 10 cm</li></ul>"},
+            "weatherReview": {"comment": "<h1>Weather review for Friday</h1><p>A little snow fell in the north above "
+                                         "1000 m during the night.</p>"},
+            "snowpackStructure": {"comment": "<h1>Snowpack</h1><ul><li>Prealps: newer snowdrift accumulations lie on "
+                                             "a mostly favourable snowpack.</li></ul>"},
+            "tendency": [{"comment": "<h1>Outlook</h1><h2>Sunday</h2><p>The avalanche danger will continue to "
+                                     "decrease in the west.</p>"}],
+            "fill": "#FF9900",
+        },
+    },
+    {
+        "type": "Feature",
+        "geometry": {
+            "type": "MultiPolygon",
+            "coordinates": [
+                [[[9.6, 46.6], [10.2, 46.6], [10.2, 47.0], [9.6, 47.0], [9.6, 46.6]]],
+                [[[7.5, 45.9], [7.9, 45.9], [7.9, 46.1], [7.5, 46.1], [7.5, 45.9]]],
+            ],
+        },
+        "properties": {
+            "validTime": {"startTime": "2026-04-24T15:00:00Z", "endTime": "2026-04-25T15:00:00Z"},
+            "nextUpdate": "2026-04-25T15:00:00Z",
+            "unscheduled": False,
+            "regions": [
+                {"regionID": "CH-5111", "name": "Northern Prättigau"},
+                {"regionID": "CH-5123", "name": "Davos"},
+            ],
+            "dangerRatings": [
+                {"mainValue": "low", "validTimePeriod": "all_day"},
+                {"mainValue": "moderate", "validTimePeriod": "later"},
+            ],
+            "avalancheProblems": [
+                {
+                    "problemType": "persistent_weak_layers",
+                    "comment": "Faceted weak layers exist in the snowpack in particular on steep shady slopes.",
+                    "dangerRatingValue": "low",
+                    "validTimePeriod": "all_day",
+                    "elevation": {"lowerBound": "2200"},
+                    "aspects": ["N", "NE", "E", "SE", "W", "NW"],
+                    "customData": {"CH": {
+                        "coreZoneText": "Danger level \"low\" (1) in west to northeast to southeast facing aspects "
+                                        "above 2200m.",
+                    }},
+                },
+                {
+                    "problemType": "wet_snow",
+                    "comment": "As the day progresses there will be an increase in the danger of wet avalanches.",
+                    "dangerRatingValue": "moderate",
+                    "validTimePeriod": "later",
+                },
+            ],
+            "publicationTime": "2026-04-24T15:00:00Z",
+            "snowpackStructure": {"comment": "<h1>Snowpack</h1><p>Moisture penetration into the snowpack is well "
+                                             "advanced.</p>"},
+            "tendency": [{"comment": "<h1>Outlook to Monday</h1><p>After a clear night, touring conditions will be "
+                                     "favourable in the early morning.</p>"}],
+            "fill": "#FFFF00",
+        },
+    },
+)
+
+
+def build_avalanche_bulletins_geojson() -> bytes:
+    feature_collection = {"type": "FeatureCollection", "features": list(AVALANCHE_BULLETINS)}
+    return json.dumps(feature_collection).encode("utf-8")
+
+
 # Some columns of the swissNAMES3D files, with real places. Oerlikon is a city district in the
 # points file and again in the areas file, where it is not read. Rüti is a field name, which is
 # not read either, and Zürich HB a railway station. The Rheinfall is a waterfall. Blausee is the

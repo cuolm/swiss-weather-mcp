@@ -24,6 +24,8 @@ from .measurements.service import MeasurementService
 from .measurements.meteoswiss_source import MeteoSwissMeasurementSource
 from .measurements.slf_source import SLFMeasurementSource
 from .astronomy.service import AstronomyService
+from .avalanche.service import AvalancheService
+from .avalanche.source import SLFBulletinSource
 from .formatting import SWISS_TZ
 
 logger = logging.getLogger(__name__)
@@ -122,18 +124,20 @@ class SwissWeatherMCPServer:
         forecast_service: ForecastService,
         measurement_service: MeasurementService,
         astronomy_service: AstronomyService,
+        avalanche_service: AvalancheService,
         log_level: LogLevel,
     ) -> None:
         self.forecast_service = forecast_service
         self.measurement_service = measurement_service
         self.astronomy_service = astronomy_service
+        self.avalanche_service = avalanche_service
         self.mcp = MCPServer(
             name="swiss_weather_mcp_server",
             instructions=(
                 "Weather for places in Switzerland from MeteoSwiss and the SLF: what stations measure now, measured "
                 "on past days and the snow (measurements_*), "
-                "forecasts for today and the next 8 days (forecast_*), and when the Sun and the Moon rise "
-                "and set (astronomy_*).\n"
+                "forecasts for today and the next 8 days (forecast_*), when the Sun and the Moon rise "
+                "and set (astronomy_*), and the SLF avalanche bulletin valid now (avalanche_bulletin).\n"
                 "- Times are Swiss local time in ISO 8601 without offset, such as \"2026-09-23T14:00\".\n"
                 "- When a tool result has data_from, include it in your answer.\n"
                 "- If a name matches several places, choose from what the user said, or ask which village it "
@@ -465,6 +469,37 @@ class SwissWeatherMCPServer:
 
         @self.mcp.tool(annotations=READS_OPEN_DATA)
         @_handle_tool_call
+        async def avalanche_bulletin(location: str, near: Near = None) -> dict:
+            """
+            Get the SLF avalanche bulletin valid now for a place: the danger level, the avalanche problems and SLF's texts.
+
+            Use this for "how high is the avalanche danger in Davos" or "can I go ski touring near
+            Engelberg". SLF, the WSL Institute for Snow and Avalanche Research, rates the danger from 1
+            low to 5 very high, from level 2 with a subdivision: - near the bottom, = in the middle and +
+            near the top of the level. Each avalanche problem applies only at its heights and on slopes
+            facing its aspects, often higher up than a village, so compare them with the place's altitude.
+            In spring, danger_level_later is the danger of the wet snow later in the day. In winter SLF
+            publishes the bulletin every day at 17:00, with an update at 08:00 when needed; in summer and
+            autumn only after heavy snowfall. Always give the source and the feedback link.
+
+            Args:
+                location (str): Name of a place in Switzerland, e.g. "Davos Dorf".
+
+            Returns:
+                dict: the place and its altitude, the regions of the bulletin, when it was published, from
+                    when until when it is valid and its next update, the danger level, danger_level_later
+                    when the wet snow changes it later in the day, and the avalanche problems, each with its
+                    danger level, time of day, heights, aspects, summary and description. Then SLF's texts
+                    for all of Switzerland: snowpack, outlook, weather forecast and weather review (None when
+                    SLF gives none), the source and the feedback link.
+
+            Examples:
+                avalanche_bulletin("Davos Dorf")
+            """
+            return await self.avalanche_service.read_bulletin(location, near)
+
+        @self.mcp.tool(annotations=READS_OPEN_DATA)
+        @_handle_tool_call
         async def astronomy_sun(location: str, date: str, near: Near = None) -> dict:
             """
             Get when the Sun rises and sets at a place on a day, and when civil twilight begins and ends.
@@ -548,7 +583,11 @@ def _build_server(args: argparse.Namespace) -> SwissWeatherMCPServer:
     slf_source = SLFMeasurementSource(CACHE_DIR)
     measurement_service = MeasurementService(place_finder, meteoswiss_source, slf_source)
     astronomy_service = AstronomyService(place_finder)
-    return SwissWeatherMCPServer(forecast_service, measurement_service, astronomy_service, args.log_level)
+    bulletin_source = SLFBulletinSource(CACHE_DIR)
+    avalanche_service = AvalancheService(place_finder, bulletin_source)
+    return SwissWeatherMCPServer(
+        forecast_service, measurement_service, astronomy_service, avalanche_service, args.log_level
+    )
 
 
 def main():

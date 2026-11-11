@@ -1,7 +1,7 @@
 """
 Download files and cache them on disk: from data.geo.admin.ch, the Swiss open data portal that
-publishes the MeteoSwiss and the swisstopo data, and from the SLF measurement API. Read the cached
-MeteoSwiss CSV files and SLF JSON answers.
+publishes the MeteoSwiss and the swisstopo data, and from the SLF measurement and bulletin APIs. Read
+the cached MeteoSwiss CSV files and SLF JSON answers.
 
 Shared by the forecast, the measurement and the places code.
 """
