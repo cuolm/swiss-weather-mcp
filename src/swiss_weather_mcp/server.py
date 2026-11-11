@@ -139,7 +139,7 @@ class SwissWeatherMCPServer:
                 "forecasts for today and the next 8 days (forecast_*), when the Sun and the Moon rise "
                 "and set (astronomy_*), and the SLF avalanche bulletin valid now (avalanche_bulletin).\n"
                 "- Times are Swiss local time in ISO 8601 without offset, such as \"2026-09-23T14:00\".\n"
-                "- When a tool result has data_from, include it in your answer.\n"
+                "- When a tool result has data_from or source, include it in your answer.\n"
                 "- If a name matches several places, choose from what the user said, or ask which village it "
                 "lies near. Then call again with the same location and that village as near."
             ),
@@ -480,7 +480,7 @@ class SwissWeatherMCPServer:
             facing its aspects, often higher up than a village, so compare them with the place's altitude.
             In spring, danger_level_later is the danger of the wet snow later in the day. In winter SLF
             publishes the bulletin every day at 17:00, with an update at 08:00 when needed; in summer and
-            autumn only after heavy snowfall. Always give the source and the feedback link.
+            autumn only after heavy snowfall. Always give the source with its link.
 
             Args:
                 location (str): Name of a place in Switzerland, e.g. "Davos Dorf".
@@ -491,7 +491,7 @@ class SwissWeatherMCPServer:
                     when the wet snow changes it later in the day, and the avalanche problems, each with its
                     danger level, time of day, heights, aspects, summary and description. Then SLF's texts
                     for all of Switzerland: snowpack, outlook, weather forecast and weather review (None when
-                    SLF gives none), the source and the feedback link.
+                    SLF gives none) and the source.
 
             Examples:
                 avalanche_bulletin("Davos Dorf")

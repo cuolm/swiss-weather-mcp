@@ -12,10 +12,8 @@ LEVEL_TO_NUMBER = {"low": 1, "moderate": 2, "considerable": 3, "high": 4, "very_
 # Written after the number, as SLF does in "considerable (3-)"
 SUBDIVISION_TO_SIGN = {"minus": "-", "neutral": "=", "plus": "+"}
 
-# SLF asks for a visible source with a link, and a link to its feedback tool,
-# https://www.slf.ch/en/services-and-products/slf-data-service/
+# SLF asks for a visible source with a link, https://www.slf.ch/en/services-and-products/slf-data-service/
 SOURCE = "Avalanche bulletin of SLF, the WSL Institute for Snow and Avalanche Research, https://www.slf.ch"
-FEEDBACK = "Report your own observations of snow and avalanches to SLF: https://pro.slf.ch/reply/public/#/"
 
 
 def _format_danger_level(danger_rating: DangerRating) -> str:
@@ -93,7 +91,6 @@ def _build_answer(place: SwisstopoPlace, bulletin: AvalancheBulletin) -> Dict[st
     answer["weather_forecast"] = bulletin.weather_forecast
     answer["weather_review"] = bulletin.weather_review
     answer["source"] = SOURCE
-    answer["feedback"] = FEEDBACK
     return answer
 
 

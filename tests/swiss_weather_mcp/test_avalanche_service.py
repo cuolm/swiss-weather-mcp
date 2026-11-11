@@ -1,7 +1,7 @@
 import pytest
 
 from swiss_weather_mcp.avalanche.service import (
-    FEEDBACK, SOURCE, AvalancheService, _describe_heights, _format_danger_level, build_bulletin_answer,
+    SOURCE, AvalancheService, _describe_heights, _format_danger_level, build_bulletin_answer,
 )
 from swiss_weather_mcp.avalanche.source import DangerRating, Elevation
 from swiss_weather_mcp.errors import CannotAnswerError
@@ -76,7 +76,6 @@ def test_build_bulletin_answer(bulletin_source_fixture):
         ),
         "weather_review": "Weather review for Friday\nA little snow fell in the north above 1000 m during the night.",
         "source": SOURCE,
-        "feedback": FEEDBACK,
     }
 
 
