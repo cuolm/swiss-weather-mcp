@@ -355,7 +355,9 @@ class SwissWeatherMCPServer:
             MeteoSwiss publishes new values about every 10 minutes. When a station of the SLF, the
             WSL Institute for Snow and Avalanche Research, is closer to the place in distance and
             height, mostly in the mountains, slf_station adds its temperature, humidity and wind
-            over the last 30 minutes, with its own data_from.
+            over the last 30 minutes, with its own data_from. For each data_from, always say which
+            station the values come from, how far away it is and how much higher or lower. When
+            slf_station is there, give its values first, as they come from the closer station.
 
             Args:
                 location (str): Name of a place in Switzerland, e.g. "Zürich".
