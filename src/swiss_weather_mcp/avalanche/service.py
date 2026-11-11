@@ -14,6 +14,8 @@ SUBDIVISION_TO_SIGN = {"minus": "-", "neutral": "=", "plus": "+"}
 
 # SLF asks for a visible source with a link, https://www.slf.ch/en/services-and-products/slf-data-service/
 SOURCE = "Avalanche bulletin of SLF, the WSL Institute for Snow and Avalanche Research, https://www.slf.ch"
+# SLF's map of the bulletin valid now, a GIF of Switzerland with the danger levels, from its bulletin document API
+MAP_URL = "https://aws.slf.ch/api/bulletin/document/iconmap/en/gif"
 
 
 def _format_danger_level(danger_rating: DangerRating) -> str:
@@ -90,6 +92,7 @@ def _build_answer(place: SwisstopoPlace, bulletin: AvalancheBulletin) -> Dict[st
     answer["outlook"] = bulletin.outlook
     answer["weather_forecast"] = bulletin.weather_forecast
     answer["weather_review"] = bulletin.weather_review
+    answer["map"] = MAP_URL
     answer["source"] = SOURCE
     return answer
 

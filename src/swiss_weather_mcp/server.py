@@ -494,7 +494,7 @@ class SwissWeatherMCPServer:
                     when the wet snow changes it later in the day, and the avalanche problems, each with its
                     danger level, time of day, heights, aspects, summary and description. Then SLF's texts
                     for all of Switzerland: snowpack, outlook, weather forecast and weather review (None when
-                    SLF gives none) and the source.
+                    SLF gives none), a link to SLF's map of the bulletin and the source.
 
             Examples:
                 avalanche_bulletin("Davos Dorf")

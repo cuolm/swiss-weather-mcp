@@ -1,7 +1,7 @@
 import pytest
 
 from swiss_weather_mcp.avalanche.service import (
-    SOURCE, AvalancheService, _describe_heights, _format_danger_level, build_bulletin_answer,
+    MAP_URL, SOURCE, AvalancheService, _describe_heights, _format_danger_level, build_bulletin_answer,
 )
 from swiss_weather_mcp.avalanche.source import DangerRating, Elevation
 from swiss_weather_mcp.errors import CannotAnswerError
@@ -75,6 +75,7 @@ def test_build_bulletin_answer(bulletin_source_fixture):
             "- Simplon area, western Ticino: 5 to 10 cm"
         ),
         "weather_review": "Weather review for Friday\nA little snow fell in the north above 1000 m during the night.",
+        "map": MAP_URL,
         "source": SOURCE,
     }
 

@@ -260,7 +260,7 @@ Answers name the forecast point when it is not next to the place (see [Forecast 
 - The problems have SLF's summary and description. The snowpack, outlook, weather forecast and weather
   review are SLF's texts for all of Switzerland; the weather texts are missing on some days.
 - The bulletins, about 80 KB, are downloaded again when the cached copy is older than 10 minutes.
-- Every answer names SLF as its source, with a link, as SLF asks.
+- Every answer names SLF as its source, with a link, as SLF asks, and links SLF's map of the bulletin.
 
 ### Forecast Values Are Medians
 - Temperature and rain are the median of the many possible outcomes MeteoSwiss calculates, not the
