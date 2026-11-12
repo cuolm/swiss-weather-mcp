@@ -34,7 +34,7 @@ MATTERHORN = SwisstopoPlace(
 METEOSWISS_STATION_WEIGHTED_DISTANCE_M = 250000.0
 FLUNTERN = MeteoSwissStation(
     abbr="SMA", name="Zürich / Fluntern", canton="Zurich", altitude_m=604.0, east_m=2685223.0, north_m=1248410.0,
-    data_since=date(1864, 1, 1),
+    data_since=date(1864, 1, 1), is_manual_site=False,
 )
 
 

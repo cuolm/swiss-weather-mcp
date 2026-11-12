@@ -3,12 +3,13 @@ from datetime import datetime
 import pytest
 
 from fakes import (
-    ALL_STATIONS_LATEST_VALUES_CSV, DATA_INVENTORY_CSV, MEASUREMENTS_NOW, RUN_ID, FakeResponse,
-    build_avalanche_bulletins_geojson, build_boundaries_archive, build_boundaries_editions, build_parameter_csv,
+    ALL_STATIONS_LATEST_VALUES_CSV, DATA_INVENTORY_CSV, MANUAL_SITE_INVENTORY_CSV, MEASUREMENTS_NOW, RUN_ID,
+    FakeResponse, build_avalanche_bulletins_geojson, build_boundaries_archive, build_boundaries_editions,
+    build_manual_site_daily_values_csv, build_manual_site_table_csv, build_parameter_csv,
     build_place_names_archive, build_place_names_editions, build_point_table_csv, build_slf_daily_snow_json,
-    build_slf_measurements_json,
-    build_slf_stations_json, build_slf_manual_site_days_json, build_slf_manual_sites_json, build_stac_item,
-    build_station_daily_values_csv, build_station_now_values_csv, build_station_table_csv,
+    build_slf_measurements_json, build_slf_stations_json, build_slf_manual_site_days_json,
+    build_slf_manual_sites_json, build_stac_item, build_station_daily_values_csv, build_station_now_values_csv,
+    build_station_table_csv,
 )
 from swiss_weather_mcp.avalanche.source import SLFBulletinSource
 from swiss_weather_mcp.forecast.service import ForecastService
@@ -68,6 +69,14 @@ def source_fixture(mocker, tmp_path, tmp_path_factory):
         if url.endswith("_t_now.csv"):
             abbr = url.rsplit("/", 2)[-2]
             return FakeResponse(body=build_station_now_values_csv(abbr))
+        if url.endswith("ogd-nime_meta_stations.csv"):
+            return FakeResponse(body=build_manual_site_table_csv())
+        if url.endswith("ogd-nime_meta_datainventory.csv"):
+            return FakeResponse(body=MANUAL_SITE_INVENTORY_CSV.encode("latin-1"))
+        if "/ch.meteoschweiz.ogd-nime/" in url:
+            abbr = url.rsplit("/", 2)[-2]
+            period = url.removesuffix(".csv").rsplit("_", 1)[-1]
+            return FakeResponse(body=build_manual_site_daily_values_csv(abbr, period))
         if url.endswith(("_d_recent.csv", "_d_historical.csv")):
             abbr = url.rsplit("/", 2)[-2]
             period = url.removesuffix(".csv").rsplit("_", 1)[-1]

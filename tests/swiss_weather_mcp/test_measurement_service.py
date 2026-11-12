@@ -10,13 +10,21 @@ from swiss_weather_mcp.measurements.meteoswiss_source import MeteoSwissStation, 
 
 FLUNTERN = MeteoSwissStation(
     abbr="SMA", name="Zürich / Fluntern", canton="Zurich", altitude_m=604.0, east_m=2685223.0, north_m=1248410.0,
-    data_since=date(1864, 1, 1),
+    data_since=date(1864, 1, 1), is_manual_site=False,
 )
 
 
 def build_measurements(utc_time: str, parameter_to_value: dict) -> MeteoSwissStationMeasurements:
     measured_at = datetime.fromisoformat(utc_time).replace(tzinfo=timezone.utc)
     return MeteoSwissStationMeasurements(FLUNTERN, measured_at, parameter_to_value)
+
+
+def count_downloads(source_fixture, url_part: str) -> int:
+    downloads = 0
+    for call in source_fixture.get_mock.call_args_list:
+        if url_part in call.args[0]:
+            downloads += 1
+    return downloads
 
 
 # --- read_current ---
@@ -146,33 +154,45 @@ async def test_read_history(measurement_service_fixture):
     answer = await measurement_service_fixture.read_history("Zurich", date(2026, 9, 23), 2)
 
     assert answer == {
-        "data_from": (
-            "The measurements for Zürich (418 m) are those of the MeteoSwiss station Zürich / Fluntern (604 m), "
-            "2.1 km away and 186 m higher."
-        ),
         "place": "Zürich",
-        "days": [
-            {
-                "date": "2026-09-23",
-                "weekday": "Wednesday",
-                "temperature_mean_c": 14.3,
-                "temperature_min_c": 6.9,
-                "temperature_max_c": 21.4,
-                "rain_mm": 0.0,
-                "sunshine_h": 11.1,
-                "strongest_gust_kmh": 20.5,
-            },
-            {
-                "date": "2026-09-24",
-                "weekday": "Thursday",
-                "temperature_mean_c": 15.3,
-                "temperature_min_c": 10.9,
-                "temperature_max_c": 21.8,
-                "rain_mm": 0.0,
-                "sunshine_h": 3.0,
-                "strongest_gust_kmh": 30.2,
-            },
-        ],
+        "weather": {
+            "data_from": (
+                "The measurements for Zürich (418 m) are those of the MeteoSwiss station Zürich / Fluntern (604 m), "
+                "2.1 km away and 186 m higher."
+            ),
+            "days": [
+                {
+                    "date": "2026-09-23",
+                    "weekday": "Wednesday",
+                    "temperature_mean_c": 14.3,
+                    "temperature_min_c": 6.9,
+                    "temperature_max_c": 21.4,
+                    "rain_mm": 0.0,
+                    "sunshine_h": 11.1,
+                    "strongest_gust_kmh": 20.5,
+                },
+                {
+                    "date": "2026-09-24",
+                    "weekday": "Thursday",
+                    "temperature_mean_c": 15.3,
+                    "temperature_min_c": 10.9,
+                    "temperature_max_c": 21.8,
+                    "rain_mm": 0.0,
+                    "sunshine_h": 3.0,
+                    "strongest_gust_kmh": 30.2,
+                },
+            ],
+        },
+        "snow": {
+            "data_from": (
+                "The snow for Zürich (418 m) was measured by an observer at the MeteoSwiss station "
+                "Zürich / Fluntern (604 m), 2.1 km away and 186 m higher."
+            ),
+            "days": [
+                {"date": "2026-09-23", "snow_depth_cm": 0.0, "new_snow_cm": 0.0},
+                {"date": "2026-09-24", "snow_depth_cm": 0.0, "new_snow_cm": 0.0},
+            ],
+        },
     }
 
 
@@ -181,9 +201,51 @@ async def test_read_history_values_the_station_lacks(measurement_service_fixture
     # Fluntern has no rain from 0 to 0 UTC and no gust on 1975-07-01
     answer = await measurement_service_fixture.read_history("Zurich", date(1975, 7, 1), 1)
 
-    day = answer["days"][0]
+    day = answer["weather"]["days"][0]
     assert (day["temperature_mean_c"], day["sunshine_h"]) == (9.8, 1.5)
     assert (day["rain_mm"], day["strongest_gust_kmh"]) == (None, None)
+
+
+@pytest.mark.asyncio
+async def test_read_history_only_the_weather(source_fixture, measurement_service_fixture):
+    answer = await measurement_service_fixture.read_history("Zurich", date(2026, 9, 23), 2, "weather")
+
+    assert list(answer) == ["place", "weather"]
+    assert count_downloads(source_fixture, "ogd-nime") == 0
+
+
+@pytest.mark.asyncio
+async def test_read_history_only_the_snow(source_fixture, measurement_service_fixture):
+    # The manual site Davos is next to Davos Dorf, so the block does not name it. The 5 cm of new snow of
+    # 2025-01-02 show in the snow depth of the next morning.
+    answer = await measurement_service_fixture.read_history("Davos Dorf", date(2025, 1, 1), 3, "snow")
+
+    assert answer == {
+        "place": "Davos Dorf",
+        "snow": {
+            "days": [
+                {"date": "2025-01-01", "snow_depth_cm": 38.0, "new_snow_cm": 0.0},
+                {"date": "2025-01-02", "snow_depth_cm": 37.0, "new_snow_cm": 5.0},
+                {"date": "2025-01-03", "snow_depth_cm": 41.0, "new_snow_cm": 0.0},
+            ],
+        },
+    }
+    assert count_downloads(source_fixture, "ogd-smn_dav_d_") == 0
+
+
+@pytest.mark.asyncio
+async def test_read_history_without_a_snow_station(measurement_service_fixture):
+    # No manual site of the fakes lies within 25 km of Genève by distance and height
+    answer = await measurement_service_fixture.read_history("Genève", date(2026, 9, 23), 1)
+
+    assert answer["weather"]["days"][0]["date"] == "2026-09-23"
+    assert answer["snow"] is None
+
+
+@pytest.mark.asyncio
+async def test_read_history_only_the_snow_without_a_snow_station(measurement_service_fixture):
+    with pytest.raises(CannotAnswerError, match=r"No snow station is close enough to Genève \(376 m\)"):
+        await measurement_service_fixture.read_history("Genève", date(2026, 9, 23), 1, "snow")
 
 
 @pytest.mark.asyncio

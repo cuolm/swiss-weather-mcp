@@ -5,7 +5,7 @@ from typing import Any, Dict, Optional
 from ..places import PlaceFinder, SwisstopoPlace
 from .current import build_current_answer
 from .extremes import build_extremes_answer
-from .history import build_history_answer, check_day_count
+from .history import HistoryValues, build_history_answer, check_day_count
 from .meteoswiss_source import MeteoSwissMeasurementSource
 from .slf_source import SLFMeasurementSource
 from .snow import build_snow_answer
@@ -39,17 +39,23 @@ class MeasurementService:
         return await asyncio.to_thread(build_current_answer, self.meteoswiss_source, self.slf_source, place)
 
     async def read_history(
-        self, location: str, first_day: date, days: int, nearby_location: Optional[str] = None
+        self,
+        location: str,
+        first_day: date,
+        days: int,
+        values: Optional[HistoryValues] = None,
+        nearby_location: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
-        Read the daily measurements of the station chosen for the location, for 1 to MAX_HISTORY_DAYS UTC days from first_day.
+        Read the daily weather and snow of the stations chosen for the location, for 1 to MAX_HISTORY_DAYS UTC days from first_day.
 
-        Raise CannotAnswerError when days is out of range, for an unknown location, for today or later, and
-        when no station has measurements for the days.
+        values is "weather" or "snow" for only one of them. Raise CannotAnswerError when days is out of
+        range, for an unknown location, for today or later, when no station has the weather of the days,
+        and for values "snow" when no manual site has their snow.
         """
         check_day_count(days)
         place = await self._find_place(location, nearby_location)
-        return await asyncio.to_thread(build_history_answer, self.meteoswiss_source, place, first_day, days)
+        return await asyncio.to_thread(build_history_answer, self.meteoswiss_source, place, first_day, days, values)
 
     async def read_snow(self, location: str, nearby_location: Optional[str] = None) -> Dict[str, Any]:
         """

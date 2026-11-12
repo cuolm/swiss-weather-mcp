@@ -1,8 +1,8 @@
 """
-The parameters the server reads from the SwissMetNet measurements.
+The parameters the server reads from the SwissMetNet measurements and the manual precipitation stations.
 
 The comment on each code is the MeteoSwiss description of that parameter, from
-ogd-smn_meta_parameters.csv. Times are UTC. A "current value" is measured at its timestamp, and a
+ogd-smn_meta_parameters.csv and ogd-nime_meta_parameters.csv. Times are UTC. A "current value" is measured at its timestamp, and a
 "ten minutes" value covers the 10 minutes up to its timestamp. A daily value covers the UTC day
 that starts at its timestamp.
 """
@@ -39,3 +39,10 @@ ALL_DAILY_PARAMETERS = (
     TEMPERATURE_DAY_MEAN, TEMPERATURE_DAY_MIN, TEMPERATURE_DAY_MAX, PRECIPITATION_DAY, SUNSHINE_DAY,
     WIND_GUSTS_DAY,
 )
+
+# ── daily, manual precipitation stations ─────────────────────────────────────
+SNOW_DEPTH_DAY = "hto000d0"  # Snow depth; morning measurement at 6 UTC [cm]
+NEW_SNOW_DAY = "hns000d0"    # Fresh snow; daily total 6 UTC - 6 UTC following day [cm]
+
+# Every column the server reads from a manual site's daily files
+ALL_MANUAL_SITE_DAILY_PARAMETERS = (SNOW_DEPTH_DAY, NEW_SNOW_DAY)

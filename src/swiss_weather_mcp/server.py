@@ -20,6 +20,7 @@ from .forecast.service import ForecastService
 from .forecast.source import ForecastSource
 from .places import PlaceFinder
 from .measurements.extremes import ExtremeName
+from .measurements.history import HistoryValues
 from .measurements.service import MeasurementService
 from .measurements.meteoswiss_source import MeteoSwissMeasurementSource
 from .measurements.slf_source import SLFMeasurementSource
@@ -379,36 +380,44 @@ class SwissWeatherMCPServer:
 
         @self.mcp.tool(annotations=READS_OPEN_DATA)
         @_handle_tool_call
-        async def measurements_history(location: str, start_date: str, days: int = 1, near: Near = None) -> dict:
+        async def measurements_history(
+            location: str, start_date: str, days: int = 1, values: Optional[HistoryValues] = None, near: Near = None
+        ) -> dict:
             """
-            Get what a MeteoSwiss station near a place measured on past days, for one day or several days in a row.
+            Get the weather and the snow measured near a place on past days, for one day or several days in a row.
 
-            Use this for "how warm was it yesterday" or "how much did it rain last week". The values are
-            the daily values of the station named in data_from; without data_from, the station is next to
-            the place. Each day covers a UTC day, 00:00 to 24:00
-            UTC, which is 01:00 to 01:00 Swiss time in winter and 02:00 to 02:00 in summer. MeteoSwiss
-            publishes a day's values the next morning. The days go back to when the station started, at
-            some stations to the 1860s. For the warmest day of a year, ask for all its days.
+            Use this for "how warm was it yesterday", "how much did it rain last week" or "how much snow was
+            there on this day last year". The weather comes from a MeteoSwiss station and the snow from a
+            MeteoSwiss observer, each named in the data_from of its block; without data_from, the station is
+            next to the place. Each weather day covers a UTC day, 00:00 to 24:00 UTC, which is 01:00 to 01:00
+            Swiss time in winter and 02:00 to 02:00 in summer. The snow depth is measured at 06:00 UTC on the
+            day, and the new snow covers the 24 hours from then. MeteoSwiss publishes a day's values the next
+            morning. The days go back to when the station started, at some stations to the 1860s. For the
+            warmest day of a year, ask for all its days. For each data_from, always say which station the
+            values come from, how far away it is and how much higher or lower.
 
             Args:
                 location (str): Name of a place in Switzerland, e.g. "Zürich".
                 start_date (str): The first day, e.g. "2026-09-23". Yesterday or earlier.
                 days (int): How many days in a row, from 1 to 366, so up to a whole year. Default 1.
+                values (str): Optional. "weather" or "snow" for only one of them; without it, both.
 
             Returns:
-                dict: data_from when the station is not next to the place, the place and per day: date,
-                    weekday, mean, lowest and highest
-                    temperature, rain, sunshine hours and strongest gust. A value is None when the
-                    station did not measure it.
+                dict: the place; weather: data_from when its station is not next to the place, and per day:
+                    date, weekday, mean, lowest and highest temperature, rain, sunshine hours and strongest
+                    gust; snow: data_from in the same way, and per day: date, snow depth and new snow. A value
+                    is None when the station did not measure it. snow is null when no snow station close
+                    enough in distance and height measured on the days.
 
             Examples:
                 measurements_history("Zürich", "2026-09-22")
                 measurements_history("Zürich", "2026-09-14", 7)     # a week
                 measurements_history("Zürich", "2025-01-01", 365)   # a whole year
                 measurements_history("Zürich", "1990-02-27")
+                measurements_history("Davos Dorf", "2025-01-01", 7, "snow")   # only the snow
             """
             first_day = _parse_swiss_time(start_date).astimezone(SWISS_TZ).date()
-            return await self.measurement_service.read_history(location, first_day, days, near)
+            return await self.measurement_service.read_history(location, first_day, days, values, near)
 
         @self.mcp.tool(annotations=READS_OPEN_DATA)
         @_handle_tool_call

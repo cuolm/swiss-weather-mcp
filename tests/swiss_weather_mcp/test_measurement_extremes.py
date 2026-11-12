@@ -9,11 +9,11 @@ from swiss_weather_mcp.measurements.meteoswiss_source import MeteoSwissStation
 
 FLUNTERN = MeteoSwissStation(
     abbr="SMA", name="Zürich / Fluntern", canton="Zurich", altitude_m=604.0, east_m=2685223.0, north_m=1248410.0,
-    data_since=date(1864, 1, 1),
+    data_since=date(1864, 1, 1), is_manual_site=False,
 )
 APPENZELL = MeteoSwissStation(
     abbr="APP", name="Appenzell", canton="Appenzell Innerrhoden", altitude_m=769.0, east_m=0.0, north_m=0.0,
-    data_since=date(1864, 1, 1),
+    data_since=date(1864, 1, 1), is_manual_site=False,
 )
 
 

@@ -1,10 +1,14 @@
 from datetime import date, datetime, timedelta
 
 import pytest
+import requests
 
 from fakes import MEASUREMENTS_NOW
 from swiss_weather_mcp.errors import CannotAnswerError
-from swiss_weather_mcp.measurements.history import _check_days_before_today, _find_meteoswiss_station_daily_measurements
+from swiss_weather_mcp.measurements.history import (
+    _check_days_before_today, _find_meteoswiss_station_daily_measurements, _find_meteoswiss_manual_site_daily_measurements,
+    build_history_answer,
+)
 from swiss_weather_mcp.places.place_source import SwisstopoPlace
 
 UETLIBERG = SwisstopoPlace(
@@ -83,4 +87,97 @@ def test_find_meteoswiss_station_daily_measurements_refuses_days_no_station_meas
         _find_meteoswiss_station_daily_measurements(meteoswiss_source_fixture, ZURICH, date(1975, 7, 2), date(1975, 7, 3))
     assert str(raised.value) == (
         "None of the 3 stations tried for Zürich (418 m) has a daily temperature for 1975-07-02 to 1975-07-03."
+    )
+
+
+# --- _find_meteoswiss_manual_site_daily_measurements ---
+
+def test_find_meteoswiss_manual_site_daily_measurements_skips_a_manual_site_without_snow(meteoswiss_source_fixture):
+    # Stallikon suits the Uetliberg best, but measured no snow on these days, so Fluntern is next
+    uetliberg_days = _find_meteoswiss_manual_site_daily_measurements(
+        meteoswiss_source_fixture, UETLIBERG, date(2026, 9, 23), date(2026, 9, 24)
+    )
+    assert uetliberg_days[0].station.abbr == "SMA"
+    assert uetliberg_days[0].station.is_manual_site
+
+
+def test_find_meteoswiss_manual_site_daily_measurements_skips_a_site_that_measured_later(source_fixture, meteoswiss_source_fixture):
+    # Stallikon measures the snow since 1998, so for 1975 its files are not downloaded
+    uetliberg_days = _find_meteoswiss_manual_site_daily_measurements(
+        meteoswiss_source_fixture, UETLIBERG, date(1975, 7, 1), date(1975, 7, 1)
+    )
+    assert uetliberg_days[0].station.abbr == "SMA"
+    assert count_downloads(source_fixture, "ogd-nime_sko_d_historical.csv") == 0
+
+
+def test_find_meteoswiss_manual_site_daily_measurements_without_a_site_close_enough(meteoswiss_source_fixture):
+    # The Matterhorn is far from every manual site of the fakes
+    matterhorn = UETLIBERG._replace(name="Matterhorn", altitude_m=4478.0, east_m=2617049.0, north_m=1091673.0)
+    with pytest.raises(CannotAnswerError, match=r"No snow station is close enough to Matterhorn \(4478 m\)"):
+        _find_meteoswiss_manual_site_daily_measurements(meteoswiss_source_fixture, matterhorn, date(2026, 9, 23), date(2026, 9, 23))
+
+
+def test_find_meteoswiss_manual_site_daily_measurements_before_any_snow_measurement(meteoswiss_source_fixture):
+    with pytest.raises(CannotAnswerError, match="No MeteoSwiss observer measured the snow depth on 1930-01-01."):
+        _find_meteoswiss_manual_site_daily_measurements(meteoswiss_source_fixture, ZURICH, date(1930, 1, 1), date(1930, 1, 1))
+
+
+def test_find_meteoswiss_manual_site_daily_measurements_without_snow_values(meteoswiss_source_fixture):
+    # The sites close to the Uetliberg have no rows on 2026-09-21, which MeteoSwiss has published
+    with pytest.raises(CannotAnswerError) as raised:
+        _find_meteoswiss_manual_site_daily_measurements(meteoswiss_source_fixture, UETLIBERG, date(2026, 9, 21), date(2026, 9, 21))
+    assert str(raised.value) == "None of the 2 snow stations tried for Uetliberg (869 m) has snow values for 2026-09-21."
+
+
+# --- build_history_answer ---
+
+def test_build_history_answer_without_the_manual_sites(mocker, meteoswiss_source_fixture, measurement_tools_now_fixture):
+    # The weather stays when the manual site table cannot be downloaded
+    mocker.patch.object(
+        meteoswiss_source_fixture, "list_manual_sites", side_effect=requests.ConnectionError("connection refused")
+    )
+    answer = build_history_answer(meteoswiss_source_fixture, ZURICH, date(2026, 9, 23), 1)
+    assert answer["weather"]["days"][0]["date"] == "2026-09-23"
+    assert answer["snow"] is None
+
+
+def test_build_history_answer_when_a_manual_site_cannot_be_downloaded(
+    mocker, meteoswiss_source_fixture, measurement_tools_now_fixture
+):
+    # Fluntern's weather downloads, but its manual site's files do not, so the answer holds only the weather
+    read_daily = meteoswiss_source_fixture.read_station_daily_measurements
+
+    def read_daily_except_the_manual_site(station, first_day, last_day):
+        if station.is_manual_site:
+            raise requests.ConnectionError("connection refused")
+        return read_daily(station, first_day, last_day)
+
+    mocker.patch.object(
+        meteoswiss_source_fixture, "read_station_daily_measurements", side_effect=read_daily_except_the_manual_site
+    )
+    answer = build_history_answer(meteoswiss_source_fixture, ZURICH, date(2026, 9, 23), 1)
+    assert answer["weather"]["days"][0]["date"] == "2026-09-23"
+    assert answer["snow"] is None
+
+
+def test_build_history_answer_only_the_snow_without_the_manual_sites(
+    mocker, meteoswiss_source_fixture, measurement_tools_now_fixture
+):
+    # The server tells the model it could not download the data
+    mocker.patch.object(
+        meteoswiss_source_fixture, "list_manual_sites", side_effect=requests.ConnectionError("connection refused")
+    )
+    with pytest.raises(requests.ConnectionError):
+        build_history_answer(meteoswiss_source_fixture, ZURICH, date(2026, 9, 23), 1, "snow")
+
+
+def test_build_history_answer_only_the_snow_of_a_day_not_published_yet(mocker, meteoswiss_source_fixture):
+    # A day later, at 14:05 UTC, but MeteoSwiss has not added the row of 2026-09-25 to the recent files
+    for module in ("history", "meteoswiss_source"):
+        datetime_mock = mocker.patch(f"swiss_weather_mcp.measurements.{module}.datetime", wraps=datetime)
+        datetime_mock.now.return_value = MEASUREMENTS_NOW + timedelta(days=1)
+    with pytest.raises(CannotAnswerError) as raised:
+        build_history_answer(meteoswiss_source_fixture, ZURICH, date(2026, 9, 25), 1, "snow")
+    assert str(raised.value) == (
+        "MeteoSwiss has not published the daily measurements for 2026-09-25 yet, try again later."
     )

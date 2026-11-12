@@ -194,6 +194,71 @@ def build_station_daily_values_csv(abbr: str, period: str) -> bytes:
     return ("\r\n".join(lines) + "\r\n").encode("latin-1")
 
 
+# The columns of ogd-nime_meta_stations.csv the server reads, with real manual sites. Zürich / Fluntern
+# and Davos are SwissMetNet stations too, under the same abbreviation, and Stallikon lies nearer to
+# the Uetliberg than Fluntern.
+MANUAL_SITE_TABLE_COLUMNS = (
+    "station_abbr;station_name;station_canton;station_data_since;station_height_masl;"
+    "station_coordinates_lv95_east;station_coordinates_lv95_north"
+)
+MANUAL_SITE_TABLE_ROWS = (
+    ("SMA", "Zürich / Fluntern", "ZH", "01.01.1864", "604.0", "2685223.0", "1248410.0"),
+    ("SKO", "Stallikon", "ZH", "01.01.1961", "754.0", "2680334.0", "1239849.0"),
+    ("DAV", "Davos", "GR", "01.01.1864", "1594.0", "2783519.0", "1187459.0"),
+)
+
+# The snow depth rows of ogd-nime_meta_datainventory.csv for these sites, as MeteoSwiss publishes them:
+# Davos has one row per data owner. The rain row is not read.
+MANUAL_SITE_INVENTORY_CSV = (
+    "station_abbr;parameter_shortname;meas_cat_nr;data_since;data_till;owner\r\n"
+    "DAV;hto000d0;1;01.01.1931 00:00;31.10.2006 23:59;MeteoSchweiz\r\n"
+    "DAV;hto000d0;1;01.11.2006 00:00;;WSL-Institut für Schnee- und Lawinenforschung SLF\r\n"
+    "SKO;hto000d0;1;09.11.1998 00:00;;MeteoSchweiz\r\n"
+    "SMA;hto000d0;1;01.01.1931 00:00;;MeteoSchweiz\r\n"
+    "SMA;rre150d0;1;01.01.1864 00:00;;MeteoSchweiz\r\n"
+)
+
+# Some rows of the manual sites' daily files, exactly as MeteoSwiss publishes them. Stallikon has no snow
+# on 2026-09-23 and 24, and in Davos the 5 cm of new snow of 2025-01-02 show in the next morning's depth.
+MANUAL_SITE_DAILY_VALUES_COLUMNS = "station_abbr;reference_timestamp;rre150d0;hns000d0;hto000d0"
+MANUAL_SITE_AND_PERIOD_TO_DAYS_ROWS = {
+    ("sma", "historical"): (
+        "SMA;01.07.1975 00:00;9.5;0;0",
+        "SMA;30.12.2025 00:00;0;0;0",
+        "SMA;31.12.2025 00:00;0;0;0",
+    ),
+    ("sma", "recent"): (
+        "SMA;22.09.2026 00:00;0;0;0",
+        "SMA;23.09.2026 00:00;0;0;0",
+        "SMA;24.09.2026 00:00;0;0;0",
+    ),
+    ("sko", "recent"): (
+        "SKO;22.09.2026 00:00;0;;0",
+        "SKO;23.09.2026 00:00;0;;",
+        "SKO;24.09.2026 00:00;0;;",
+    ),
+    ("dav", "historical"): (
+        "DAV;01.01.2025 00:00;0;0;38",
+        "DAV;02.01.2025 00:00;2.4;5;37",
+        "DAV;03.01.2025 00:00;0;0;41",
+    ),
+}
+
+
+def build_manual_site_table_csv() -> bytes:
+    lines = [MANUAL_SITE_TABLE_COLUMNS]
+    for row in MANUAL_SITE_TABLE_ROWS:
+        lines.append(";".join(row))
+    return ("\r\n".join(lines) + "\r\n").encode("latin-1")
+
+
+def build_manual_site_daily_values_csv(abbr: str, period: str) -> bytes:
+    """Build a manual site's daily file of a period, "recent" or "historical", the way MeteoSwiss publishes it."""
+    rows = MANUAL_SITE_AND_PERIOD_TO_DAYS_ROWS.get((abbr, period), ())
+    lines = [MANUAL_SITE_DAILY_VALUES_COLUMNS, *rows]
+    return ("\r\n".join(lines) + "\r\n").encode("latin-1")
+
+
 # Four objects of the SLF station list, as SLF publishes them: the IMIS stations that suit the
 # Matterhorn best, in that order.
 SLF_STATIONS = (

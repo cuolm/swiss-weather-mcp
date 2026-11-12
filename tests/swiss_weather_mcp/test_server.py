@@ -22,7 +22,7 @@ EXPECTED_TOOLS = {
     "forecast_cloud_cover": ["location", "when", "near"],
     "forecast_freezing_level": ["location", "when", "near"],
     "measurements_current": ["location", "near"],
-    "measurements_history": ["location", "start_date", "days", "near"],
+    "measurements_history": ["location", "start_date", "days", "values", "near"],
     "measurements_snow": ["location", "near"],
     "measurements_extremes": ["extreme"],
     "avalanche_bulletin": ["location", "near"],
@@ -122,7 +122,28 @@ async def test_measurements_history_passes_the_days_on(server_fixture):
     server_fixture.measurement_service.read_history.return_value = {"place": "Zürich"}
 
     await server_fixture.mcp.call_tool("measurements_history", {"location": "Zürich", "start_date": "2026-09-14", "days": 7})
-    server_fixture.measurement_service.read_history.assert_awaited_once_with("Zürich", date(2026, 9, 14), 7, None)
+    server_fixture.measurement_service.read_history.assert_awaited_once_with("Zürich", date(2026, 9, 14), 7, None, None)
+
+
+@pytest.mark.asyncio
+async def test_measurements_history_passes_the_values_on(server_fixture):
+    server_fixture.measurement_service.read_history.return_value = {"place": "Davos Dorf"}
+
+    await server_fixture.mcp.call_tool(
+        "measurements_history", {"location": "Davos Dorf", "start_date": "2025-01-01", "values": "snow"}
+    )
+    server_fixture.measurement_service.read_history.assert_awaited_once_with(
+        "Davos Dorf", date(2025, 1, 1), 1, "snow", None
+    )
+
+
+@pytest.mark.asyncio
+async def test_measurements_history_refuses_unknown_values(server_fixture):
+    with pytest.raises(ToolError, match="'weather' or 'snow'"):
+        await server_fixture.mcp.call_tool(
+            "measurements_history", {"location": "Zürich", "start_date": "2025-01-01", "values": "rain"}
+        )
+    server_fixture.measurement_service.read_history.assert_not_awaited()
 
 
 @pytest.mark.asyncio

@@ -1,6 +1,6 @@
 """Build the measurements_snow answer: the snow depth and the new snow for a place, each from its own station."""
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Sequence
 
 import requests
 
@@ -21,10 +21,12 @@ logger = logging.getLogger(__name__)
 MAX_SNOW_STATION_WEIGHTED_DISTANCE_M = 25000
 
 
-def _describe_snow_station(place: SwisstopoPlace, station: SnowStation, value_name: str) -> str:
+def describe_snow_station(place: SwisstopoPlace, station: SnowStation, value_name: str) -> str:
     """Say which station a snow value of a place comes from, how far away and how much higher or lower."""
     distance_and_height = describe_distance_and_height(place, station)
-    if isinstance(station, MeteoSwissStation):
+    if isinstance(station, MeteoSwissStation) and station.is_manual_site:
+        source = f"was measured by an observer at the MeteoSwiss station {station.display_name}"
+    elif isinstance(station, MeteoSwissStation):
         source = f"comes from the MeteoSwiss station {station.display_name}"
     elif station.is_manual_site:
         source = f"was measured by an observer at {station.display_name}"
@@ -38,7 +40,7 @@ def _build_snow_depth_block(place: SwisstopoPlace, snow_depth: SnowDepth) -> Dic
     block: Dict[str, Any] = {}
     # A station next to the place stands for it, so the block does not name it
     if not is_close_to_place(place, snow_depth.station):
-        station_sentence = _describe_snow_station(place, snow_depth.station, "snow depth")
+        station_sentence = describe_snow_station(place, snow_depth.station, "snow depth")
         swiss_measured_at = snow_depth.measured_at.astimezone(SWISS_TZ)
         block["data_from"] = (
             f"{station_sentence} It was measured at {swiss_measured_at:%H:%M} on {swiss_measured_at:%Y-%m-%d}."
@@ -53,7 +55,7 @@ def _build_new_snow_block(place: SwisstopoPlace, new_snow: NewSnow) -> Dict[str,
     block: Dict[str, Any] = {}
     # A station next to the place stands for it, so the block does not name it
     if not is_close_to_place(place, new_snow.station):
-        station_sentence = _describe_snow_station(place, new_snow.station, "new snow")
+        station_sentence = describe_snow_station(place, new_snow.station, "new snow")
         swiss_measured_at = new_snow.measured_at.astimezone(SWISS_TZ)
         block["data_from"] = (
             f"{station_sentence} It covers the 24 hours and the 3 days up to {swiss_measured_at:%H:%M} on "
@@ -136,7 +138,7 @@ def _find_new_snow(
     return None
 
 
-def _describe_closest_snow_station(place: SwisstopoPlace, snow_stations: List[SnowStation]) -> str:
+def describe_closest_snow_station(place: SwisstopoPlace, snow_stations: Sequence[SnowStation]) -> str:
     """Say that no snow station is close enough to a place, and which one is the closest."""
     ranked_snow_stations = rank_by_weighted_distance(place, snow_stations)
     closest_station = ranked_snow_stations[0]
@@ -168,7 +170,7 @@ def build_snow_answer(
             place, snow_depth_stations, MAX_SNOW_STATION_WEIGHTED_DISTANCE_M
         )
         if not close_snow_stations:
-            raise CannotAnswerError(_describe_closest_snow_station(place, snow_depth_stations))
+            raise CannotAnswerError(describe_closest_snow_station(place, snow_depth_stations))
         raise CannotAnswerError(
             f"There are no current snow measurements near {place.display_name}: no snow station close enough in "
             f"distance and height has a current value. The SLF observers measure the snow from November to April."

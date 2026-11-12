@@ -140,7 +140,7 @@ Answers name the forecast point when it is not next to the place (see [Forecast 
 | `forecast_cloud_cover(location, when)` | Total cloud cover and its low, medium and high layers |
 | `forecast_freezing_level(location, when)` | Height of the 0 °C line |
 | `measurements_current(location)` | What a station near the place measures now (see [Measurements](#measurements)) |
-| `measurements_history(location, start_date, days)` | 1 to 366 past days: lowest, mean and highest temperature, rain, sunshine, strongest gust |
+| `measurements_history(location, start_date, days, values)` | 1 to 366 past days: lowest, mean and highest temperature, rain, sunshine, strongest gust, snow depth and new snow |
 | `measurements_snow(location)` | Snow depth now, and new snow of the last 24 hours and 3 days (see [Measurements](#measurements)) |
 | `measurements_extremes(extreme)` | Where it is `warmest`, `coldest`, `windiest`, `wettest` or `sunniest` now |
 | `avalanche_bulletin(location)` | SLF avalanche bulletin valid now: danger level, avalanche problems and texts (see [Avalanche Bulletin](#avalanche-bulletin)) |
@@ -216,6 +216,13 @@ Answers name the forecast point when it is not next to the place (see [Forecast 
   it the next morning. The days go back to when the station started, such as 1864 for Zürich /
   Fluntern, where the rain from 0 to 0 UTC and the gust start in 1981; a value the station did not
   measure is None. Days before this year come from a file of up to about 6.4 MB per station.
+- It also gives the snow of the days in a block of its own, from one of the 247 manual stations where a
+  MeteoSwiss observer measures each morning, half of them since 1971 or earlier: the snow depth at
+  06:00 UTC and the new snow of the 24 hours from then. The station is chosen as for
+  `measurements_snow`: of the 3 best within 25 km by distance plus 20 times the height gap, the first
+  with snow values on the days. The block is null when there is none. No manual station is close enough
+  for fewer than 2 % of the 5817 forecast points below 1200 m, for 8 % between 1200 and 2000 m and for
+  80 % above. `values="weather"` or `values="snow"` returns only one of the blocks.
 - `measurements_snow` gives the snow depth and the new snow, each from its own station: of the 3 with
   the smallest distance plus 20 times the height gap, the first with a current value. Each has its own
   data_from, which names the station, its distance and height, unless the station is next to the place.

@@ -23,11 +23,11 @@ BRAUNWALD = SwisstopoPlace(
 )
 GLARUS = MeteoSwissStation(
     abbr="GLA", name="Glarus", canton="Glarus", altitude_m=517.0, east_m=2723757.0, north_m=1210567.0,
-    data_since=date(1864, 1, 1),
+    data_since=date(1864, 1, 1), is_manual_site=False,
 )
 ELM = MeteoSwissStation(
     abbr="ELM", name="Elm", canton="Glarus", altitude_m=958.0, east_m=2732266.0, north_m=1198424.0,
-    data_since=date(1878, 2, 1),
+    data_since=date(1878, 2, 1), is_manual_site=False,
 )
 
 
@@ -171,6 +171,37 @@ def test_read_snow_depth_older_than_210_minutes(mocker, meteoswiss_source_fixtur
     datetime_mock.now.return_value = MEASUREMENTS_NOW + timedelta(hours=3, minutes=30)
     davos = find_station(meteoswiss_source_fixture, "DAV")
     assert meteoswiss_source_fixture.read_snow_depth(davos) is None
+
+
+# --- list_manual_sites ---
+
+def test_list_manual_sites_that_measured_the_snow_by_the_last_day(meteoswiss_source_fixture):
+    # Stallikon measures the snow since 1998
+    manual_sites = meteoswiss_source_fixture.list_manual_sites(date(1975, 7, 1))
+    assert [manual_site.abbr for manual_site in manual_sites] == ["SMA", "DAV"]
+    assert all(manual_site.is_manual_site for manual_site in manual_sites)
+
+
+def test_list_manual_sites_takes_the_earliest_day_of_the_data_owners(meteoswiss_source_fixture):
+    # Davos passed from MeteoSwiss to SLF in 2006, with one inventory row each
+    first_snow_days = meteoswiss_source_fixture._load_manual_site_first_snow_days()
+    assert first_snow_days["DAV"] == date(1931, 1, 1)
+
+
+def test_list_manual_sites_before_any_snow_measurement(meteoswiss_source_fixture):
+    assert meteoswiss_source_fixture.list_manual_sites(date(1930, 12, 31)) == []
+
+
+# --- read_station_daily_measurements of a manual site ---
+
+def test_read_station_daily_measurements_of_a_manual_site(source_fixture, meteoswiss_source_fixture):
+    davos = meteoswiss_source_fixture.list_manual_sites(date(2025, 1, 3))[-1]
+    all_days = meteoswiss_source_fixture.read_station_daily_measurements(davos, date(2025, 1, 1), date(2025, 1, 3))
+
+    assert all_days[1].measured_at == datetime(2025, 1, 2, tzinfo=timezone.utc)
+    assert all_days[1].parameter_to_value == {parameters.SNOW_DEPTH_DAY: 37.0, parameters.NEW_SNOW_DAY: 5.0}
+    assert count_downloads(source_fixture, "ogd-nime_dav_d_historical.csv") == 1
+    assert count_downloads(source_fixture, "ogd-smn_dav_d_historical.csv") == 0
 
 
 # --- read_all_stations_latest_measurements ---
