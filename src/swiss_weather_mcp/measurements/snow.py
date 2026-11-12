@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional, Sequence
 
 import requests
 
-from ..distance import MAX_STATIONS_TRIED, is_close_to_place, rank_by_weighted_distance
+from ..distance import MAX_STATIONS_TRIED, is_close, rank_by_weighted_distance
 from ..errors import CannotAnswerError
 from ..formatting import SWISS_TZ, describe_distance_and_height, format_swiss_time, round_to_tenth
 from ..places import SwisstopoPlace
@@ -39,7 +39,7 @@ def _build_snow_depth_block(place: SwisstopoPlace, snow_depth: SnowDepth) -> Dic
     """Build the snow_depth block of the snow answer."""
     block: Dict[str, Any] = {}
     # A station next to the place stands for it, so the block does not name it
-    if not is_close_to_place(place, snow_depth.station):
+    if not is_close(place, snow_depth.station):
         station_sentence = describe_snow_station(place, snow_depth.station, "snow depth")
         swiss_measured_at = snow_depth.measured_at.astimezone(SWISS_TZ)
         block["data_from"] = (
@@ -54,7 +54,7 @@ def _build_new_snow_block(place: SwisstopoPlace, new_snow: NewSnow) -> Dict[str,
     """Build the new_snow block of the snow answer."""
     block: Dict[str, Any] = {}
     # A station next to the place stands for it, so the block does not name it
-    if not is_close_to_place(place, new_snow.station):
+    if not is_close(place, new_snow.station):
         station_sentence = describe_snow_station(place, new_snow.station, "new snow")
         swiss_measured_at = new_snow.measured_at.astimezone(SWISS_TZ)
         block["data_from"] = (

@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Literal, Optional
 import requests
 
 from . import parameters
-from ..distance import MAX_STATIONS_TRIED, is_close_to_place, rank_by_weighted_distance
+from ..distance import MAX_STATIONS_TRIED, is_close, rank_by_weighted_distance
 from ..errors import CannotAnswerError
 from ..formatting import describe_distance_and_height
 from ..places import SwisstopoPlace
@@ -217,7 +217,7 @@ def _build_weather_block(
     block: Dict[str, Any] = {}
     station = daily_measurements[0].station
     # A station next to the place stands for it, so the block does not name it
-    if not is_close_to_place(place, station):
+    if not is_close(place, station):
         block["data_from"] = _describe_meteoswiss_station(place, station)
     day_rows = []
     for day_measurements in daily_measurements:
@@ -235,7 +235,7 @@ def _build_snow_block(
     block: Dict[str, Any] = {}
     manual_site = daily_measurements[0].station
     # A manual site next to the place stands for it, so the block does not name it
-    if not is_close_to_place(place, manual_site):
+    if not is_close(place, manual_site):
         block["data_from"] = describe_snow_station(place, manual_site, "snow")
     day_rows = []
     for day_measurements in daily_measurements:

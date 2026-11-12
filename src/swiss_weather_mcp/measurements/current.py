@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 import requests
 
 from . import parameters
-from ..distance import MAX_STATIONS_TRIED, calculate_weighted_distance_m, is_close_to_place, rank_by_weighted_distance
+from ..distance import MAX_STATIONS_TRIED, calculate_weighted_distance_m, is_close, rank_by_weighted_distance
 from ..errors import CannotAnswerError
 from ..formatting import SWISS_TZ, describe_distance_and_height, find_compass_point, format_swiss_time, round_to_tenth
 from ..places import SwisstopoPlace
@@ -81,7 +81,7 @@ def _build_slf_station_block(place: SwisstopoPlace, slf_station_measurements: SL
         compass_point = find_compass_point(wind_direction_degrees)
     block: Dict[str, Any] = {}
     # A station next to the place stands for it, so the block does not name it
-    if not is_close_to_place(place, slf_station_measurements.station):
+    if not is_close(place, slf_station_measurements.station):
         block["data_from"] = _describe_slf_station(place, slf_station_measurements)
     block["measured_at"] = format_swiss_time(slf_station_measurements.measured_at)
     block["temperature_c"] = round_to_tenth(slf_station_measurements.temperature_c)
@@ -234,7 +234,7 @@ def build_current_answer(
 
     answer: Dict[str, Any] = {}
     # A station next to the place stands for it, so the answer does not name it
-    if not is_close_to_place(place, latest_measurements.station):
+    if not is_close(place, latest_measurements.station):
         answer["data_from"] = _describe_meteoswiss_station(place, latest_measurements)
     answer["place"] = place.name
     answer["measured_at"] = format_swiss_time(latest_measurements.measured_at)

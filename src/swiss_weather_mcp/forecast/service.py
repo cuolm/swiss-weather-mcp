@@ -4,7 +4,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from . import parameters
-from ..distance import is_close_to_place
+from ..distance import is_close
 from ..errors import CannotAnswerError
 from ..formatting import describe_distance_and_height, find_compass_point, format_swiss_time
 from ..places import PlaceFinder, SwisstopoPlace
@@ -92,10 +92,10 @@ def _build_forecast_point_fields(place: SwisstopoPlace, point: MeteoSwissPoint) 
     """
     Build the answer fields that name the place, and the forecast point when it is not next to it.
 
-    Only a point that is_close_to_place says is not next to the place gets data_from. A model given
+    Only a point that is_close says is not next to the place gets data_from. A model given
     any word about a close point mentions it anyway.
     """
-    if is_close_to_place(place, point):
+    if is_close(place, point):
         return {"place": place.name}
     distance_and_height = describe_distance_and_height(place, point)
     return {

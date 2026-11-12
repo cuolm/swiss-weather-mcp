@@ -48,7 +48,7 @@ def calculate_weighted_distance_m(place: SwisstopoPlace, position: GridPosition)
     return calculate_distance_m(place, position) + METRES_PER_HEIGHT_METRE * height_gap_m
 
 
-def is_close_to_place(place: SwisstopoPlace, position: GridPosition) -> bool:
+def is_close(place: SwisstopoPlace, position: GridPosition) -> bool:
     """Tell whether a position is within CLOSE_MAX_DISTANCE_KM and CLOSE_MAX_HEIGHT_DIFFERENCE_M of a place."""
     # Rounded as the answers show them, to 0.1 km and 1 m
     distance_km = round(calculate_distance_m(place, position) / METRES_PER_KILOMETRE, 1)
