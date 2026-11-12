@@ -5,9 +5,10 @@ import requests
 
 from fakes import MEASUREMENTS_NOW
 from swiss_weather_mcp.errors import CannotAnswerError
+from swiss_weather_mcp.measurements import parameters
 from swiss_weather_mcp.measurements.history import (
-    _check_days_before_today, _find_meteoswiss_station_daily_measurements, _find_meteoswiss_manual_site_daily_measurements,
-    build_history_answer,
+    _build_rain_field, _check_days_before_today, _find_meteoswiss_station_daily_measurements,
+    _find_meteoswiss_manual_site_daily_measurements, build_history_answer,
 )
 from swiss_weather_mcp.places.place_source import SwisstopoPlace
 
@@ -27,6 +28,26 @@ def count_downloads(source_fixture, file_name: str) -> int:
         if call.args[0].endswith(file_name):
             downloads += 1
     return downloads
+
+
+# --- _build_rain_field ---
+
+def test_build_rain_field_of_the_utc_day():
+    # Arosa on 2015-12-16 measured both, so the rain of the UTC day is taken, like the other values
+    parameter_to_value = {parameters.PRECIPITATION_DAY: 3.0, parameters.PRECIPITATION_DAY_6_TO_6_UTC: 3.8}
+    assert _build_rain_field(parameter_to_value) == {"rain_mm": 3.0}
+
+
+def test_build_rain_field_from_6_to_6_utc():
+    # Arosa on 1999-02-18 did not yet measure the rain per UTC day
+    parameter_to_value = {parameters.PRECIPITATION_DAY: None, parameters.PRECIPITATION_DAY_6_TO_6_UTC: 24.5}
+    assert _build_rain_field(parameter_to_value) == {"rain_06_to_06_utc_mm": 24.5}
+
+
+def test_build_rain_field_without_rain():
+    # A station without a rain gauge
+    parameter_to_value = {parameters.PRECIPITATION_DAY: None, parameters.PRECIPITATION_DAY_6_TO_6_UTC: None}
+    assert _build_rain_field(parameter_to_value) == {"rain_mm": None}
 
 
 # --- _find_meteoswiss_station_daily_measurements and _check_days_before_today ---

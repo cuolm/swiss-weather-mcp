@@ -41,10 +41,20 @@ def _convert_minutes_to_hours(minutes: Optional[float]) -> Optional[float]:
     return round(minutes / MINUTES_PER_HOUR, 1)
 
 
+def _build_rain_field(parameter_to_value: Dict[str, Optional[float]]) -> Dict[str, Optional[float]]:
+    """Build the rain of a day: of the UTC day, or from 06:00 to 06:00 UTC when only that was measured."""
+    rain_mm = parameter_to_value[parameters.PRECIPITATION_DAY]
+    rain_06_to_06_utc_mm = parameter_to_value[parameters.PRECIPITATION_DAY_6_TO_6_UTC]
+    if rain_mm is None and rain_06_to_06_utc_mm is not None:
+        return {"rain_06_to_06_utc_mm": rain_06_to_06_utc_mm}
+    return {"rain_mm": rain_mm}
+
+
 def _build_weather_day_row(day_measurements: MeteoSwissStationMeasurements) -> Dict[str, Any]:
     """Build the weather row of one day of a station's daily measurements."""
     day = day_measurements.measured_at.date()
     parameter_to_value = day_measurements.parameter_to_value
+    rain_field = _build_rain_field(parameter_to_value)
     sunshine_min = parameter_to_value[parameters.SUNSHINE_DAY]
     return {
         "date": day.isoformat(),
@@ -52,7 +62,7 @@ def _build_weather_day_row(day_measurements: MeteoSwissStationMeasurements) -> D
         "temperature_mean_c": parameter_to_value[parameters.TEMPERATURE_DAY_MEAN],
         "temperature_min_c": parameter_to_value[parameters.TEMPERATURE_DAY_MIN],
         "temperature_max_c": parameter_to_value[parameters.TEMPERATURE_DAY_MAX],
-        "rain_mm": parameter_to_value[parameters.PRECIPITATION_DAY],
+        **rain_field,
         "sunshine_h": _convert_minutes_to_hours(sunshine_min),
         "strongest_gust_kmh": parameter_to_value[parameters.WIND_GUSTS_DAY],
     }

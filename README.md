@@ -215,7 +215,8 @@ Answers name the forecast point when it is not next to the place (see [Forecast 
   which is 01:00 to 01:00 Swiss time in winter and 02:00 to 02:00 in summer, and MeteoSwiss publishes
   it the next morning. The days go back to when the station started, such as 1864 for Zürich /
   Fluntern, where the rain from 0 to 0 UTC and the gust start in 1981; a value the station did not
-  measure is None. Days before this year come from a file of up to about 6.4 MB per station.
+  measure is None. Before that, a day gives the rain from 06:00 to 06:00 UTC, as rain_06_to_06_utc_mm:
+  the rain from 0 to 0 UTC starts in 1981 or the 2010s at 87 of the 140 stations with rain. Days before this year come from a file of up to about 6.4 MB per station.
 - It also gives the snow of the days in a block of its own, from one of the 247 manual stations where a
   MeteoSwiss observer measures each morning, half of them since 1971 or earlier: the snow depth at
   06:00 UTC and the new snow of the 24 hours from then. The station is chosen as for

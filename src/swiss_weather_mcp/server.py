@@ -390,12 +390,13 @@ class SwissWeatherMCPServer:
             there on this day last year". The weather comes from a MeteoSwiss station and the snow from a
             MeteoSwiss observer, each named in the data_from of its block; without data_from, the station is
             next to the place. Each weather day covers a UTC day, 00:00 to 24:00 UTC, which is 01:00 to 01:00
-            Swiss time in winter and 02:00 to 02:00 in summer. The snow depth is measured at 06:00 UTC on the
-            day, and the new snow covers the 24 hours from then. MeteoSwiss publishes a day's values the next
-            morning. The days go back to when the station started, at some stations to the 1860s. For the
-            warmest day of a year, ask for all its days. For the same day in several years, call once per
-            year. For each data_from, always say which station the values come from, how far away it is and
-            how much higher or lower.
+            Swiss time in winter and 02:00 to 02:00 in summer. When a station did not yet measure the rain per
+            UTC day, a day has rain_06_to_06_utc_mm instead of rain_mm: the rain from 06:00 UTC on the day to
+            06:00 UTC the next day. The snow depth is measured at 06:00 UTC on the day, and the new snow covers
+            the 24 hours from then. MeteoSwiss publishes a day's values the next morning. The days go back to
+            when the station started, at some stations to the 1860s. For the warmest day of a year, ask for
+            all its days. For the same day in several years, call once per year. For each data_from, always
+            say which station the values come from, how far away it is and how much higher or lower.
 
             Args:
                 location (str): Name of a place in Switzerland, e.g. "Zürich".

@@ -198,12 +198,14 @@ async def test_read_history(measurement_service_fixture):
 
 @pytest.mark.asyncio
 async def test_read_history_values_the_station_lacks(measurement_service_fixture):
-    # Fluntern has no rain from 0 to 0 UTC and no gust on 1975-07-01
+    # Fluntern has no gust and only the rain from 6 to 6 UTC on 1975-07-01
     answer = await measurement_service_fixture.read_history("Zurich", date(1975, 7, 1), 1)
 
     day = answer["weather"]["days"][0]
     assert (day["temperature_mean_c"], day["sunshine_h"]) == (9.8, 1.5)
-    assert (day["rain_mm"], day["strongest_gust_kmh"]) == (None, None)
+    assert day["strongest_gust_kmh"] is None
+    assert day["rain_06_to_06_utc_mm"] == 9.5
+    assert "rain_mm" not in day
 
 
 @pytest.mark.asyncio

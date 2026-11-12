@@ -33,11 +33,13 @@ TEMPERATURE_DAY_MAX = "tre200dx"    # Air temperature 2 m above ground; daily ma
 PRECIPITATION_DAY = "rka150d0"      # Precipitation; daily total 0 UTC - 0 UTC [mm]
 SUNSHINE_DAY = "sre000d0"           # Sunshine duration; daily total [min]
 WIND_GUSTS_DAY = "fu3010d1"         # Gust peak (one second); daily maximum in km/h
+# Goes back further than the rain from 0 to 0 UTC, which starts in 1981 or later
+PRECIPITATION_DAY_6_TO_6_UTC = "rre150d0"  # Precipitation; daily total 6 UTC - 6 UTC following day [mm]
 
 # Every column the server reads from a station's daily files
 ALL_DAILY_PARAMETERS = (
     TEMPERATURE_DAY_MEAN, TEMPERATURE_DAY_MIN, TEMPERATURE_DAY_MAX, PRECIPITATION_DAY, SUNSHINE_DAY,
-    WIND_GUSTS_DAY,
+    WIND_GUSTS_DAY, PRECIPITATION_DAY_6_TO_6_UTC,
 )
 
 # ── daily, manual precipitation stations ─────────────────────────────────────

@@ -126,12 +126,13 @@ def test_read_station_daily_file_oldest_first(meteoswiss_source_fixture):
 
 
 def test_read_station_daily_file_missing_values(meteoswiss_source_fixture):
-    # On 1975-07-01 Fluntern has the rain only from 6 to 6 UTC, which is not read, and no gust
+    # On 1975-07-01 Fluntern has the rain only from 6 to 6 UTC, and no gust
     fluntern = find_station(meteoswiss_source_fixture, "SMA")
     first_day = meteoswiss_source_fixture._read_station_daily_file(fluntern, "historical")[0]
     assert first_day.measured_at == datetime(1975, 7, 1, tzinfo=timezone.utc)
     assert first_day.parameter_to_value[parameters.TEMPERATURE_DAY_MEAN] == 9.8
     assert first_day.parameter_to_value[parameters.PRECIPITATION_DAY] is None
+    assert first_day.parameter_to_value[parameters.PRECIPITATION_DAY_6_TO_6_UTC] == 9.5
     assert first_day.parameter_to_value[parameters.WIND_GUSTS_DAY] is None
 
 
