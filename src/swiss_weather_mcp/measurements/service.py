@@ -49,9 +49,8 @@ class MeasurementService:
         """
         Read the daily weather and snow of the stations chosen for the location, for 1 to MAX_HISTORY_DAYS UTC days from first_day.
 
-        values is "weather" or "snow" for only one of them. Raise CannotAnswerError when days is out of
-        range, for an unknown location, for today or later, when no station has the weather of the days,
-        and for values "snow" when no manual site has their snow.
+        Raise CannotAnswerError when days is out of range, for an unknown location, for today or later, and
+        when no station has the values asked for.
         """
         check_day_count(days)
         place = await self._find_place(location, nearby_location)
