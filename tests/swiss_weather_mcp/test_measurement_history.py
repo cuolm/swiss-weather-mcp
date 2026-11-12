@@ -7,7 +7,7 @@ from fakes import MEASUREMENTS_NOW
 from swiss_weather_mcp.errors import CannotAnswerError
 from swiss_weather_mcp.measurements import parameters
 from swiss_weather_mcp.measurements.history import (
-    _build_rain_field, _check_days_before_today, _find_meteoswiss_station_daily_measurements,
+    _build_rain_field, _find_last_past_day, _find_meteoswiss_station_daily_measurements,
     _find_meteoswiss_manual_site_daily_measurements, build_history_answer,
 )
 from swiss_weather_mcp.places.place_source import SwisstopoPlace
@@ -50,7 +50,7 @@ def test_build_rain_field_without_rain():
     assert _build_rain_field(parameter_to_value) == {"rain_mm": None}
 
 
-# --- _find_meteoswiss_station_daily_measurements and _check_days_before_today ---
+# --- _find_meteoswiss_station_daily_measurements and _find_last_past_day ---
 
 def test_find_meteoswiss_station_daily_measurements_of_this_year(source_fixture, meteoswiss_source_fixture):
     zurich_days = _find_meteoswiss_station_daily_measurements(meteoswiss_source_fixture, ZURICH, date(2026, 9, 23), date(2026, 9, 24))
@@ -83,9 +83,15 @@ def test_find_meteoswiss_station_daily_measurements_skips_a_station_that_started
     assert count_downloads(source_fixture, "ogd-smn_ueb_d_historical.csv") == 0
 
 
-def test_check_days_before_today_refuses_today(measurement_tools_now_fixture):
+def test_find_last_past_day_leaves_out_today_and_later(measurement_tools_now_fixture):
+    # Today is 2026-09-25, so the year up to its end stops yesterday
+    assert _find_last_past_day(date(2026, 1, 1), date(2026, 12, 31)) == date(2026, 9, 24)
+    assert _find_last_past_day(date(2026, 1, 1), date(2026, 3, 31)) == date(2026, 3, 31)
+
+
+def test_find_last_past_day_refuses_a_first_day_today(measurement_tools_now_fixture):
     with pytest.raises(CannotAnswerError) as raised:
-        _check_days_before_today(date(2026, 9, 24), date(2026, 9, 25))
+        _find_last_past_day(date(2026, 9, 25), date(2026, 9, 26))
     assert str(raised.value) == (
         "There are no daily measurements for 2026-09-25 yet. MeteoSwiss publishes the values of a day the next "
         "morning, so use measurements_current for now and forecast_daily for today and the days ahead."

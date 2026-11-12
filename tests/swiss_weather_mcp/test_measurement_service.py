@@ -209,6 +209,15 @@ async def test_read_history_values_the_station_lacks(measurement_service_fixture
 
 
 @pytest.mark.asyncio
+async def test_read_history_up_to_yesterday(measurement_service_fixture):
+    # The rest of the year is asked for on 2026-09-25, so the days stop yesterday
+    answer = await measurement_service_fixture.read_history("Zurich", date(2026, 9, 23), 100, "weather")
+
+    days = answer["weather"]["days"]
+    assert [day["date"] for day in days] == ["2026-09-23", "2026-09-24"]
+
+
+@pytest.mark.asyncio
 async def test_read_history_only_the_weather(source_fixture, measurement_service_fixture):
     answer = await measurement_service_fixture.read_history("Zurich", date(2026, 9, 23), 2, "weather")
 

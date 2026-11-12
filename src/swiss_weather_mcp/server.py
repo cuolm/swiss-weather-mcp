@@ -400,7 +400,8 @@ class SwissWeatherMCPServer:
 
             Args:
                 location (str): Name of a place in Switzerland, e.g. "Zürich".
-                start_date (str): The first day, e.g. "2026-09-23". Yesterday or earlier.
+                start_date (str): The first day, e.g. "2026-09-23". Yesterday or earlier; days from today
+                    on are left out.
                 days (int): How many days in a row, from 1 to 366, so up to a whole year. Default 1.
                 values (str): Optional. "weather" or "snow" for only one of them; without it, both.
 
@@ -568,7 +569,8 @@ class SwissWeatherMCPServer:
             Get the current weekday and Swiss local time.
 
             Call this first when the question is relative, such as "tomorrow" or "tonight", because
-            the forecast tools take a real date rather than an offset. The time is written the way
+            the forecast tools take a real date rather than an offset. Also call it before saying that a
+            date is in the future: your own idea of today may be out of date. The time is written the way
             the tools read it, ISO 8601 without an offset, so it can be sent back to them as it is.
 
             Returns:

@@ -97,16 +97,21 @@ def _find_days_between(
     return days_between
 
 
-def _check_days_before_today(first_day: date, last_day: date) -> None:
-    """Raise CannotAnswerError for today or a later day, which has no daily measurements yet."""
+def _find_last_past_day(first_day: date, last_day: date) -> date:
+    """
+    Find the last day before today up to last_day, as today and later days have no daily measurements yet.
+
+    Raise CannotAnswerError when first_day is today or later.
+    """
     today = datetime.now(timezone.utc).date()
-    if last_day >= today:
-        unmeasured_day = max(first_day, today)
+    if first_day >= today:
         raise CannotAnswerError(
-            f"There are no daily measurements for {unmeasured_day.isoformat()} yet. MeteoSwiss publishes "
+            f"There are no daily measurements for {first_day.isoformat()} yet. MeteoSwiss publishes "
             f"the values of a day the next morning, so use measurements_current for now and forecast_daily "
             f"for today and the days ahead."
         )
+    yesterday = today - timedelta(days=1)
+    return min(last_day, yesterday)
 
 
 def _find_meteoswiss_station_daily_measurements(
@@ -261,11 +266,11 @@ def build_history_answer(
     """
     Build the measurements_history answer for a number of UTC days from first_day; run it in a worker thread.
 
-    Raise CannotAnswerError for today or later, and when no station has the values asked for. Without
-    values, a missing snow block is None.
+    Days from today on are left out. Raise CannotAnswerError when first_day is today or later, and when
+    no station has the values asked for. Without values, a missing snow block is None.
     """
-    last_day = first_day + timedelta(days=days - 1)
-    _check_days_before_today(first_day, last_day)
+    asked_last_day = first_day + timedelta(days=days - 1)
+    last_day = _find_last_past_day(first_day, asked_last_day)
 
     answer: Dict[str, Any] = {"place": place.name}
     if values == WEATHER_VALUES:
