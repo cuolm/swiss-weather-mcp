@@ -182,7 +182,8 @@ jobs:
           gh release create ${{ github.ref_name }} dist/* \
             --title "${{ github.ref_name }}" \
             --notes "$TAG_MSG" \
-            --generate-notes
+            --generate-notes \
+            --latest=false  # add-mcp-bundle marks it latest once the bundle is in, so releases/latest/download/ always has one
 
   add-mcp-bundle:
     name: Add MCP Bundle to the GitHub Release
@@ -191,10 +192,15 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Wait for the Wheel on PyPI  # uv lock reads the simple index, which can show a new upload only after a while
+      - name: Wait for the Wheel on PyPI  # uv lock reads the simple index, whose HTML and JSON forms are cached apart
         run: |
+          wheel="swiss_weather_mcp-${{ github.ref_name }}-py3-none-any.whl"
+          url="https://pypi.org/simple/swiss-weather-mcp/"
           for attempt in $(seq 12); do
-            curl --fail --silent https://pypi.org/simple/swiss-weather-mcp/ | grep --quiet "swiss_weather_mcp-${{ github.ref_name }}-py3-none-any.whl" && exit 0
+            if curl --fail --silent "$url" | grep --quiet "$wheel" \
+              && curl --fail --silent --header "Accept: application/vnd.pypi.simple.v1+json" "$url" | grep --quiet "$wheel"; then
+              exit 0
+            fi
             sleep 30
           done
           exit 1
@@ -209,7 +215,6 @@ jobs:
         run: |
           jq --arg version "${{ github.ref_name }}" '.version = $version' mcpb/manifest.json > mcpb/manifest.json.tmp
           mv mcpb/manifest.json.tmp mcpb/manifest.json
-          sed -i 's/^version = "0\.0\.0"$/version = "${{ github.ref_name }}"/' mcpb/pyproject.toml
           sed -i 's/"swiss-weather-mcp==0\.0\.0"/"swiss-weather-mcp==${{ github.ref_name }}"/' mcpb/pyproject.toml
       - name: Pin Dependencies to the Tested Versions  # the versions of the release's uv.lock, which the tests ran with
         run: |
@@ -228,4 +233,6 @@ jobs:
       - name: Add the Bundle to the Release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload ${{ github.ref_name }} swiss-weather-mcp.mcpb --clobber
+        run: |
+          gh release upload ${{ github.ref_name }} swiss-weather-mcp.mcpb --clobber
+          gh release edit ${{ github.ref_name }} --latest
