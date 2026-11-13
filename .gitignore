@@ -27,3 +27,6 @@ env/
 
 # Local exploration scratch space
 explore/
+
+# Lock file left by a local test of the Claude Desktop bundle; the release workflow makes its own
+mcpb/uv.lock

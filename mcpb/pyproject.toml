@@ -1,0 +1,9 @@
+# The Claude Desktop bundle: it installs this version of swiss-weather-mcp from PyPI and starts it.
+# The release workflow sets the version and pins the dependencies to those of the release's uv.lock.
+[project]
+name = "swiss-weather-mcp-bundle"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = [
+    "swiss-weather-mcp==0.0.0",
+]

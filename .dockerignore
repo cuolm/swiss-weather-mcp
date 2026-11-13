@@ -45,3 +45,6 @@ dist/
 # Exclude Dockerfile and dockerignore file itself
 Dockerfile
 .dockerignore
+
+# Exclude the Claude Desktop bundle, which the image does not use
+mcpb/

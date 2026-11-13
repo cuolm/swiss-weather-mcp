@@ -139,6 +139,20 @@ jobs:
       - name: Validate server.json  # the registry checks packages on pypi.org only, so a test release is not published
         run: ./mcp-publisher validate
 
+  validate-mcp-bundle:
+    name: Validate MCP Bundle manifest.json
+    needs: [test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v5
+      - name: Set Version in manifest.json
+        run: |
+          jq --arg version "${{ github.ref_name }}" '.version = $version' mcpb/manifest.json > mcpb/manifest.json.tmp
+          mv mcpb/manifest.json.tmp mcpb/manifest.json
+      - name: Validate manifest.json  # the bundle installs the package from pypi.org, so a test release is not packed
+        run: npx --yes @anthropic-ai/mcpb@2.1.2 validate mcpb/manifest.json
+
   github-release:
     name: Create GitHub Release
     needs: [build, publish-docker-image]

@@ -1,0 +1,30 @@
+{
+  "manifest_version": "0.4",
+  "name": "swiss-weather-mcp",
+  "display_name": "Swiss Weather",
+  "version": "0.0.0",
+  "description": "Weather forecasts, measurements, snow, the avalanche bulletin and sun and moon times for Switzerland",
+  "icon": "icon.png",
+  "author": {
+    "name": "cuolm"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cuolm/swiss-weather-mcp"
+  },
+  "server": {
+    "type": "uv",
+    "entry_point": "src/server.py",
+    "mcp_config": {
+      "command": "uv",
+      "args": ["run", "--directory", "${__dirname}", "src/server.py"]
+    }
+  },
+  "compatibility": {
+    "platforms": ["darwin", "win32"],
+    "runtimes": {
+      "python": ">=3.11"
+    }
+  },
+  "license": "Apache-2.0"
+}

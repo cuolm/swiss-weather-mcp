@@ -183,3 +183,49 @@ jobs:
             --title "${{ github.ref_name }}" \
             --notes "$TAG_MSG" \
             --generate-notes
+
+  add-mcp-bundle:
+    name: Add MCP Bundle to the GitHub Release
+    needs: [publish-to-pypi, github-release]  # the bundle installs the package from PyPI, and goes into the existing release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Wait for the Wheel on PyPI  # uv lock reads the simple index, which can show a new upload only after a while
+        run: |
+          for attempt in $(seq 12); do
+            curl --fail --silent https://pypi.org/simple/swiss-weather-mcp/ | grep --quiet "swiss_weather_mcp-${{ github.ref_name }}-py3-none-any.whl" && exit 0
+            sleep 30
+          done
+          exit 1
+      - name: Checkout Code
+        uses: actions/checkout@v5
+      - name: Install uv and Set up Python
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.11"
+          enable-cache: true
+      - name: Set Version in the Bundle
+        run: |
+          jq --arg version "${{ github.ref_name }}" '.version = $version' mcpb/manifest.json > mcpb/manifest.json.tmp
+          mv mcpb/manifest.json.tmp mcpb/manifest.json
+          sed -i 's/^version = "0\.0\.0"$/version = "${{ github.ref_name }}"/' mcpb/pyproject.toml
+          sed -i 's/"swiss-weather-mcp==0\.0\.0"/"swiss-weather-mcp==${{ github.ref_name }}"/' mcpb/pyproject.toml
+      - name: Pin Dependencies to the Tested Versions  # the versions of the release's uv.lock, which the tests ran with
+        run: |
+          {
+            echo ""
+            echo "[tool.uv]"
+            echo "constraint-dependencies = ["
+            uv export --frozen --no-dev --no-emit-project --no-hashes --no-header --no-annotate | sed 's/.*/    "&",/'
+            echo "]"
+          } >> mcpb/pyproject.toml
+          uv lock --directory mcpb
+      - name: Validate and Pack the Bundle  # one file name for all releases, so releases/latest/download/ always finds it
+        run: |
+          npx --yes @anthropic-ai/mcpb@2.1.2 validate mcpb/manifest.json
+          npx --yes @anthropic-ai/mcpb@2.1.2 pack mcpb swiss-weather-mcp.mcpb
+      - name: Add the Bundle to the Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload ${{ github.ref_name }} swiss-weather-mcp.mcpb --clobber
