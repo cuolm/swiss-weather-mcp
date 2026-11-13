@@ -35,6 +35,7 @@ Install [uv](https://docs.astral.sh/uv/getting-started/installation/), then add 
 ```
 `uvx` downloads the server on first use, and `@latest` makes it check for a new release on each start.
 If your app cannot find `uvx`, replace `uvx` with the full path that `which uvx` prints.
+If the file already has content, add only the `"swiss-weather"` entry inside its `"mcpServers"`.
 
 In Claude Desktop, you can alternatively download the
 [Swiss Weather desktop extension](https://github.com/cuolm/swiss-weather-mcp/releases/latest/download/swiss-weather-mcp.mcpb),
