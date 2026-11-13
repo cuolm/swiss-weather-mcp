@@ -17,6 +17,10 @@ places across Switzerland:
 
 Not an official product of MeteoSwiss, SLF or swisstopo. See [Data Sources](#data-sources).
 
+Answers pass through an AI model and can be wrong. Before going into the mountains, check the official
+[avalanche bulletin](https://www.slf.ch/en/avalanche-bulletin-and-snow-situation/) and the
+[MeteoSwiss forecast](https://www.meteoswiss.admin.ch).
+
 ## Quick Start
 Install [uv](https://docs.astral.sh/uv/getting-started/installation/), then add this to your AI app's MCP config file:
 ```json
