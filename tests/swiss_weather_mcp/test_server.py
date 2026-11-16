@@ -189,6 +189,22 @@ async def test_handle_tool_call_returns_the_answer(server_fixture):
 
 
 @pytest.mark.asyncio
+async def test_handle_tool_call_logs_the_answer_only_at_debug(server_fixture, caplog):
+    # An answer can be thousands of characters long, so the normal log shows only the call
+    answer = {"value": 3200.0, "unit": "m above sea level", "place": "Zürich (418 m)", "forecast_point": "Zürich 8001 (409 m)"}
+    server_fixture.forecast_service.read_freezing_level.return_value = answer
+
+    with caplog.at_level(logging.DEBUG, logger="swiss_weather_mcp.server"):
+        await server_fixture.mcp.call_tool("forecast_freezing_level", FREEZING_LEVEL_CALL)
+
+    info_messages = [record.getMessage() for record in caplog.records if record.levelno == logging.INFO]
+    debug_messages = [record.getMessage() for record in caplog.records if record.levelno == logging.DEBUG]
+    assert any("forecast_freezing_level" in message and "Zurich" in message for message in info_messages)
+    assert not any("3200.0" in message for message in info_messages)
+    assert any("3200.0" in message for message in debug_messages)
+
+
+@pytest.mark.asyncio
 async def test_handle_tool_call_value_error(server_fixture, caplog):
     server_fixture.forecast_service.read_freezing_level.side_effect = CannotAnswerError("Location 'Tessin' is not one of the places")
 

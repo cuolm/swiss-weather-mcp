@@ -111,7 +111,9 @@ def _handle_tool_call(tool: Tool) -> Tool:
             logger.warning(f"{tool.__name__}: {message}")
             raise ToolError(message) from error
 
-        logger.info(f"{tool.__name__}: {arguments} -> {answer}")
+        # The whole answer only at DEBUG, as an answer can be thousands of characters long
+        logger.info(f"{tool.__name__}: {arguments}")
+        logger.debug(f"{tool.__name__} answered: {answer}")
         return answer
 
     return run_tool
