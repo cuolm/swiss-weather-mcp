@@ -171,7 +171,9 @@ class ForecastSource:
             return self._points
 
         point_table_file = self.cache_dir / "ogd-local-forecasting_meta_point.csv"
-        point_table_rows = read_recent_csv_rows(POINT_TABLE_URL, point_table_file, POINT_TABLE_MAX_AGE)
+        point_table_rows = read_recent_csv_rows(
+            POINT_TABLE_URL, point_table_file, POINT_TABLE_MAX_AGE, serve_stale_on_error=True
+        )
         points = []
         for row in point_table_rows:
             point = MeteoSwissPoint(

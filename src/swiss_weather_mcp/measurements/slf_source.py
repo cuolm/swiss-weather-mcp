@@ -268,7 +268,9 @@ class SLFMeasurementSource:
             return self._stations
 
         station_list_file = self.cache_dir / "imis_stations.json"
-        station_objects = read_recent_json(STATION_LIST_URL, station_list_file, STATION_LIST_MAX_AGE)
+        station_objects = read_recent_json(
+            STATION_LIST_URL, station_list_file, STATION_LIST_MAX_AGE, serve_stale_on_error=True
+        )
         stations = []
         for station_object in station_objects:
             station = _parse_station(station_object, is_manual_site=False)
@@ -284,7 +286,9 @@ class SLFMeasurementSource:
             return self._manual_sites
 
         manual_site_list_file = self.cache_dir / "manual_sites.json"
-        station_objects = read_recent_json(MANUAL_SITE_LIST_URL, manual_site_list_file, MANUAL_SITE_LIST_MAX_AGE)
+        station_objects = read_recent_json(
+            MANUAL_SITE_LIST_URL, manual_site_list_file, MANUAL_SITE_LIST_MAX_AGE, serve_stale_on_error=True
+        )
         manual_sites = []
         for station_object in station_objects:
             manual_site = _parse_station(station_object, is_manual_site=True)

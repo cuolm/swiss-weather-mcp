@@ -57,28 +57,43 @@ def download_file(file_url: str, target_file: Path, only_rows_starting_with: Opt
         partial_file.unlink(missing_ok=True)
 
 
-def ensure_recent_file(file_url: str, target_file: Path, max_age: timedelta) -> Path:
-    """Return a cached file, downloading it again when it is missing or older than max_age."""
+def ensure_recent_file(
+    file_url: str, target_file: Path, max_age: timedelta, serve_stale_on_error: bool = False
+) -> Path:
+    """
+    Return a cached file, downloading it again when it is missing or older than max_age.
+
+    With serve_stale_on_error, the older copy is returned when the download fails. Use it only for files
+    whose older copy is still right, such as station tables and past days, never for values of now.
+    """
     if target_file.exists():
         modified_at = datetime.fromtimestamp(target_file.stat().st_mtime, timezone.utc)
         if datetime.now(timezone.utc) - modified_at < max_age:
             return target_file
 
     logger.info(f"Downloading {file_url}")
-    download_file(file_url, target_file)
+    try:
+        download_file(file_url, target_file)
+    except requests.RequestException as error:
+        if serve_stale_on_error and target_file.exists():
+            logger.warning(f"Could not download {file_url}, using the older copy: {error}")
+            return target_file
+        raise
     return target_file
 
 
-def read_recent_csv_rows(file_url: str, target_file: Path, max_age: timedelta) -> List[Dict[str, str]]:
+def read_recent_csv_rows(
+    file_url: str, target_file: Path, max_age: timedelta, serve_stale_on_error: bool = False
+) -> List[Dict[str, str]]:
     """Return the rows of a cached MeteoSwiss CSV file, downloaded again when missing or older than max_age."""
-    recent_file = ensure_recent_file(file_url, target_file, max_age)
+    recent_file = ensure_recent_file(file_url, target_file, max_age, serve_stale_on_error)
     # MeteoSwiss writes its files in Latin-1, with ";" between the columns
     with open(recent_file, newline="", encoding="latin-1") as file:
         return list(csv.DictReader(file, delimiter=";"))
 
 
-def read_recent_json(file_url: str, target_file: Path, max_age: timedelta) -> Any:
+def read_recent_json(file_url: str, target_file: Path, max_age: timedelta, serve_stale_on_error: bool = False) -> Any:
     """Return the content of a cached JSON answer, downloaded again when missing or older than max_age."""
-    recent_file = ensure_recent_file(file_url, target_file, max_age)
+    recent_file = ensure_recent_file(file_url, target_file, max_age, serve_stale_on_error)
     with open(recent_file, encoding="utf-8") as file:
         return json.load(file)

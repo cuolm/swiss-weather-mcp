@@ -253,7 +253,9 @@ class MeteoSwissMeasurementSource:
             return self._abbreviation_to_station
 
         station_table_file = self.cache_dir / "ogd-smn_meta_stations.csv"
-        station_table_rows = read_recent_csv_rows(STATION_TABLE_URL, station_table_file, STATION_TABLE_MAX_AGE)
+        station_table_rows = read_recent_csv_rows(
+            STATION_TABLE_URL, station_table_file, STATION_TABLE_MAX_AGE, serve_stale_on_error=True
+        )
         abbreviation_to_station: Dict[str, MeteoSwissStation] = {}
         for row in station_table_rows:
             station = _parse_station(row, is_manual_site=False)
@@ -269,7 +271,9 @@ class MeteoSwissMeasurementSource:
             return self._snow_station_abbreviations
 
         data_inventory_file = self.cache_dir / "ogd-smn_meta_datainventory.csv"
-        data_inventory_rows = read_recent_csv_rows(DATA_INVENTORY_URL, data_inventory_file, DATA_INVENTORY_MAX_AGE)
+        data_inventory_rows = read_recent_csv_rows(
+            DATA_INVENTORY_URL, data_inventory_file, DATA_INVENTORY_MAX_AGE, serve_stale_on_error=True
+        )
         snow_station_abbreviations: Set[str] = set()
         for row in data_inventory_rows:
             # A parameter with an end day is no longer measured
@@ -286,7 +290,7 @@ class MeteoSwissMeasurementSource:
 
         manual_site_table_file = self.cache_dir / "ogd-nime_meta_stations.csv"
         manual_site_table_rows = read_recent_csv_rows(
-            MANUAL_SITE_TABLE_URL, manual_site_table_file, MANUAL_SITE_TABLE_MAX_AGE
+            MANUAL_SITE_TABLE_URL, manual_site_table_file, MANUAL_SITE_TABLE_MAX_AGE, serve_stale_on_error=True
         )
         abbreviation_to_manual_site: Dict[str, MeteoSwissStation] = {}
         for row in manual_site_table_rows:
@@ -304,7 +308,10 @@ class MeteoSwissMeasurementSource:
 
         manual_site_inventory_file = self.cache_dir / "ogd-nime_meta_datainventory.csv"
         manual_site_inventory_rows = read_recent_csv_rows(
-            MANUAL_SITE_INVENTORY_URL, manual_site_inventory_file, MANUAL_SITE_INVENTORY_MAX_AGE
+            MANUAL_SITE_INVENTORY_URL,
+            manual_site_inventory_file,
+            MANUAL_SITE_INVENTORY_MAX_AGE,
+            serve_stale_on_error=True,
         )
         abbreviation_to_first_snow_day: Dict[str, date] = {}
         for row in manual_site_inventory_rows:
@@ -351,7 +358,7 @@ class MeteoSwissMeasurementSource:
             station_daily_values_file = self.cache_dir / f"ogd-smn_{abbr}_d_{period}.csv"
             daily_parameters = parameters.ALL_DAILY_PARAMETERS
         station_daily_values_rows = read_recent_csv_rows(
-            station_daily_values_url, station_daily_values_file, PERIOD_TO_MAX_AGE[period]
+            station_daily_values_url, station_daily_values_file, PERIOD_TO_MAX_AGE[period], serve_stale_on_error=True
         )
 
         all_days = []
