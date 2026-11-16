@@ -4,6 +4,9 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read  # the jobs only read the code, so the token gets no write access
+
 jobs:
   test:
     name: Pytest (Python ${{ matrix.python-version }})
