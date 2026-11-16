@@ -32,6 +32,13 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # Activate the project virtual environment globally
 ENV PATH="/app/.venv/bin:$PATH"
 
+# Run the server as a normal user, so a hole in it cannot use root rights in the container.
+# The cache folder is made here and owned by that user, so a volume mounted on it is writable.
+RUN useradd --create-home app \
+    && mkdir -p /home/app/.cache/swiss-weather-mcp \
+    && chown -R app:app /home/app/.cache
+USER app
+
 # Port used by the streamable-http transport
 EXPOSE 8050
 

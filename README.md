@@ -96,7 +96,7 @@ To use another port, change the first `8050` in `-p` and the one in the URL.
 
 The Docker images are built and published automatically by GitHub Actions to the project's [GitHub Container Registry](https://ghcr.io/cuolm/swiss-weather-mcp), tagged `:latest` (newest release) and by version.
 Each `docker run` starts a new container with an empty cache. Mount a volume to keep it, for example
-`-v swiss-weather-cache:/root/.cache/swiss-weather-mcp`.
+`-v swiss-weather-cache:/home/app/.cache/swiss-weather-mcp`.
 
 ## Available Tools
 Times are Swiss local time (see [Times](docs/how-it-works.md#times)). Every tool with a `location` also takes an
