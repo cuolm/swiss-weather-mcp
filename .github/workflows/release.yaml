@@ -6,6 +6,9 @@ on:
       - '[0-9]*.[0-9]*.[0-9]*'
       - '!*[a-zA-Z]*'  # ignore any tags that contain letters, this are test release tags
 
+permissions:
+  contents: read  # the default for every job; the jobs that publish set their own permissions
+
 jobs:
   test:
     name: Tests
