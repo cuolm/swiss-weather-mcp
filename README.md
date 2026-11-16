@@ -122,8 +122,8 @@ Answers name the forecast point when it is not next to the place (see [Forecast 
 | `current_date_and_time()` | Today's weekday and the Swiss time now |
 
 ## Details
-- [How It Works](docs/how-it-works.md): times, places, forecast points, measurements, the avalanche
-  bulletin, forecast medians, cache and downloads
+- [How It Works](docs/how-it-works.md): times, places, forecast points, each tool in detail, forecast
+  medians, cache and downloads
 - [Development](docs/development.md): running from source, the test client and the project structure
 
 ## Data Sources
