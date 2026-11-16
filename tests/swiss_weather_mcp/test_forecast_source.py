@@ -20,14 +20,14 @@ ZURICH = SwisstopoPlace("Zürich", ("Ort",), 9, False, 418.0, 2683500.0, 1247184
 MATTERHORN = SwisstopoPlace("Matterhorn", ("Alpiner Gipfel",), 0, False, 4478.0, 2617049.0, 1091673.0)
 
 
-# --- _find_latest_run ---
+# --- find_latest_run ---
 
 def test_find_latest_run_newest(mocker, tmp_path):
     item = build_stac_item(EARLIER_RUN_ID, parameters.ALL_PARAMETERS)
     item["assets"].update(build_stac_item(RUN_ID, parameters.ALL_PARAMETERS)["assets"])
     mocker.patch("swiss_weather_mcp.forecast.source.requests.get", return_value=FakeResponse(payload=item))
 
-    run_id, _ = ForecastSource(tmp_path)._find_latest_run()
+    run_id = ForecastSource(tmp_path).find_latest_run().run_id
     assert run_id == RUN_ID
 
 
@@ -36,7 +36,7 @@ def test_find_latest_run_falls_back_to_yesterday(mocker, tmp_path):
     responses = [FakeResponse(payload={"assets": {}}), FakeResponse(payload=build_stac_item(RUN_ID, parameters.ALL_PARAMETERS))]
     mocker.patch("swiss_weather_mcp.forecast.source.requests.get", side_effect=responses)
 
-    run_id, _ = ForecastSource(tmp_path)._find_latest_run()
+    run_id = ForecastSource(tmp_path).find_latest_run().run_id
     assert run_id == RUN_ID
 
 
@@ -46,7 +46,7 @@ def test_find_latest_run_skips_a_run_being_uploaded(mocker, tmp_path):
     item["assets"].update(build_stac_item(RUN_ID, ["zprfr0hs"])["assets"])
     mocker.patch("swiss_weather_mcp.forecast.source.requests.get", return_value=FakeResponse(payload=item))
 
-    run_id, _ = ForecastSource(tmp_path)._find_latest_run()
+    run_id = ForecastSource(tmp_path).find_latest_run().run_id
     assert run_id == EARLIER_RUN_ID
 
 
@@ -58,7 +58,7 @@ def test_find_latest_run_skips_a_first_run_being_uploaded(mocker, tmp_path):
     ]
     mocker.patch("swiss_weather_mcp.forecast.source.requests.get", side_effect=responses)
 
-    run_id, _ = ForecastSource(tmp_path)._find_latest_run()
+    run_id = ForecastSource(tmp_path).find_latest_run().run_id
     assert run_id == "202609222300"
 
 
@@ -71,7 +71,7 @@ def test_find_latest_run_uses_the_utc_day(mocker, tmp_path):
         return_value=FakeResponse(payload=build_stac_item(RUN_ID, parameters.ALL_PARAMETERS)),
     )
 
-    ForecastSource(tmp_path)._find_latest_run()
+    ForecastSource(tmp_path).find_latest_run()
     requested_url = get_mock.call_args_list[0].args[0]
     assert requested_url.endswith("/items/20260923-ch")
 
@@ -87,7 +87,7 @@ def test_find_latest_run_once_for_parallel_reads(mocker, tmp_path):
 
     get_mock = mocker.patch("swiss_weather_mcp.forecast.source.requests.get", side_effect=answer_slowly)
     forecast_source = ForecastSource(tmp_path)
-    threads = [threading.Thread(target=forecast_source._find_latest_run) for _ in range(parallel_reads)]
+    threads = [threading.Thread(target=forecast_source.find_latest_run) for _ in range(parallel_reads)]
     for thread in threads:
         thread.start()
     for thread in threads:
@@ -129,40 +129,46 @@ def test_find_forecast_point_caches_the_point_table_in_its_folder(source_fixture
 
 def test_read_series_keeps_the_first_row(source_fixture):
     # A point extract carries no header line, so skipping one would lose the first forecast hour
-    series = source_fixture.read_series("tre200h0", ZURICH_8001)
+    run = source_fixture.find_latest_run()
+    series = source_fixture.read_series("tre200h0", ZURICH_8001, run)
     assert len(series.time_to_value) == 3
     assert series.time_to_value[datetime(2026, 9, 23, 6, tzinfo=timezone.utc)] == 6.0
 
 
 def test_read_series_only_the_requested_point(source_fixture):
-    series = source_fixture.read_series("tre200h0", ZURICH_8001)
+    run = source_fixture.find_latest_run()
+    series = source_fixture.read_series("tre200h0", ZURICH_8001, run)
     assert -1 not in series.time_to_value.values()
 
 
 def test_read_series_run_time(source_fixture):
-    series = source_fixture.read_series("tre200h0", ZURICH_8001)
+    run = source_fixture.find_latest_run()
+    series = source_fixture.read_series("tre200h0", ZURICH_8001, run)
     assert series.run_time == datetime(2026, 9, 22, 13, tzinfo=timezone.utc)
 
 
 def test_read_series_downloads_once(source_fixture):
+    run = source_fixture.find_latest_run()
     point = ZURICH_8001
-    first_series = source_fixture.read_series("tre200h0", point)
+    first_series = source_fixture.read_series("tre200h0", point, run)
     downloads = source_fixture.get_mock.call_count
 
-    assert source_fixture.read_series("tre200h0", point).time_to_value == first_series.time_to_value
+    assert source_fixture.read_series("tre200h0", point, run).time_to_value == first_series.time_to_value
     assert source_fixture.get_mock.call_count == downloads
 
 
 def test_read_series_stores_point_rows(source_fixture, tmp_path):
-    source_fixture.read_series("tre200h0", ZURICH_8001)
+    run = source_fixture.find_latest_run()
+    source_fixture.read_series("tre200h0", ZURICH_8001, run)
     stored = list((tmp_path / "forecast" / "runs" / RUN_ID).iterdir())
     assert [path.name for path in stored] == ["tre200h0_800100_2.csv"]
     assert b"999999" not in stored[0].read_bytes()
 
 
 def test_read_series_stores_all_points(tmp_path, source_fixture):
+    run = source_fixture.find_latest_run()
     source_fixture.cache_all_forecast_points = True
-    source_fixture.read_series("tre200h0", ZURICH_8001)
+    source_fixture.read_series("tre200h0", ZURICH_8001, run)
 
     stored = tmp_path / "forecast" / "runs" / RUN_ID / "tre200h0.csv"
     assert stored.exists()
@@ -170,42 +176,47 @@ def test_read_series_stores_all_points(tmp_path, source_fixture):
 
 
 def test_read_series_from_a_full_file(source_fixture, tmp_path):
+    run = source_fixture.find_latest_run()
     point = ZURICH_8001
-    from_extract = source_fixture.read_series("tre200h0", point).time_to_value
+    from_extract = source_fixture.read_series("tre200h0", point, run).time_to_value
 
     source_fixture.cache_all_forecast_points = True
     (tmp_path / "forecast" / "runs" / RUN_ID / "tre200h0_800100_2.csv").unlink()
-    assert source_fixture.read_series("tre200h0", point).time_to_value == from_extract
+    assert source_fixture.read_series("tre200h0", point, run).time_to_value == from_extract
 
 
 def test_read_series_drops_old_runs(source_fixture, tmp_path):
-    for run in ("202609221100", EARLIER_RUN_ID):
-        superseded = tmp_path / "forecast" / "runs" / run
+    run = source_fixture.find_latest_run()
+    for old_run_id in ("202609221100", EARLIER_RUN_ID):
+        superseded = tmp_path / "forecast" / "runs" / old_run_id
         superseded.mkdir(parents=True)
         (superseded / "tre200h0_800100_2.csv").write_bytes(b"stale")
 
-    source_fixture.read_series("tre200h0", ZURICH_8001)
+    source_fixture.read_series("tre200h0", ZURICH_8001, run)
     # 12:00 stays, another server process may still be reading it until it sees the 13:00 run
     assert sorted(path.name for path in (tmp_path / "forecast" / "runs").iterdir()) == [EARLIER_RUN_ID, RUN_ID]
 
 
 def test_read_series_keeps_a_newer_run(source_fixture, tmp_path):
     # Another server process on the same cache already moved on to a later run
+    run = source_fixture.find_latest_run()
     newer = tmp_path / "forecast" / "runs" / "202609221400"
     newer.mkdir(parents=True)
     (newer / "tre200h0_800100_2.csv").write_bytes(b"newer")
 
-    source_fixture.read_series("tre200h0", ZURICH_8001)
+    source_fixture.read_series("tre200h0", ZURICH_8001, run)
     assert sorted(path.name for path in (tmp_path / "forecast" / "runs").iterdir()) == [RUN_ID, "202609221400"]
 
 
 def test_read_series_leaves_no_partial_file(source_fixture, tmp_path):
-    source_fixture.read_series("tre200h0", ZURICH_8001)
+    run = source_fixture.find_latest_run()
+    source_fixture.read_series("tre200h0", ZURICH_8001, run)
     assert list(tmp_path.rglob("*.tmp")) == []
 
 
 def test_read_series_no_values(source_fixture):
+    run = source_fixture.find_latest_run()
     davos = DAVOS
     # Regional entries are published for some parameters and not others
     with pytest.raises(CannotAnswerError, match="no 'tre200h0' values for Davos"):
-        source_fixture.read_series("tre200h0", davos)
+        source_fixture.read_series("tre200h0", davos, run)

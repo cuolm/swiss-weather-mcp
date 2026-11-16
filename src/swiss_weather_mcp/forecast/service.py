@@ -8,7 +8,7 @@ from ..distance import is_close
 from ..errors import CannotAnswerError
 from ..formatting import describe_distance_and_height, find_compass_point, format_swiss_time
 from ..places import PlaceFinder, SwisstopoPlace
-from .source import ForecastSeries, ForecastSource, MeteoSwissPoint
+from .source import ForecastRun, ForecastSeries, ForecastSource, MeteoSwissPoint
 
 logger = logging.getLogger(__name__)
 
@@ -122,14 +122,20 @@ class ForecastService:
         point = await asyncio.to_thread(self.forecast_source.find_forecast_point, place)
         return place, point
 
-    async def _read_series(self, parameter: str, point: MeteoSwissPoint) -> ForecastSeries:
-        """Read one parameter for one point in a worker thread, so a download does not block other requests."""
-        return await asyncio.to_thread(self.forecast_source.read_series, parameter, point)
+    async def _find_latest_run(self) -> ForecastRun:
+        """Find the newest forecast run in a worker thread, so a download does not block other requests."""
+        return await asyncio.to_thread(self.forecast_source.find_latest_run)
 
-    async def _read_daily_series_if_published(self, parameter: str, point: MeteoSwissPoint) -> Optional[ForecastSeries]:
+    async def _read_series(self, parameter: str, point: MeteoSwissPoint, run: ForecastRun) -> ForecastSeries:
+        """Read one parameter for one point in a worker thread, so a download does not block other requests."""
+        return await asyncio.to_thread(self.forecast_source.read_series, parameter, point, run)
+
+    async def _read_daily_series_if_published(
+        self, parameter: str, point: MeteoSwissPoint, run: ForecastRun
+    ) -> Optional[ForecastSeries]:
         """Read one parameter for one point, or return None when MeteoSwiss does not publish it there."""
         try:
-            return await self._read_series(parameter, point)
+            return await self._read_series(parameter, point, run)
         except CannotAnswerError as error:
             logger.info(f"No daily {parameter} for {point.display_name}: {error}")
             return None
@@ -147,13 +153,14 @@ class ForecastService:
             raise CannotAnswerError(f"days must be between 1 and {MAX_DAYS}, not {days}.")
 
         place, point = await self._find_place_and_point(location, nearby_location)
+        run = await self._find_latest_run()
         min_series, max_series, rain_series, rain_lower_series, rain_upper_series, pictogram_series = await asyncio.gather(
-            self._read_daily_series_if_published(parameters.TEMPERATURE_DAY_MIN, point),
-            self._read_daily_series_if_published(parameters.TEMPERATURE_DAY_MAX, point),
-            self._read_daily_series_if_published(parameters.PRECIPITATION_DAY, point),
-            self._read_daily_series_if_published(parameters.PRECIPITATION_DAY_Q10, point),
-            self._read_daily_series_if_published(parameters.PRECIPITATION_DAY_Q90, point),
-            self._read_daily_series_if_published(parameters.WEATHER_PICTOGRAM_DAY, point),
+            self._read_daily_series_if_published(parameters.TEMPERATURE_DAY_MIN, point, run),
+            self._read_daily_series_if_published(parameters.TEMPERATURE_DAY_MAX, point, run),
+            self._read_daily_series_if_published(parameters.PRECIPITATION_DAY, point, run),
+            self._read_daily_series_if_published(parameters.PRECIPITATION_DAY_Q10, point, run),
+            self._read_daily_series_if_published(parameters.PRECIPITATION_DAY_Q90, point, run),
+            self._read_daily_series_if_published(parameters.WEATHER_PICTOGRAM_DAY, point, run),
         )
 
         rows = []
@@ -223,11 +230,12 @@ class ForecastService:
         _check_period_order(start_moment, end_moment)
 
         place, point = await self._find_place_and_point(location, nearby_location)
+        run = await self._find_latest_run()
         chance_series, median_series, upper_series, pictogram_series = await asyncio.gather(
-            self._read_series(parameters.PRECIPITATION_PROBABILITY, point),
-            self._read_series(parameters.PRECIPITATION_3H, point),
-            self._read_series(parameters.PRECIPITATION_Q90, point),
-            self._read_series(parameters.WEATHER_PICTOGRAM, point),
+            self._read_series(parameters.PRECIPITATION_PROBABILITY, point, run),
+            self._read_series(parameters.PRECIPITATION_3H, point, run),
+            self._read_series(parameters.PRECIPITATION_Q90, point, run),
+            self._read_series(parameters.WEATHER_PICTOGRAM, point, run),
         )
 
         # UTC, because adding hours in Swiss time goes wrong when the clocks change
@@ -311,10 +319,11 @@ class ForecastService:
             period = f"{format_swiss_time(start_moment)} to {format_swiss_time(end_moment)}"
 
         place, point = await self._find_place_and_point(location, nearby_location)
+        run = await self._find_latest_run()
         temperature_series, lower_series, upper_series = await asyncio.gather(
-            self._read_series(parameters.TEMPERATURE, point),
-            self._read_series(parameters.TEMPERATURE_Q10, point),
-            self._read_series(parameters.TEMPERATURE_Q90, point),
+            self._read_series(parameters.TEMPERATURE, point, run),
+            self._read_series(parameters.TEMPERATURE_Q10, point, run),
+            self._read_series(parameters.TEMPERATURE_Q90, point, run),
         )
 
         hour_stamps = _create_stamps(first_stamp, last_stamp, HOUR)
@@ -359,7 +368,8 @@ class ForecastService:
         hour_stamps = _create_stamps(first_stamp, last_stamp, HOUR)
 
         place, point = await self._find_place_and_point(location, nearby_location)
-        series = await self._read_series(parameters.SUNSHINE, point)
+        run = await self._find_latest_run()
+        series = await self._read_series(parameters.SUNSHINE, point, run)
         period_is_covered = all(stamp in series.time_to_value for stamp in hour_stamps)
         if not period_is_covered:
             raise CannotAnswerError(
@@ -383,11 +393,12 @@ class ForecastService:
         """Read the wind for the hour up to a moment: mean speed, gusts and direction."""
         _check_full_hour(moment)
         place, point = await self._find_place_and_point(location, nearby_location)
+        run = await self._find_latest_run()
         speed_series, gust_series, upper_gust_series, direction_series = await asyncio.gather(
-            self._read_series(parameters.WIND_SPEED, point),
-            self._read_series(parameters.WIND_GUSTS, point),
-            self._read_series(parameters.WIND_GUSTS_Q90, point),
-            self._read_series(parameters.WIND_DIRECTION, point),
+            self._read_series(parameters.WIND_SPEED, point, run),
+            self._read_series(parameters.WIND_GUSTS, point, run),
+            self._read_series(parameters.WIND_GUSTS_Q90, point, run),
+            self._read_series(parameters.WIND_DIRECTION, point, run),
         )
 
         speed_kmh = _get_hourly_value(speed_series, moment, point)
@@ -412,10 +423,11 @@ class ForecastService:
         """Estimate the total cloud cover at a moment from the three overlapping layers."""
         _check_full_hour(moment)
         place, point = await self._find_place_and_point(location, nearby_location)
+        run = await self._find_latest_run()
         low_series, medium_series, high_series = await asyncio.gather(
-            self._read_series(parameters.CLOUD_COVER_LOW, point),
-            self._read_series(parameters.CLOUD_COVER_MEDIUM, point),
-            self._read_series(parameters.CLOUD_COVER_HIGH, point),
+            self._read_series(parameters.CLOUD_COVER_LOW, point, run),
+            self._read_series(parameters.CLOUD_COVER_MEDIUM, point, run),
+            self._read_series(parameters.CLOUD_COVER_HIGH, point, run),
         )
 
         low_fraction = _get_hourly_value(low_series, moment, point)
@@ -442,7 +454,8 @@ class ForecastService:
         """Read the height of the 0 °C line at a moment."""
         _check_full_hour(moment)
         place, point = await self._find_place_and_point(location, nearby_location)
-        series = await self._read_series(parameters.FREEZING_LEVEL, point)
+        run = await self._find_latest_run()
+        series = await self._read_series(parameters.FREEZING_LEVEL, point, run)
         freezing_level_m = _get_hourly_value(series, moment, point)
         return {
             **_build_forecast_point_fields(place, point),

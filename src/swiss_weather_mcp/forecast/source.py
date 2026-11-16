@@ -77,7 +77,7 @@ import shutil
 import threading
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
-from typing import Dict, List, NamedTuple, Optional, Tuple
+from typing import Dict, List, NamedTuple, Optional
 
 import requests
 
@@ -124,6 +124,12 @@ class ForecastSeries(NamedTuple):
     """One parameter over the whole forecast window at one point, with the run it came from."""
     run_time: datetime
     time_to_value: Dict[datetime, float]
+
+
+class ForecastRun(NamedTuple):
+    """A published forecast run: its ID, YYYYMMDDHHMM in UTC, and the URL of each parameter's file."""
+    run_id: str
+    parameter_to_file_url: Dict[str, str]
 
 
 def _find_newest_complete_run_id(run_to_csv_file_urls: Dict[str, Dict[str, str]]) -> Optional[str]:
@@ -250,17 +256,17 @@ class ForecastSource:
             run_to_csv_file_urls[run_id][parameter] = asset["href"]
         return run_to_csv_file_urls
 
-    def _find_latest_run(self) -> Tuple[str, Dict[str, str]]:
+    def find_latest_run(self) -> ForecastRun:
         """
         Find the newest published run and the parameter files it holds.
 
-        Return the run ID, YYYYMMDDHHMM in UTC, and the URL of each parameter's file. The answer is
-        reused for RUN_LOOKUP_MAX_AGE.
+        The answer is reused for RUN_LOOKUP_MAX_AGE. A tool finds the run once and reads all its values
+        from it, so they never come from two runs.
         """
         with self._run_lookup_lock:
             now = datetime.now(timezone.utc)
             if self._run_id is not None and self._run_checked_at and now - self._run_checked_at < RUN_LOOKUP_MAX_AGE:
-                return self._run_id, self._parameter_to_file_url
+                return ForecastRun(self._run_id, self._parameter_to_file_url)
 
             # Just after 00:00 UTC, today's item may hold no complete run yet, so look in yesterday's too
             today = now.date()
@@ -271,7 +277,7 @@ class ForecastSource:
                     self._run_id = run_id
                     self._parameter_to_file_url = run_to_csv_file_urls[run_id]
                     self._run_checked_at = now
-                    return self._run_id, self._parameter_to_file_url
+                    return ForecastRun(self._run_id, self._parameter_to_file_url)
 
         raise RuntimeError(
             "The MeteoSwiss local forecasting collection published no complete run for today or yesterday"
@@ -336,14 +342,15 @@ class ForecastSource:
 
         return time_to_value
 
-    def read_series(self, parameter: str, point: MeteoSwissPoint) -> ForecastSeries:
+    def read_series(self, parameter: str, point: MeteoSwissPoint, run: ForecastRun) -> ForecastSeries:
         """
-        Read one parameter over the whole forecast window at one point.
+        Read one parameter over the whole forecast window at one point, from the given run.
 
         parameter is a MeteoSwiss parameter shortname, such as tre200h0. Raise CannotAnswerError
-        when the newest run has no values for the parameter at this point.
+        when the run has no values for the parameter at this point.
         """
-        run_id, file_urls = self._find_latest_run()
+        run_id = run.run_id
+        file_urls = run.parameter_to_file_url
         if parameter not in file_urls:
             raise CannotAnswerError(f"MeteoSwiss's newest forecast does not include '{parameter}'.")
 

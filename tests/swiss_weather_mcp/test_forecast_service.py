@@ -397,13 +397,34 @@ async def test_read_files_in_parallel(mocker, service_fixture, method_name, argu
     all_reads_started = threading.Barrier(file_count, timeout=PARALLEL_READ_TIMEOUT_SECONDS)
     read_series = service_fixture.forecast_source.read_series
 
-    def wait_for_the_other_reads(parameter, point):
+    def wait_for_the_other_reads(parameter, point, run):
         all_reads_started.wait()
-        return read_series(parameter, point)
+        return read_series(parameter, point, run)
 
     mocker.patch.object(service_fixture.forecast_source, "read_series", side_effect=wait_for_the_other_reads)
     read_forecast = getattr(service_fixture, method_name)
     await read_forecast(*arguments)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method_name, arguments", [
+    ("read_daily", ("Zurich", date(2026, 9, 23), 1)),
+    ("read_rain", ("Zurich", build_swiss_time("2026-09-23T14:00"), build_swiss_time("2026-09-23T20:00"))),
+    ("read_temperature", ("Zurich", build_swiss_time("2026-09-23T13:00"))),
+    ("read_wind", ("Zurich", build_swiss_time("2026-09-23T14:00"))),
+    ("read_cloud_cover", ("Zurich", build_swiss_time("2026-09-23T14:00"))),
+])
+async def test_read_every_value_of_a_tool_from_one_run(mocker, service_fixture, method_name, arguments):
+    # A new run can appear while the values of one answer are read, so the run is found once and passed on
+    find_latest_run_spy = mocker.spy(service_fixture.forecast_source, "find_latest_run")
+    read_series_spy = mocker.spy(service_fixture.forecast_source, "read_series")
+    read_forecast = getattr(service_fixture, method_name)
+    await read_forecast(*arguments)
+
+    run_found = find_latest_run_spy.spy_return
+    assert find_latest_run_spy.call_count == 1
+    for read_call in read_series_spy.call_args_list:
+        assert read_call.args[2] is run_found
 
 
 # --- _build_forecast_point_fields ---
