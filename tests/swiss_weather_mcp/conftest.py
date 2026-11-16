@@ -22,6 +22,15 @@ from swiss_weather_mcp.measurements.slf_source import SLFMeasurementSource
 from swiss_weather_mcp.places.lookup import SwisstopoPlaceLookup
 from swiss_weather_mcp.places.place_source import SwisstopoPlaceSource
 
+NETWORK_BLOCKED_MESSAGE = "Tests must not use the network; give the test a fake requests.get"
+
+
+@pytest.fixture(autouse=True)
+def block_network(mocker):
+    """Fail every real HTTP request, so a test that forgets its fake never reaches the internet."""
+    # Every requests call ends in HTTPAdapter.send, while the fakes replace requests.get before it
+    mocker.patch("requests.adapters.HTTPAdapter.send", side_effect=RuntimeError(NETWORK_BLOCKED_MESSAGE))
+
 
 @pytest.fixture
 def source_fixture(mocker, tmp_path, tmp_path_factory):

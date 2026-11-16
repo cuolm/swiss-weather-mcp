@@ -50,3 +50,11 @@ def test_ensure_recent_file_raises_when_the_download_fails_and_there_is_no_copy(
 
     with pytest.raises(requests.ConnectionError):
         ensure_recent_file(FILE_URL, missing_file, MAX_AGE, serve_stale_on_error=True)
+
+
+def test_ensure_recent_file_cannot_reach_the_network_in_tests(tmp_path):
+    # The block_network fixture stops a test without a fake, even where the stale copy would hide a failed download
+    missing_file = tmp_path / "ogd-smn_meta_stations.csv"
+
+    with pytest.raises(RuntimeError, match="must not use the network"):
+        ensure_recent_file(FILE_URL, missing_file, MAX_AGE, serve_stale_on_error=True)
