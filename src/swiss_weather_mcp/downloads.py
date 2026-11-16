@@ -8,7 +8,9 @@ Shared by the forecast, the measurement and the places code.
 import csv
 import json
 import logging
+import threading
 import uuid
+import weakref
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, BinaryIO, Dict, List, Optional
@@ -19,6 +21,22 @@ logger = logging.getLogger(__name__)
 
 REQUEST_TIMEOUT_SECONDS = 60
 DOWNLOAD_CHUNK_SIZE_BYTES = 1024 * 1024
+
+
+# One lock per file being downloaded, so parallel requests download a missing file only once. The locks
+# are kept weakly: a lock disappears as soon as no thread holds it or waits for it, so this never grows.
+_path_to_download_lock: "weakref.WeakValueDictionary[Path, threading.Lock]" = weakref.WeakValueDictionary()
+_download_locks_guard = threading.Lock()
+
+
+def _find_or_create_download_lock(target_file: Path) -> threading.Lock:
+    """Return the lock all threads share for a file, creating it when none exists."""
+    with _download_locks_guard:
+        download_lock = _path_to_download_lock.get(target_file)
+        if download_lock is None:
+            download_lock = threading.Lock()
+            _path_to_download_lock[target_file] = download_lock
+        return download_lock
 
 
 def _write_rows_starting_with(response: requests.Response, row_prefix: bytes, file: BinaryIO) -> None:
@@ -57,28 +75,49 @@ def download_file(file_url: str, target_file: Path, only_rows_starting_with: Opt
         partial_file.unlink(missing_ok=True)
 
 
+def _is_recent(target_file: Path, max_age: timedelta) -> bool:
+    """Tell whether a cached file exists and is younger than max_age."""
+    if not target_file.exists():
+        return False
+    modified_at = datetime.fromtimestamp(target_file.stat().st_mtime, timezone.utc)
+    age = datetime.now(timezone.utc) - modified_at
+    return age < max_age
+
+
 def ensure_recent_file(
     file_url: str, target_file: Path, max_age: timedelta, serve_stale_on_error: bool = False
 ) -> Path:
     """
     Return a cached file, downloading it again when it is missing or older than max_age.
 
-    With serve_stale_on_error, the older copy is returned when the download fails. Use it only for files
-    whose older copy is still right, such as station tables and past days, never for values of now.
+    With serve_stale_on_error, return the older copy when the download fails, for files whose older copy
+    is still correct.
     """
-    if target_file.exists():
-        modified_at = datetime.fromtimestamp(target_file.stat().st_mtime, timezone.utc)
-        if datetime.now(timezone.utc) - modified_at < max_age:
+    with _find_or_create_download_lock(target_file):
+        # Another request may have downloaded the file while this one waited for the lock
+        if _is_recent(target_file, max_age):
             return target_file
 
-    logger.info(f"Downloading {file_url}")
-    try:
-        download_file(file_url, target_file)
-    except requests.RequestException as error:
-        if serve_stale_on_error and target_file.exists():
-            logger.warning(f"Could not download {file_url}, using the older copy: {error}")
+        logger.info(f"Downloading {file_url}")
+        try:
+            download_file(file_url, target_file)
+        except requests.RequestException as error:
+            if serve_stale_on_error and target_file.exists():
+                logger.warning(f"Could not download {file_url}, using the older copy: {error}")
+                return target_file
+            raise
+    return target_file
+
+
+def ensure_file(file_url: str, target_file: Path, only_rows_starting_with: Optional[bytes] = None) -> Path:
+    """Return a cached file, downloading it only when it is missing, for files that never change."""
+    with _find_or_create_download_lock(target_file):
+        # Another request may have downloaded the file while this one waited for the lock
+        if target_file.exists():
             return target_file
-        raise
+
+        logger.info(f"Downloading {file_url}")
+        download_file(file_url, target_file, only_rows_starting_with=only_rows_starting_with)
     return target_file
 
 

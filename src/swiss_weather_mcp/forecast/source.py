@@ -84,7 +84,7 @@ import requests
 from . import parameters
 from ..distance import calculate_distance_m, rank_by_weighted_distance
 from ..errors import CannotAnswerError
-from ..downloads import REQUEST_TIMEOUT_SECONDS, download_file, read_recent_csv_rows
+from ..downloads import REQUEST_TIMEOUT_SECONDS, ensure_file, read_recent_csv_rows
 from ..places import SwisstopoPlace
 
 logger = logging.getLogger(__name__)
@@ -308,17 +308,11 @@ class ForecastSource:
         # A full file from an earlier download serves every point
         if full_file.exists():
             return full_file
-        if point_file.exists():
-            return point_file
-
-        logger.info(f"Reading {parameter} for {point.display_name} from run {run_id}")
         if self.cache_all_forecast_points:
-            download_file(file_url, full_file)
-            downloaded_file = full_file
+            downloaded_file = ensure_file(file_url, full_file)
         else:
             row_prefix = _build_row_prefix(point)
-            download_file(file_url, point_file, only_rows_starting_with=row_prefix)
-            downloaded_file = point_file
+            downloaded_file = ensure_file(file_url, point_file, only_rows_starting_with=row_prefix)
 
         self._delete_old_cached_runs(run_id)
         return downloaded_file

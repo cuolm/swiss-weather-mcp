@@ -1,9 +1,11 @@
+import asyncio
 import threading
+import time
 from datetime import date
 
 import pytest
 
-from fakes import build_swiss_time
+from fakes import RUN_ID, build_swiss_time
 from swiss_weather_mcp.errors import CannotAnswerError
 from swiss_weather_mcp.forecast.parameters import PICTOGRAM_CODE_TO_WEATHER
 from swiss_weather_mcp.forecast.service import _build_forecast_point_fields, _describe_pictogram
@@ -425,6 +427,31 @@ async def test_read_every_value_of_a_tool_from_one_run(mocker, service_fixture, 
     assert find_latest_run_spy.call_count == 1
     for read_call in read_series_spy.call_args_list:
         assert read_call.args[2] is run_found
+
+
+@pytest.mark.asyncio
+async def test_read_temperature_downloads_each_file_once_for_two_users(service_fixture, source_fixture):
+    # Two users ask about the same new village at the same time; a slow download lets their requests overlap
+    slow_download_seconds = 0.2
+    serve_fake_file = source_fixture.get_mock.side_effect
+
+    def serve_fake_file_slowly(url, **kwargs):
+        time.sleep(slow_download_seconds)
+        return serve_fake_file(url, **kwargs)
+
+    source_fixture.get_mock.side_effect = serve_fake_file_slowly
+    moment = build_swiss_time("2026-09-23T13:00")
+    await asyncio.gather(
+        service_fixture.read_temperature("Zurich", moment),
+        service_fixture.read_temperature("Zurich", moment),
+    )
+
+    forecast_file_downloads = 0
+    for call in source_fixture.get_mock.call_args_list:
+        if call.args[0].startswith(f"https://example.test/{RUN_ID}/"):
+            forecast_file_downloads += 1
+    # temperature, its 10th and its 90th percentile
+    assert forecast_file_downloads == 3
 
 
 # --- _build_forecast_point_fields ---
