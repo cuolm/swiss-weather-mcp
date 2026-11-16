@@ -205,3 +205,24 @@
   point and keeps only that point's rows.
 - With `--cache-all-forecast-points` it keeps the whole files, so further places in the same run need no
   new download. This helps when many places are asked within the hour, at the cost of disk space.
+- The server keeps every downloaded file and uses it again until it is too old. All users share the copy:
+
+  | Data | Downloaded again after |
+  |------|------------------------|
+  | Places (swissNAMES3D) and municipalities (swissBOUNDARIES3D) | a new edition, checked every 30 days |
+  | Forecast point table, station tables and lists | 7 days |
+  | Forecast values | a new model run, checked every 5 minutes |
+  | Current measurements (MeteoSwiss and SLF) | 5 minutes |
+  | Avalanche bulletin | 10 minutes |
+  | Recent days and SLF daily snow | 1 hour |
+  | Older days | 30 days |
+
+- Tables, lists and the forecast point table are also kept in memory after the first read, until the
+  server restarts.
+- A file is first written under a temporary name and moved into place when complete, so a cut download
+  is never used.
+- When several users need the same missing file at the same time, only one downloads it and the others
+  wait for it. Each file has its own lock, so different files still download at the same time. This holds
+  within one server process.
+- When a download fails, files that change slowly, such as station tables and past days, are taken
+  from the older copy. Current measurements and the avalanche bulletin are not.
