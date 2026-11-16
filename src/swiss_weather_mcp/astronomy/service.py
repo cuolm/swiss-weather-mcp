@@ -47,7 +47,8 @@ class AstronomyService:
         Raise CannotAnswerError for an unknown location.
         """
         place = await self._find_place(location, nearby_location)
-        sun_day = calculate_sun_day(day, place.latitude_deg, place.longitude_deg)
+        # In a worker thread, so the calculation does not hold up other requests
+        sun_day = await asyncio.to_thread(calculate_sun_day, day, place.latitude_deg, place.longitude_deg)
         return {
             "place": place.name,
             "date": day.isoformat(),
@@ -64,7 +65,8 @@ class AstronomyService:
         Raise CannotAnswerError for an unknown location.
         """
         place = await self._find_place(location, nearby_location)
-        moon_day = calculate_moon_day(day, place.latitude_deg, place.longitude_deg)
+        # In a worker thread, so the calculation does not hold up other requests
+        moon_day = await asyncio.to_thread(calculate_moon_day, day, place.latitude_deg, place.longitude_deg)
 
         answer: Dict[str, Any] = {
             "place": place.name,

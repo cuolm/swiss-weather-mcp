@@ -1,7 +1,9 @@
+import threading
 from datetime import date
 
 import pytest
 
+from swiss_weather_mcp.astronomy import service as astronomy_service_module
 from swiss_weather_mcp.astronomy.service import AstronomyService
 from swiss_weather_mcp.errors import CannotAnswerError
 
@@ -86,3 +88,25 @@ async def test_read_moon_uses_near(astronomy_service_fixture):
 async def test_read_moon_unknown_location(astronomy_service_fixture):
     with pytest.raises(CannotAnswerError):
         await astronomy_service_fixture.read_moon("Atlantis", date(2026, 11, 1))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method_name, calculation_name", [
+    ("read_sun", "calculate_sun_day"),
+    ("read_moon", "calculate_moon_day"),
+])
+async def test_read_calculates_in_a_worker_thread(mocker, astronomy_service_fixture, method_name, calculation_name):
+    # A calculation in the event loop would hold up every other request
+    calculation = getattr(astronomy_service_module, calculation_name)
+    threads_used = []
+
+    def calculate_and_note_the_thread(*arguments):
+        threads_used.append(threading.current_thread())
+        return calculation(*arguments)
+
+    mocker.patch.object(astronomy_service_module, calculation_name, side_effect=calculate_and_note_the_thread)
+    read_astronomy = getattr(astronomy_service_fixture, method_name)
+    await read_astronomy("Zürich", date(2026, 11, 1))
+
+    assert threads_used != [threading.main_thread()]
+    assert len(threads_used) == 1
