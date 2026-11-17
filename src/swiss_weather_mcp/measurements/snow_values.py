@@ -16,15 +16,15 @@ SnowStation = Union["MeteoSwissStation", "SLFStation"]
 SNOW_DEPTH_MAX_AGE = timedelta(minutes=210)
 
 
-class SnowDepth(NamedTuple):
-    """The snow depth of a station and when it was measured."""
+class LatestSnowDepth(NamedTuple):
+    """The latest snow depth of a station and when it was measured."""
     station: SnowStation
     measured_at: datetime
     snow_depth_cm: float
 
 
-class NewSnow(NamedTuple):
-    """The new snow of an SLF station in the 24 hours and in the 3 days up to measured_at."""
+class LatestNewSnow(NamedTuple):
+    """The latest new snow of an SLF station: of the 24 hours and of the 3 days up to measured_at."""
     station: "SLFStation"
     measured_at: datetime
     new_snow_24_hours_cm: float

@@ -86,7 +86,7 @@ from typing import Any, Dict, List, NamedTuple, Optional
 
 from ..coordinates import calculate_lv95_east_m, calculate_lv95_north_m
 from ..downloads import read_recent_json
-from .snow_values import SNOW_DEPTH_MAX_AGE, NewSnow, SnowDepth
+from .snow_values import SNOW_DEPTH_MAX_AGE, LatestNewSnow, LatestSnowDepth
 
 logger = logging.getLogger(__name__)
 
@@ -238,7 +238,7 @@ def _sum_new_snow(all_days: List[SLFDailySnowMeasurements], last_day: date) -> O
 
 def _calculate_new_snow(
     station: SLFStation, all_days: List[SLFDailySnowMeasurements], today: date
-) -> Optional[NewSnow]:
+) -> Optional[LatestNewSnow]:
     """
     Calculate the new snow of the newest day, or None when it has none or is older than yesterday.
 
@@ -251,7 +251,7 @@ def _calculate_new_snow(
         return None
     newest_date = newest_day.measured_at.date()
     new_snow_3_days_cm = _sum_new_snow(all_days, newest_date)
-    return NewSnow(station, newest_day.measured_at, newest_day.new_snow_cm, new_snow_3_days_cm)
+    return LatestNewSnow(station, newest_day.measured_at, newest_day.new_snow_cm, new_snow_3_days_cm)
 
 
 class SLFMeasurementSource:
@@ -336,7 +336,7 @@ class SLFMeasurementSource:
         all_days.sort(key=lambda day_measurements: day_measurements.measured_at)
         return all_days
 
-    def _read_imis_snow_depth(self, station: SLFStation) -> Optional[SnowDepth]:
+    def _read_imis_snow_depth(self, station: SLFStation) -> Optional[LatestSnowDepth]:
         """Read an IMIS station's latest snow depth, or None when it is missing or older than SNOW_DEPTH_MAX_AGE."""
         latest_measurements = self.read_latest_station_measurements(station)
         if latest_measurements is None or latest_measurements.snow_depth_cm is None:
@@ -344,9 +344,9 @@ class SLFMeasurementSource:
         now = datetime.now(timezone.utc)
         if now - latest_measurements.measured_at > SNOW_DEPTH_MAX_AGE:
             return None
-        return SnowDepth(station, latest_measurements.measured_at, latest_measurements.snow_depth_cm)
+        return LatestSnowDepth(station, latest_measurements.measured_at, latest_measurements.snow_depth_cm)
 
-    def _read_manual_site_snow_depth(self, manual_site: SLFStation) -> Optional[SnowDepth]:
+    def _read_manual_site_snow_depth(self, manual_site: SLFStation) -> Optional[LatestSnowDepth]:
         """Read the snow depth of a manual site's newest day, or None when it has none from today or yesterday."""
         all_days = self._read_manual_site_daily_snow(manual_site)
         if not all_days:
@@ -355,7 +355,7 @@ class SLFMeasurementSource:
         today = datetime.now(timezone.utc).date()
         if newest_day.snow_depth_cm is None or not _is_recent_day(newest_day, today):
             return None
-        return SnowDepth(manual_site, newest_day.measured_at, newest_day.snow_depth_cm)
+        return LatestSnowDepth(manual_site, newest_day.measured_at, newest_day.snow_depth_cm)
 
     def list_stations(self) -> List[SLFStation]:
         """List the IMIS stations of the station list."""
@@ -372,7 +372,7 @@ class SLFMeasurementSource:
         snow_stations.extend(manual_sites)
         return snow_stations
 
-    def read_snow_depth(self, station: SLFStation) -> Optional[SnowDepth]:
+    def read_snow_depth(self, station: SLFStation) -> Optional[LatestSnowDepth]:
         """
         Read the current snow depth of a station, or None when it has none.
 
@@ -383,7 +383,7 @@ class SLFMeasurementSource:
             return self._read_manual_site_snow_depth(station)
         return self._read_imis_snow_depth(station)
 
-    def read_new_snow(self, station: SLFStation) -> Optional[NewSnow]:
+    def read_new_snow(self, station: SLFStation) -> Optional[LatestNewSnow]:
         """
         Read the new snow of a station's newest day, or None when it has none from today or yesterday.
 

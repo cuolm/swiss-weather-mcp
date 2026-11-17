@@ -9,7 +9,7 @@ from swiss_weather_mcp.measurements import parameters
 from swiss_weather_mcp.measurements.meteoswiss_source import (
     MeteoSwissStation, _find_canton_name, _list_periods, _parse_reference_timestamp,
 )
-from swiss_weather_mcp.measurements.snow_values import SnowDepth
+from swiss_weather_mcp.measurements.snow_values import LatestSnowDepth
 from swiss_weather_mcp.places.place_source import SwisstopoPlace
 
 # How far back a cached file is dated to make it older than the 5 minutes it is kept
@@ -163,7 +163,7 @@ def test_list_snow_stations_leaves_out_stations_without_snow_depth(meteoswiss_so
 def test_read_snow_depth(meteoswiss_source_fixture):
     davos = find_station(meteoswiss_source_fixture, "DAV")
     snow_depth = meteoswiss_source_fixture.read_snow_depth(davos)
-    assert snow_depth == SnowDepth(davos, datetime(2026, 9, 25, 14, tzinfo=timezone.utc), 12.0)
+    assert snow_depth == LatestSnowDepth(davos, datetime(2026, 9, 25, 14, tzinfo=timezone.utc), 12.0)
 
 
 def test_read_snow_depth_older_than_210_minutes(mocker, meteoswiss_source_fixture):

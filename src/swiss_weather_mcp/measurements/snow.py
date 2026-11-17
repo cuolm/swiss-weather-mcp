@@ -10,7 +10,7 @@ from ..formatting import SWISS_TZ, describe_distance_and_height, format_swiss_ti
 from ..places import SwisstopoPlace
 from .meteoswiss_source import MeteoSwissMeasurementSource, MeteoSwissStation
 from .slf_source import SLFMeasurementSource, SLFStation
-from .snow_values import NewSnow, SnowDepth, SnowStation
+from .snow_values import LatestNewSnow, LatestSnowDepth, SnowStation
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +35,7 @@ def describe_snow_station(place: SwisstopoPlace, station: SnowStation, value_nam
     return f"The {value_name} for {place.display_name} {source}, {distance_and_height}."
 
 
-def _build_snow_depth_block(place: SwisstopoPlace, snow_depth: SnowDepth) -> Dict[str, Any]:
+def _build_snow_depth_block(place: SwisstopoPlace, snow_depth: LatestSnowDepth) -> Dict[str, Any]:
     """Build the snow_depth block of the snow answer."""
     block: Dict[str, Any] = {}
     # A station next to the place stands for it, so the block does not name it
@@ -50,7 +50,7 @@ def _build_snow_depth_block(place: SwisstopoPlace, snow_depth: SnowDepth) -> Dic
     return block
 
 
-def _build_new_snow_block(place: SwisstopoPlace, new_snow: NewSnow) -> Dict[str, Any]:
+def _build_new_snow_block(place: SwisstopoPlace, new_snow: LatestNewSnow) -> Dict[str, Any]:
     """Build the new_snow block of the snow answer."""
     block: Dict[str, Any] = {}
     # A station next to the place stands for it, so the block does not name it
@@ -78,7 +78,7 @@ def _list_slf_snow_stations(slf_source: SLFMeasurementSource) -> List[SLFStation
 
 def _read_snow_depth(
     meteoswiss_source: MeteoSwissMeasurementSource, slf_source: SLFMeasurementSource, station: SnowStation
-) -> Optional[SnowDepth]:
+) -> Optional[LatestSnowDepth]:
     """Read a station's current snow depth from its source, or None when it has none or SLF cannot be reached."""
     if isinstance(station, MeteoSwissStation):
         return meteoswiss_source.read_snow_depth(station)
@@ -89,7 +89,7 @@ def _read_snow_depth(
         return None
 
 
-def _read_new_snow(slf_source: SLFMeasurementSource, station: SLFStation) -> Optional[NewSnow]:
+def _read_new_snow(slf_source: SLFMeasurementSource, station: SLFStation) -> Optional[LatestNewSnow]:
     """Read an SLF station's new snow, or None when it has none or SLF cannot be reached."""
     try:
         return slf_source.read_new_snow(station)
@@ -103,7 +103,7 @@ def _find_snow_depth(
     slf_source: SLFMeasurementSource,
     place: SwisstopoPlace,
     snow_stations: List[SnowStation],
-) -> Optional[SnowDepth]:
+) -> Optional[LatestSnowDepth]:
     """
     Find the current snow depth for a place from the given snow stations.
 
@@ -122,7 +122,7 @@ def _find_snow_depth(
 
 def _find_new_snow(
     slf_source: SLFMeasurementSource, place: SwisstopoPlace, slf_snow_stations: List[SLFStation]
-) -> Optional[NewSnow]:
+) -> Optional[LatestNewSnow]:
     """
     Find the new snow for a place from the given SLF snow stations, the only ones that have it.
 

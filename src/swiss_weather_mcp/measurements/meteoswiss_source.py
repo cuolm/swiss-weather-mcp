@@ -105,7 +105,7 @@ from typing import Dict, List, NamedTuple, Optional, Sequence, Set
 
 from . import parameters
 from ..downloads import read_recent_csv_rows
-from .snow_values import SNOW_DEPTH_MAX_AGE, SnowDepth
+from .snow_values import SNOW_DEPTH_MAX_AGE, LatestSnowDepth
 
 logger = logging.getLogger(__name__)
 
@@ -401,7 +401,7 @@ class MeteoSwissMeasurementSource:
                 snow_stations.append(station)
         return snow_stations
 
-    def read_snow_depth(self, station: MeteoSwissStation) -> Optional[SnowDepth]:
+    def read_snow_depth(self, station: MeteoSwissStation) -> Optional[LatestSnowDepth]:
         """Read a station's current snow depth, or None when it has none or it is older than SNOW_DEPTH_MAX_AGE."""
         all_measurements = self.read_station_measurements(station)
         if not all_measurements:
@@ -411,7 +411,7 @@ class MeteoSwissMeasurementSource:
         now = datetime.now(timezone.utc)
         if snow_depth_cm is None or now - latest_measurements.measured_at > SNOW_DEPTH_MAX_AGE:
             return None
-        return SnowDepth(station, latest_measurements.measured_at, snow_depth_cm)
+        return LatestSnowDepth(station, latest_measurements.measured_at, snow_depth_cm)
 
     def list_manual_sites(self, last_day: date) -> List[MeteoSwissStation]:
         """List the manual sites that started measuring the snow depth by last_day."""
