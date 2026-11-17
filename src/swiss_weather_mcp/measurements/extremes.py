@@ -7,7 +7,7 @@ from ..formatting import format_swiss_time
 from .meteoswiss_source import MeteoSwissMeasurementSource, MeteoSwissStation, MeteoSwissStationMeasurements
 
 
-class Extreme(NamedTuple):
+class MeteoSwissExtreme(NamedTuple):
     """The measured value an extreme ranks the stations by."""
     parameter: str
     field: str  # the field the value fills in the answer
@@ -15,12 +15,12 @@ class Extreme(NamedTuple):
 
 
 ExtremeName = Literal["warmest", "coldest", "windiest", "wettest", "sunniest"]
-EXTREME_NAME_TO_EXTREME: Dict[ExtremeName, Extreme] = {
-    "warmest": Extreme(parameters.TEMPERATURE, "temperature_c", highest_first=True),
-    "coldest": Extreme(parameters.TEMPERATURE, "temperature_c", highest_first=False),
-    "windiest": Extreme(parameters.WIND_GUSTS, "gusts_kmh", highest_first=True),
-    "wettest": Extreme(parameters.PRECIPITATION, "rain_last_10_minutes_mm", highest_first=True),
-    "sunniest": Extreme(parameters.SUNSHINE, "sunshine_last_10_minutes_minutes", highest_first=True),
+EXTREME_NAME_TO_EXTREME: Dict[ExtremeName, MeteoSwissExtreme] = {
+    "warmest": MeteoSwissExtreme(parameters.TEMPERATURE, "temperature_c", highest_first=True),
+    "coldest": MeteoSwissExtreme(parameters.TEMPERATURE, "temperature_c", highest_first=False),
+    "windiest": MeteoSwissExtreme(parameters.WIND_GUSTS, "gusts_kmh", highest_first=True),
+    "wettest": MeteoSwissExtreme(parameters.PRECIPITATION, "rain_last_10_minutes_mm", highest_first=True),
+    "sunniest": MeteoSwissExtreme(parameters.SUNSHINE, "sunshine_last_10_minutes_minutes", highest_first=True),
 }
 # How many stations a ranking lists
 STATION_COUNT = 5
@@ -47,7 +47,7 @@ SUNSHINE_CLASSES = (
 )
 
 
-class StationValue(NamedTuple):
+class MeteoSwissStationValue(NamedTuple):
     """One measured value of one station."""
     station: MeteoSwissStation
     value: float
@@ -69,13 +69,15 @@ class ExtremesAnswer(TypedDict):
     stations: NotRequired[List[Dict[str, Any]]]
 
 
-def _find_station_values(all_measurements: List[MeteoSwissStationMeasurements], parameter: str) -> List[StationValue]:
+def _find_station_values(
+    all_measurements: List[MeteoSwissStationMeasurements], parameter: str
+) -> List[MeteoSwissStationValue]:
     """Find the stations that have a value for a parameter, so a station without one is never counted."""
     station_values = []
     for measurements in all_measurements:
         value = measurements.parameter_to_value[parameter]
         if value is not None:
-            station_values.append(StationValue(measurements.station, value))
+            station_values.append(MeteoSwissStationValue(measurements.station, value))
     return station_values
 
 
@@ -88,7 +90,7 @@ def _find_sunshine_class(sunshine_min: float) -> str:
     return SUNSHINE_CLASSES[-1].name
 
 
-def _count_stations_by_sunshine_class(station_values: List[StationValue]) -> Dict[str, int]:
+def _count_stations_by_sunshine_class(station_values: List[MeteoSwissStationValue]) -> Dict[str, int]:
     """Count the stations in each class of MeteoSwiss's sunshine terms, sunniest first."""
     sunshine_class_to_station_count = {}
     for sunshine_class in SUNSHINE_CLASSES:
@@ -99,13 +101,13 @@ def _count_stations_by_sunshine_class(station_values: List[StationValue]) -> Dic
     return sunshine_class_to_station_count
 
 
-def _build_sunshine_canton_rows(station_values: List[StationValue]) -> List[Dict[str, Any]]:
+def _build_sunshine_canton_rows(station_values: List[MeteoSwissStationValue]) -> List[Dict[str, Any]]:
     """
     Build one answer row for each canton with a measuring station, with its stations in each sunshine class.
 
     The canton whose stations had the most sun on average comes first.
     """
-    canton_to_station_values: Dict[str, List[StationValue]] = {}
+    canton_to_station_values: Dict[str, List[MeteoSwissStationValue]] = {}
     for station_value in station_values:
         canton = station_value.station.canton
         canton_to_station_values.setdefault(canton, []).append(station_value)
@@ -128,7 +130,9 @@ def _build_sunshine_canton_rows(station_values: List[StationValue]) -> List[Dict
     return rows
 
 
-def _find_station_values_at_least(station_values: List[StationValue], minimum: float) -> List[StationValue]:
+def _find_station_values_at_least(
+    station_values: List[MeteoSwissStationValue], minimum: float
+) -> List[MeteoSwissStationValue]:
     """Find the stations whose value is at least a minimum."""
     matching_values = []
     for station_value in station_values:
@@ -137,7 +141,7 @@ def _find_station_values_at_least(station_values: List[StationValue], minimum: f
     return matching_values
 
 
-def _count_stations_by_canton(station_values: List[StationValue]) -> Dict[str, int]:
+def _count_stations_by_canton(station_values: List[MeteoSwissStationValue]) -> Dict[str, int]:
     """Count the stations of each canton."""
     canton_to_station_count: Dict[str, int] = {}
     for station_value in station_values:
@@ -146,8 +150,9 @@ def _count_stations_by_canton(station_values: List[StationValue]) -> Dict[str, i
     return canton_to_station_count
 
 
-def _build_canton_rows(station_values: List[StationValue], matching_values: List[StationValue],
-                       label: str) -> List[Dict[str, Any]]:
+def _build_canton_rows(
+    station_values: List[MeteoSwissStationValue], matching_values: List[MeteoSwissStationValue], label: str
+) -> List[Dict[str, Any]]:
     """
     Build one answer row for each canton with a measuring station.
 
@@ -170,7 +175,9 @@ def _build_canton_rows(station_values: List[StationValue], matching_values: List
     return rows
 
 
-def _build_station_rows(station_values: List[StationValue], extreme: Extreme) -> List[Dict[str, Any]]:
+def _build_station_rows(
+    station_values: List[MeteoSwissStationValue], extreme: MeteoSwissExtreme
+) -> List[Dict[str, Any]]:
     """Build the answer rows of the first STATION_COUNT stations in the order of an extreme."""
     ranked_values = sorted(
         station_values, key=lambda station_value: station_value.value, reverse=extreme.highest_first
