@@ -105,6 +105,42 @@ class FreezingLevelAnswer(PlaceFields):
     model_run: str
 
 
+def _get_daily_value(series: Optional[ForecastSeries], day: date) -> Optional[float]:
+    """Return the value of a daily series for one day, or None when the series or the day is missing."""
+    if series is None:
+        return None
+    # A daily row is stamped 00:00 on the Swiss calendar day it describes
+    day_stamp = datetime(day.year, day.month, day.day, tzinfo=timezone.utc)
+    return series.time_to_value.get(day_stamp)
+
+
+def _describe_pictogram(pictogram_code: int) -> Tuple[str, Optional[str]]:
+    """Turn a MeteoSwiss pictogram code into the sentence it stands for and its emoji."""
+    pictogram = parameters.PICTOGRAM_CODE_TO_WEATHER.get(pictogram_code)
+    if pictogram is None:
+        return f"unknown weather code {pictogram_code}", None
+    return pictogram
+
+
+def _build_forecast_point_fields(place: SwisstopoPlace, point: MeteoSwissPoint) -> PlaceFields:
+    """
+    Build the answer fields that name the place, and the forecast point when it is not next to it.
+
+    Only a point that is_close says is not next to the place gets data_from. A model given
+    any word about a close point mentions it anyway.
+    """
+    if is_close(place, point):
+        return {"place": place.name}
+    distance_and_height = describe_distance_and_height(place, point)
+    return {
+        "data_from": (
+            f"The forecast for {place.display_name} is the one MeteoSwiss makes for its forecast point "
+            f"{point.display_name}, {distance_and_height}."
+        ),
+        "place": place.name,
+    }
+
+
 def _check_full_hour(moment: datetime) -> None:
     """Refuse a time that is not a full hour, as MeteoSwiss forecasts only whole hours."""
     if moment.minute or moment.second or moment.microsecond:
@@ -140,23 +176,6 @@ def _describe_covered_range(series: ForecastSeries) -> str:
     )
 
 
-def _describe_pictogram(pictogram_code: int) -> Tuple[str, Optional[str]]:
-    """Turn a MeteoSwiss pictogram code into the sentence it stands for and its emoji."""
-    pictogram = parameters.PICTOGRAM_CODE_TO_WEATHER.get(pictogram_code)
-    if pictogram is None:
-        return f"unknown weather code {pictogram_code}", None
-    return pictogram
-
-
-def _get_daily_value(series: Optional[ForecastSeries], day: date) -> Optional[float]:
-    """Return the value of a daily series for one day, or None when the series or the day is missing."""
-    if series is None:
-        return None
-    # A daily row is stamped 00:00 on the Swiss calendar day it describes
-    day_stamp = datetime(day.year, day.month, day.day, tzinfo=timezone.utc)
-    return series.time_to_value.get(day_stamp)
-
-
 def _get_hourly_value(series: ForecastSeries, moment: datetime, point: MeteoSwissPoint) -> float:
     """
     Return the value of an hourly series at a full hour.
@@ -172,25 +191,6 @@ def _get_hourly_value(series: ForecastSeries, moment: datetime, point: MeteoSwis
             f"{_describe_covered_range(series)}"
         )
     return series.time_to_value[stamp]
-
-
-def _build_forecast_point_fields(place: SwisstopoPlace, point: MeteoSwissPoint) -> PlaceFields:
-    """
-    Build the answer fields that name the place, and the forecast point when it is not next to it.
-
-    Only a point that is_close says is not next to the place gets data_from. A model given
-    any word about a close point mentions it anyway.
-    """
-    if is_close(place, point):
-        return {"place": place.name}
-    distance_and_height = describe_distance_and_height(place, point)
-    return {
-        "data_from": (
-            f"The forecast for {place.display_name} is the one MeteoSwiss makes for its forecast point "
-            f"{point.display_name}, {distance_and_height}."
-        ),
-        "place": place.name,
-    }
 
 
 class ForecastService:

@@ -290,6 +290,15 @@ def _build_snow_station_daily_measurements(
     return daily_measurements
 
 
+def _list_days_after(all_days: List[SLFDailySnowMeasurements], day: date) -> List[SLFDailySnowMeasurements]:
+    """List the days after day, in their order."""
+    later_days = []
+    for day_measurements in all_days:
+        if day_measurements.measured_at.date() > day:
+            later_days.append(day_measurements)
+    return later_days
+
+
 def _sum_new_snow(all_days: List[SLFDailySnowMeasurements], last_day: date) -> Optional[float]:
     """Return the new snow of the NEW_SNOW_DAYS days up to last_day, or None when one of them has no value."""
     day_to_new_snow_cm: Dict[date, Optional[float]] = {}
@@ -323,15 +332,6 @@ def _calculate_new_snow(
     newest_date = newest_day.measured_at.date()
     new_snow_3_days_cm = _sum_new_snow(all_days, newest_date)
     return LatestNewSnow(station, newest_day.measured_at, newest_day.new_snow_cm, new_snow_3_days_cm)
-
-
-def _list_days_after(all_days: List[SLFDailySnowMeasurements], day: date) -> List[SLFDailySnowMeasurements]:
-    """List the days after day, in their order."""
-    later_days = []
-    for day_measurements in all_days:
-        if day_measurements.measured_at.date() > day:
-            later_days.append(day_measurements)
-    return later_days
 
 
 class SLFMeasurementSource:

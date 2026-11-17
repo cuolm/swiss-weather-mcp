@@ -48,6 +48,19 @@ DEGREES_PER_HOUR = 15
 MINUTE = timedelta(minutes=1)
 
 
+def _find_moment_within_minute(
+    moment: datetime, angle_deg: float, next_angle_deg: float, target_deg: float
+) -> datetime:
+    """
+    Find when target_deg is passed within the minute from moment, assuming the angle changes evenly in it.
+
+    The angle goes from angle_deg at moment to next_angle_deg a minute later, so target_deg is passed
+    after the share of the minute that it lies along the way.
+    """
+    share = (target_deg - angle_deg) / (next_angle_deg - angle_deg)
+    return moment + share * MINUTE
+
+
 def calculate_fundamental_arguments_rad(moment: datetime) -> Dict[str, float]:
     """Calculate the fundamental arguments of section III at a moment, in radians, by their names."""
     days = (moment - J2000) / DAY
@@ -140,19 +153,6 @@ def list_minutes_of_day(day: date) -> List[datetime]:
         minute_moments.append(moment)
         moment += MINUTE
     return minute_moments
-
-
-def _find_moment_within_minute(
-    moment: datetime, angle_deg: float, next_angle_deg: float, target_deg: float
-) -> datetime:
-    """
-    Find when target_deg is passed within the minute from moment, assuming the angle changes evenly in it.
-
-    The angle goes from angle_deg at moment to next_angle_deg a minute later, so target_deg is passed
-    after the share of the minute that it lies along the way.
-    """
-    share = (target_deg - angle_deg) / (next_angle_deg - angle_deg)
-    return moment + share * MINUTE
 
 
 def find_crossings(

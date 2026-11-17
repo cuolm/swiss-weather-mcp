@@ -112,14 +112,6 @@ class _TextCollector(HTMLParser):
         self._end_line()
 
 
-def _convert_html_to_text(html_text: str) -> str:
-    """Turn the HTML of an SLF bulletin text into plain text, a line for each heading, paragraph and list item."""
-    collector = _TextCollector()
-    collector.feed(html_text)
-    collector.close()
-    return "\n".join(collector.lines)
-
-
 class DangerRating(NamedTuple):
     """A danger level of a bulletin or of one of its avalanche problems."""
     level: str  # "low", "moderate", "considerable", "high" or "very_high"
@@ -193,6 +185,14 @@ def _parse_elevation(problem_object: Dict[str, Any]) -> Optional[Elevation]:
     if "upperBound" in elevation_object:
         upper_bound_m = int(elevation_object["upperBound"])
     return Elevation(lower_bound_m, upper_bound_m)
+
+
+def _convert_html_to_text(html_text: str) -> str:
+    """Turn the HTML of an SLF bulletin text into plain text, a line for each heading, paragraph and list item."""
+    collector = _TextCollector()
+    collector.feed(html_text)
+    collector.close()
+    return "\n".join(collector.lines)
 
 
 def _parse_problem(problem_object: Dict[str, Any]) -> AvalancheProblem:

@@ -137,6 +137,28 @@ def _calculate_moon_ahead_of_sun_deg(moment: datetime) -> float:
     return (moon_longitude_deg - sun_longitude_deg) % 360
 
 
+def _find_principal_phase(minute_moments: List[datetime]) -> Optional[Tuple[str, datetime]]:
+    """Find the principal phase during the minutes of one day, and when it happens."""
+    ahead_at_start_deg = _calculate_moon_ahead_of_sun_deg(minute_moments[0])
+    aheads_deg = []
+    for moment in minute_moments:
+        ahead_deg = _calculate_moon_ahead_of_sun_deg(moment)
+        # Once a month, at New Moon, the angle passes 360° and starts again at 0°; adding 360° keeps
+        # the day's values growing, so the search finds the crossing of 360°
+        if ahead_deg < ahead_at_start_deg:
+            ahead_deg += 360
+        aheads_deg.append(ahead_deg)
+
+    # The next principal phase: First Quarter at 90°, Full Moon at 180°, Last Quarter at 270° or New Moon at 360°
+    phase_number = int(ahead_at_start_deg // DEGREES_BETWEEN_PRINCIPAL_PHASES) + 1
+    phase_deg = phase_number * DEGREES_BETWEEN_PRINCIPAL_PHASES
+
+    phase_time, _ = find_crossings(minute_moments, aheads_deg, phase_deg)
+    if phase_time is None:
+        return None
+    return PRINCIPAL_PHASES[phase_number % len(PRINCIPAL_PHASES)], phase_time
+
+
 def _calculate_illuminated_percent(moment: datetime) -> float:
     """Return how much of the Moon's disk is lit, 100 (1 + cos i) / 2 with i the phase angle at the Moon."""
     fundamental_arguments_rad = calculate_fundamental_arguments_rad(moment)
@@ -189,28 +211,6 @@ def _calculate_illuminated_percent(moment: datetime) -> float:
 
     # Equation 7.12-32
     return 100 * (1 + cos_phase_angle) / 2
-
-
-def _find_principal_phase(minute_moments: List[datetime]) -> Optional[Tuple[str, datetime]]:
-    """Find the principal phase during the minutes of one day, and when it happens."""
-    ahead_at_start_deg = _calculate_moon_ahead_of_sun_deg(minute_moments[0])
-    aheads_deg = []
-    for moment in minute_moments:
-        ahead_deg = _calculate_moon_ahead_of_sun_deg(moment)
-        # Once a month, at New Moon, the angle passes 360° and starts again at 0°; adding 360° keeps
-        # the day's values growing, so the search finds the crossing of 360°
-        if ahead_deg < ahead_at_start_deg:
-            ahead_deg += 360
-        aheads_deg.append(ahead_deg)
-
-    # The next principal phase: First Quarter at 90°, Full Moon at 180°, Last Quarter at 270° or New Moon at 360°
-    phase_number = int(ahead_at_start_deg // DEGREES_BETWEEN_PRINCIPAL_PHASES) + 1
-    phase_deg = phase_number * DEGREES_BETWEEN_PRINCIPAL_PHASES
-
-    phase_time, _ = find_crossings(minute_moments, aheads_deg, phase_deg)
-    if phase_time is None:
-        return None
-    return PRINCIPAL_PHASES[phase_number % len(PRINCIPAL_PHASES)], phase_time
 
 
 def calculate_moon_day(day: date, latitude_deg: float, longitude_deg: float) -> MoonDay:

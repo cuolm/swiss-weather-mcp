@@ -24,6 +24,15 @@ class PlaceFields(DataFromField):
     place: str
 
 
+def describe_height_difference(difference_m: int) -> str:
+    """Say how much higher or lower something is, such as "801 m lower"."""
+    if difference_m > 0:
+        return f"{difference_m} m higher"
+    if difference_m < 0:
+        return f"{-difference_m} m lower"
+    return "at the same height"
+
+
 def format_swiss_time(moment: datetime) -> str:
     """Format a moment as ISO 8601 Swiss local time with its UTC offset, such as 2026-09-23T14:00+02:00."""
     return moment.astimezone(SWISS_TZ).isoformat(timespec="minutes")
@@ -34,15 +43,6 @@ def find_compass_point(degrees: float) -> str:
     # Rounding picks the nearest point, and the modulo turns a bearing just short of 360 back into N
     sector = round(degrees / COMPASS_SECTOR_DEGREES) % len(COMPASS_POINTS)
     return COMPASS_POINTS[sector]
-
-
-def describe_height_difference(difference_m: int) -> str:
-    """Say how much higher or lower something is, such as "801 m lower"."""
-    if difference_m > 0:
-        return f"{difference_m} m higher"
-    if difference_m < 0:
-        return f"{-difference_m} m lower"
-    return "at the same height"
 
 
 def describe_distance_and_height(place: SwisstopoPlace, position: GridPosition) -> str:

@@ -83,22 +83,6 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def _parse_swiss_time(timestamp: str) -> datetime:
-    """
-    Read an ISO 8601 timestamp or date, such as "2026-09-23T14:00" or "2026-09-23".
-
-    Without an offset it is Swiss local time; an explicit offset is kept. Raise CannotAnswerError
-    when the text is not a timestamp.
-    """
-    try:
-        moment = datetime.fromisoformat(timestamp)
-    except ValueError as error:
-        raise CannotAnswerError(
-            f"'{timestamp}' is not a valid timestamp, use for example '2026-09-23T14:00' or '2026-09-23'"
-        ) from error
-    return moment if moment.tzinfo else moment.replace(tzinfo=SWISS_TZ)
-
-
 def _handle_tool_call(tool: Tool) -> Tool:
     """
     Log each tool call, and turn the failures the model can act on into a ToolError.
@@ -124,6 +108,22 @@ def _handle_tool_call(tool: Tool) -> Tool:
         return answer
 
     return run_tool
+
+
+def _parse_swiss_time(timestamp: str) -> datetime:
+    """
+    Read an ISO 8601 timestamp or date, such as "2026-09-23T14:00" or "2026-09-23".
+
+    Without an offset it is Swiss local time; an explicit offset is kept. Raise CannotAnswerError
+    when the text is not a timestamp.
+    """
+    try:
+        moment = datetime.fromisoformat(timestamp)
+    except ValueError as error:
+        raise CannotAnswerError(
+            f"'{timestamp}' is not a valid timestamp, use for example '2026-09-23T14:00' or '2026-09-23'"
+        ) from error
+    return moment if moment.tzinfo else moment.replace(tzinfo=SWISS_TZ)
 
 
 class SwissWeatherMCPServer:

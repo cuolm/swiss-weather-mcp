@@ -39,6 +39,33 @@ MIN_TRIMMED_QUERY_LENGTH = 5
 MAX_SIMILAR_NAMES = 10
 
 
+def _find_names_starting_with_query(name_to_places: Dict[str, List[SwisstopoPlace]], query: str) -> List[str]:
+    """Find the names that start with the query as a whole word, sorted, such as "davos dorf" for "davos"."""
+    names_starting_with_query = []
+    for name in name_to_places:
+        is_whole_word_start = any(name.startswith(query + separator) for separator in NAME_SEPARATORS)
+        if is_whole_word_start:
+            names_starting_with_query.append(name)
+    names_starting_with_query.sort()
+    return names_starting_with_query
+
+
+def _list_biggest_places(
+    name_to_places: Dict[str, List[SwisstopoPlace]], names: List[str]
+) -> List[SwisstopoPlace]:
+    """
+    Return the biggest place of each name, the places with the most people first.
+
+    The biggest place of a name is the one with the most people, then the one merged from the
+    most rows of swissNAMES3D, such as a peak that is also a station.
+    """
+    places = []
+    for name in names:
+        biggest_place = name_to_places[name][0]
+        places.append(biggest_place)
+    return sorted(places, key=lambda place: place.population_band, reverse=True)
+
+
 def _split_words(name: str) -> List[str]:
     """Split a normalised name into its words, such as ["piano", "della", "greina"]."""
     words = WORD_SEPARATORS.split(name)
@@ -60,33 +87,6 @@ def _find_names_containing_query_words(
         if query_words_contained_in_name:
             name_to_contained_query_words[name] = query_words_contained_in_name
     return name_to_contained_query_words
-
-
-def _list_biggest_places(
-    name_to_places: Dict[str, List[SwisstopoPlace]], names: List[str]
-) -> List[SwisstopoPlace]:
-    """
-    Return the biggest place of each name, the places with the most people first.
-
-    The biggest place of a name is the one with the most people, then the one merged from the
-    most rows of swissNAMES3D, such as a peak that is also a station.
-    """
-    places = []
-    for name in names:
-        biggest_place = name_to_places[name][0]
-        places.append(biggest_place)
-    return sorted(places, key=lambda place: place.population_band, reverse=True)
-
-
-def _find_names_starting_with_query(name_to_places: Dict[str, List[SwisstopoPlace]], query: str) -> List[str]:
-    """Find the names that start with the query as a whole word, sorted, such as "davos dorf" for "davos"."""
-    names_starting_with_query = []
-    for name in name_to_places:
-        is_whole_word_start = any(name.startswith(query + separator) for separator in NAME_SEPARATORS)
-        if is_whole_word_start:
-            names_starting_with_query.append(name)
-    names_starting_with_query.sort()
-    return names_starting_with_query
 
 
 def _find_names_containing_all_query_words(

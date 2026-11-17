@@ -66,12 +66,6 @@ def normalise_name(name: str) -> str:
     return " ".join(words)
 
 
-def calculate_distance_m(first: SwisstopoPlace, second: SwisstopoPlace) -> float:
-    """Return the distance in metres between two places."""
-    # LV95 is a flat grid in metres, so Pythagoras is exact enough within Switzerland
-    return math.hypot(first.east_m - second.east_m, first.north_m - second.north_m)
-
-
 def _build_lookup_names(row: SwisstopoPlace) -> List[str]:
     """Build every lookup name of a row, such as "wil sg" and "wil" for "Wil SG"."""
     lookup_names = [normalise_name(row.name)]
@@ -87,6 +81,12 @@ def _build_lookup_names(row: SwisstopoPlace) -> List[str]:
     # A lookup name counts once, even when two rules give it
     unique_lookup_names = list(dict.fromkeys(lookup_names))
     return unique_lookup_names
+
+
+def calculate_distance_m(first: SwisstopoPlace, second: SwisstopoPlace) -> float:
+    """Return the distance in metres between two places."""
+    # LV95 is a flat grid in metres, so Pythagoras is exact enough within Switzerland
+    return math.hypot(first.east_m - second.east_m, first.north_m - second.north_m)
 
 
 def _group_close_rows(rows: List[SwisstopoPlace]) -> List[List[SwisstopoPlace]]:
@@ -105,6 +105,14 @@ def _group_close_rows(rows: List[SwisstopoPlace]) -> List[List[SwisstopoPlace]]:
             groups.remove(group)
         groups.append(merged_group)
     return groups
+
+
+def _measure_group_size(group: List[SwisstopoPlace]) -> Tuple[int, int]:
+    """Return how big a group of rows is, to sort by: the band of its biggest settlement, then its number of rows."""
+    population_band = 0
+    for row in group:
+        population_band = max(population_band, row.population_band)
+    return population_band, len(group)
 
 
 def _merge_rows(group: List[SwisstopoPlace]) -> SwisstopoPlace:
@@ -129,14 +137,6 @@ def _merge_rows(group: List[SwisstopoPlace]) -> SwisstopoPlace:
         if object_type in types_in_group:
             object_types.append(object_type)
     return main_row._replace(object_types=tuple(object_types))
-
-
-def _measure_group_size(group: List[SwisstopoPlace]) -> Tuple[int, int]:
-    """Return how big a group of rows is, to sort by: the band of its biggest settlement, then its number of rows."""
-    population_band = 0
-    for row in group:
-        population_band = max(population_band, row.population_band)
-    return population_band, len(group)
 
 
 def _build_places_of_lookup_name(rows: List[SwisstopoPlace]) -> List[SwisstopoPlace]:
