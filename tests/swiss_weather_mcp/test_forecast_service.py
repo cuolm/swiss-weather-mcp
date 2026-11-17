@@ -112,7 +112,6 @@ async def test_read_rain_past_the_end(service_fixture):
         )
 
 
-
 @pytest.mark.asyncio
 async def test_read_rain_up_to_the_end_of_the_forecast(service_fixture):
     # The forecast ends at 20:00 Swiss, so the third block, 20:00 to 23:00, is left out
@@ -212,7 +211,6 @@ async def test_read_temperature_past_the_end(service_fixture):
         await service_fixture.read_temperature(
             "Zurich", build_swiss_time("2026-09-23T13:00"), build_swiss_time("2026-09-23T17:00")
         )
-
 
 
 @pytest.mark.asyncio
