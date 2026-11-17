@@ -21,6 +21,88 @@ logger = logging.getLogger(__name__)
 MAX_SNOW_STATION_WEIGHTED_DISTANCE_M = 25000
 
 
+def list_slf_snow_stations(slf_source: SLFMeasurementSource) -> List[SLFStation]:
+    """List the SLF snow stations, or none when SLF cannot be reached; the MeteoSwiss stations then answer alone."""
+    try:
+        return slf_source.list_snow_stations()
+    except requests.RequestException as error:
+        logger.warning(f"Could not download the SLF snow stations, answering without them: {error}")
+        return []
+
+
+def _read_snow_depth(
+    meteoswiss_source: MeteoSwissMeasurementSource, slf_source: SLFMeasurementSource, station: SnowStation
+) -> Optional[LatestSnowDepth]:
+    """Read a station's current snow depth from its source, or None when it has none or SLF cannot be reached."""
+    if isinstance(station, MeteoSwissStation):
+        return meteoswiss_source.read_snow_depth(station)
+    try:
+        return slf_source.read_snow_depth(station)
+    except requests.RequestException as error:
+        logger.warning(f"Could not download the snow depth of SLF station {station.code}: {error}")
+        return None
+
+
+def _find_snow_depth(
+    meteoswiss_source: MeteoSwissMeasurementSource,
+    slf_source: SLFMeasurementSource,
+    place: SwisstopoPlace,
+    snow_stations: List[SnowStation],
+) -> Optional[LatestSnowDepth]:
+    """
+    Find the current snow depth for a place from the given snow stations.
+
+    The stations within MAX_SNOW_STATION_WEIGHTED_DISTANCE_M are ranked by distance plus
+    METRES_PER_HEIGHT_METRE times the height gap, and the first of the first MAX_STATIONS_TRIED
+    with a current snow depth is taken.
+    """
+    ranked_snow_stations = rank_by_weighted_distance(place, snow_stations, MAX_SNOW_STATION_WEIGHTED_DISTANCE_M)
+    for station in ranked_snow_stations[:MAX_STATIONS_TRIED]:
+        snow_depth = _read_snow_depth(meteoswiss_source, slf_source, station)
+        if snow_depth is not None:
+            return snow_depth
+        logger.info(f"Station {station.name} has no current snow depth, trying the next station")
+    return None
+
+
+def _read_new_snow(slf_source: SLFMeasurementSource, station: SLFStation) -> Optional[LatestNewSnow]:
+    """Read an SLF station's new snow, or None when it has none or SLF cannot be reached."""
+    try:
+        return slf_source.read_new_snow(station)
+    except requests.RequestException as error:
+        logger.warning(f"Could not download the new snow of SLF station {station.code}: {error}")
+        return None
+
+
+def _find_new_snow(
+    slf_source: SLFMeasurementSource, place: SwisstopoPlace, slf_snow_stations: List[SLFStation]
+) -> Optional[LatestNewSnow]:
+    """
+    Find the new snow for a place from the given SLF snow stations, the only ones that have it.
+
+    The stations are chosen and ranked as for the snow depth, and the first of the first
+    MAX_STATIONS_TRIED with new snow from today or yesterday is taken.
+    """
+    ranked_snow_stations = rank_by_weighted_distance(place, slf_snow_stations, MAX_SNOW_STATION_WEIGHTED_DISTANCE_M)
+    for station in ranked_snow_stations[:MAX_STATIONS_TRIED]:
+        new_snow = _read_new_snow(slf_source, station)
+        if new_snow is not None:
+            return new_snow
+        logger.info(f"SLF station {station.code} has no current new snow, trying the next station")
+    return None
+
+
+def describe_closest_snow_station(place: SwisstopoPlace, snow_stations: Sequence[SnowStation]) -> str:
+    """Say that no snow station is close enough to a place, and which one is the closest."""
+    ranked_snow_stations = rank_by_weighted_distance(place, snow_stations)
+    closest_station = ranked_snow_stations[0]
+    distance_and_height = describe_distance_and_height(place, closest_station)
+    return (
+        f"No snow station is close enough to {place.display_name} in distance and height. The closest, "
+        f"{closest_station.display_name}, is {distance_and_height}."
+    )
+
+
 def describe_snow_station(place: SwisstopoPlace, station: SnowStation, value_name: str) -> str:
     """Say which station a snow value of a place comes from, how far away and how much higher or lower."""
     distance_and_height = describe_distance_and_height(place, station)
@@ -65,88 +147,6 @@ def _build_new_snow_block(place: SwisstopoPlace, new_snow: LatestNewSnow) -> Dic
     block["new_snow_24_hours_cm"] = round_to_tenth(new_snow.new_snow_24_hours_cm)
     block["new_snow_3_days_cm"] = round_to_tenth(new_snow.new_snow_3_days_cm)
     return block
-
-
-def list_slf_snow_stations(slf_source: SLFMeasurementSource) -> List[SLFStation]:
-    """List the SLF snow stations, or none when SLF cannot be reached; the MeteoSwiss stations then answer alone."""
-    try:
-        return slf_source.list_snow_stations()
-    except requests.RequestException as error:
-        logger.warning(f"Could not download the SLF snow stations, answering without them: {error}")
-        return []
-
-
-def _read_snow_depth(
-    meteoswiss_source: MeteoSwissMeasurementSource, slf_source: SLFMeasurementSource, station: SnowStation
-) -> Optional[LatestSnowDepth]:
-    """Read a station's current snow depth from its source, or None when it has none or SLF cannot be reached."""
-    if isinstance(station, MeteoSwissStation):
-        return meteoswiss_source.read_snow_depth(station)
-    try:
-        return slf_source.read_snow_depth(station)
-    except requests.RequestException as error:
-        logger.warning(f"Could not download the snow depth of SLF station {station.code}: {error}")
-        return None
-
-
-def _read_new_snow(slf_source: SLFMeasurementSource, station: SLFStation) -> Optional[LatestNewSnow]:
-    """Read an SLF station's new snow, or None when it has none or SLF cannot be reached."""
-    try:
-        return slf_source.read_new_snow(station)
-    except requests.RequestException as error:
-        logger.warning(f"Could not download the new snow of SLF station {station.code}: {error}")
-        return None
-
-
-def _find_snow_depth(
-    meteoswiss_source: MeteoSwissMeasurementSource,
-    slf_source: SLFMeasurementSource,
-    place: SwisstopoPlace,
-    snow_stations: List[SnowStation],
-) -> Optional[LatestSnowDepth]:
-    """
-    Find the current snow depth for a place from the given snow stations.
-
-    The stations within MAX_SNOW_STATION_WEIGHTED_DISTANCE_M are ranked by distance plus
-    METRES_PER_HEIGHT_METRE times the height gap, and the first of the first MAX_STATIONS_TRIED
-    with a current snow depth is taken.
-    """
-    ranked_snow_stations = rank_by_weighted_distance(place, snow_stations, MAX_SNOW_STATION_WEIGHTED_DISTANCE_M)
-    for station in ranked_snow_stations[:MAX_STATIONS_TRIED]:
-        snow_depth = _read_snow_depth(meteoswiss_source, slf_source, station)
-        if snow_depth is not None:
-            return snow_depth
-        logger.info(f"Station {station.name} has no current snow depth, trying the next station")
-    return None
-
-
-def _find_new_snow(
-    slf_source: SLFMeasurementSource, place: SwisstopoPlace, slf_snow_stations: List[SLFStation]
-) -> Optional[LatestNewSnow]:
-    """
-    Find the new snow for a place from the given SLF snow stations, the only ones that have it.
-
-    The stations are chosen and ranked as for the snow depth, and the first of the first
-    MAX_STATIONS_TRIED with new snow from today or yesterday is taken.
-    """
-    ranked_snow_stations = rank_by_weighted_distance(place, slf_snow_stations, MAX_SNOW_STATION_WEIGHTED_DISTANCE_M)
-    for station in ranked_snow_stations[:MAX_STATIONS_TRIED]:
-        new_snow = _read_new_snow(slf_source, station)
-        if new_snow is not None:
-            return new_snow
-        logger.info(f"SLF station {station.code} has no current new snow, trying the next station")
-    return None
-
-
-def describe_closest_snow_station(place: SwisstopoPlace, snow_stations: Sequence[SnowStation]) -> str:
-    """Say that no snow station is close enough to a place, and which one is the closest."""
-    ranked_snow_stations = rank_by_weighted_distance(place, snow_stations)
-    closest_station = ranked_snow_stations[0]
-    distance_and_height = describe_distance_and_height(place, closest_station)
-    return (
-        f"No snow station is close enough to {place.display_name} in distance and height. The closest, "
-        f"{closest_station.display_name}, is {distance_and_height}."
-    )
 
 
 def build_snow_answer(

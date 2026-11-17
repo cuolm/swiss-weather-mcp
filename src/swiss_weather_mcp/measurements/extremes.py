@@ -63,63 +63,6 @@ def _find_station_values(all_measurements: List[MeteoSwissStationMeasurements], 
     return station_values
 
 
-def _find_station_values_at_least(station_values: List[StationValue], minimum: float) -> List[StationValue]:
-    """Find the stations whose value is at least a minimum."""
-    matching_values = []
-    for station_value in station_values:
-        if station_value.value >= minimum:
-            matching_values.append(station_value)
-    return matching_values
-
-
-def _build_station_rows(station_values: List[StationValue], extreme: Extreme) -> List[Dict[str, Any]]:
-    """Build the answer rows of the first STATION_COUNT stations in the order of an extreme."""
-    ranked_values = sorted(
-        station_values, key=lambda station_value: station_value.value, reverse=extreme.highest_first
-    )
-    rows = []
-    for station_value in ranked_values[:STATION_COUNT]:
-        rows.append({
-            "station": station_value.station.display_name,
-            "canton": station_value.station.canton,
-            extreme.field: station_value.value,
-        })
-    return rows
-
-
-def _count_stations_by_canton(station_values: List[StationValue]) -> Dict[str, int]:
-    """Count the stations of each canton."""
-    canton_to_station_count: Dict[str, int] = {}
-    for station_value in station_values:
-        canton = station_value.station.canton
-        canton_to_station_count[canton] = canton_to_station_count.get(canton, 0) + 1
-    return canton_to_station_count
-
-
-def _build_canton_rows(station_values: List[StationValue], matching_values: List[StationValue],
-                       label: str) -> List[Dict[str, Any]]:
-    """
-    Build one answer row for each canton with a measuring station.
-
-    Each row says how many of its measuring stations match, such as the rainy ones. The canton with
-    the highest share comes first.
-    """
-    measuring_counts = _count_stations_by_canton(station_values)
-    matching_counts = _count_stations_by_canton(matching_values)
-    rows: List[Dict[str, Any]] = []
-    for canton, measuring_count in measuring_counts.items():
-        matching_count = matching_counts.get(canton, 0)
-        rows.append({
-            "canton": canton,
-            f"{label}_stations": matching_count,
-            "measuring_stations": measuring_count,
-            f"{label}_percent": round(100 * matching_count / measuring_count),
-        })
-    # Among equal shares the canton with more stations comes first, because its share is better supported
-    rows.sort(key=lambda row: (-row[f"{label}_percent"], -row["measuring_stations"], row["canton"]))
-    return rows
-
-
 def _find_sunshine_class(sunshine_min: float) -> str:
     """Find the class of MeteoSwiss's sunshine terms for the sun of the last 10 minutes."""
     for sunshine_class in SUNSHINE_CLASSES[:-1]:
@@ -166,6 +109,63 @@ def _build_sunshine_canton_rows(station_values: List[StationValue]) -> List[Dict
     rows.sort(key=lambda row: (
         -canton_to_average_sunshine_min[row["canton"]], -row["measuring_stations"], row["canton"]
     ))
+    return rows
+
+
+def _find_station_values_at_least(station_values: List[StationValue], minimum: float) -> List[StationValue]:
+    """Find the stations whose value is at least a minimum."""
+    matching_values = []
+    for station_value in station_values:
+        if station_value.value >= minimum:
+            matching_values.append(station_value)
+    return matching_values
+
+
+def _count_stations_by_canton(station_values: List[StationValue]) -> Dict[str, int]:
+    """Count the stations of each canton."""
+    canton_to_station_count: Dict[str, int] = {}
+    for station_value in station_values:
+        canton = station_value.station.canton
+        canton_to_station_count[canton] = canton_to_station_count.get(canton, 0) + 1
+    return canton_to_station_count
+
+
+def _build_canton_rows(station_values: List[StationValue], matching_values: List[StationValue],
+                       label: str) -> List[Dict[str, Any]]:
+    """
+    Build one answer row for each canton with a measuring station.
+
+    Each row says how many of its measuring stations match, such as the rainy ones. The canton with
+    the highest share comes first.
+    """
+    measuring_counts = _count_stations_by_canton(station_values)
+    matching_counts = _count_stations_by_canton(matching_values)
+    rows: List[Dict[str, Any]] = []
+    for canton, measuring_count in measuring_counts.items():
+        matching_count = matching_counts.get(canton, 0)
+        rows.append({
+            "canton": canton,
+            f"{label}_stations": matching_count,
+            "measuring_stations": measuring_count,
+            f"{label}_percent": round(100 * matching_count / measuring_count),
+        })
+    # Among equal shares the canton with more stations comes first, because its share is better supported
+    rows.sort(key=lambda row: (-row[f"{label}_percent"], -row["measuring_stations"], row["canton"]))
+    return rows
+
+
+def _build_station_rows(station_values: List[StationValue], extreme: Extreme) -> List[Dict[str, Any]]:
+    """Build the answer rows of the first STATION_COUNT stations in the order of an extreme."""
+    ranked_values = sorted(
+        station_values, key=lambda station_value: station_value.value, reverse=extreme.highest_first
+    )
+    rows = []
+    for station_value in ranked_values[:STATION_COUNT]:
+        rows.append({
+            "station": station_value.station.display_name,
+            "canton": station_value.station.canton,
+            extreme.field: station_value.value,
+        })
     return rows
 
 

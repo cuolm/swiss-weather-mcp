@@ -171,29 +171,14 @@ class MeteoSwissStationMeasurements(NamedTuple):
     parameter_to_value: Dict[str, Optional[float]]
 
 
-def _parse_value(value_text: str) -> Optional[float]:
-    """Read one measured value, or None when the station has none."""
-    if value_text.strip() in MISSING_VALUE_MARKERS:
-        return None
-    return float(value_text)
-
-
-def _parse_values(row: Dict[str, str], parameter_names: Sequence[str]) -> Dict[str, Optional[float]]:
-    """Read the value of each of the parameters from one row, None where the station has none."""
-    parameter_to_value: Dict[str, Optional[float]] = {}
-    for parameter in parameter_names:
-        parameter_to_value[parameter] = _parse_value(row[parameter])
-    return parameter_to_value
+def _parse_data_since(date_text: str) -> date:
+    """Read the start of a station's measurements in the station table, such as "01.01.1864"."""
+    return datetime.strptime(date_text, "%d.%m.%Y").date()
 
 
 def _find_canton_name(abbreviation: str) -> str:
     """Find the full name of a canton, such as "Zurich" for "ZH"; an unknown abbreviation stays as it is."""
     return CANTON_ABBREVIATION_TO_NAME.get(abbreviation, abbreviation)
-
-
-def _parse_data_since(date_text: str) -> date:
-    """Read the start of a station's measurements in the station table, such as "01.01.1864"."""
-    return datetime.strptime(date_text, "%d.%m.%Y").date()
 
 
 def _parse_station(row: Dict[str, str], is_manual_site: bool) -> MeteoSwissStation:
@@ -217,9 +202,19 @@ def _parse_reference_timestamp(timestamp_text: str) -> datetime:
     return datetime.strptime(timestamp_text, "%d.%m.%Y %H:%M").replace(tzinfo=timezone.utc)
 
 
-def _parse_all_stations_timestamp(stamp_text: str) -> datetime:
-    """Read an all stations file timestamp such as "202609281020", which is always UTC."""
-    return datetime.strptime(stamp_text, "%Y%m%d%H%M").replace(tzinfo=timezone.utc)
+def _parse_value(value_text: str) -> Optional[float]:
+    """Read one measured value, or None when the station has none."""
+    if value_text.strip() in MISSING_VALUE_MARKERS:
+        return None
+    return float(value_text)
+
+
+def _parse_values(row: Dict[str, str], parameter_names: Sequence[str]) -> Dict[str, Optional[float]]:
+    """Read the value of each of the parameters from one row, None where the station has none."""
+    parameter_to_value: Dict[str, Optional[float]] = {}
+    for parameter in parameter_names:
+        parameter_to_value[parameter] = _parse_value(row[parameter])
+    return parameter_to_value
 
 
 def _list_periods(first_day: date, last_day: date, today: date) -> List[str]:
@@ -231,6 +226,11 @@ def _list_periods(first_day: date, last_day: date, today: date) -> List[str]:
     if last_day >= this_year_start:
         periods.append(RECENT_DAYS)
     return periods
+
+
+def _parse_all_stations_timestamp(stamp_text: str) -> datetime:
+    """Read an all stations file timestamp such as "202609281020", which is always UTC."""
+    return datetime.strptime(stamp_text, "%Y%m%d%H%M").replace(tzinfo=timezone.utc)
 
 
 class MeteoSwissMeasurementSource:

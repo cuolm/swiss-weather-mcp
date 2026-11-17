@@ -248,6 +248,11 @@ def _parse_manual_site_daily_snow(row: Dict[str, Any]) -> SLFDailySnowMeasuremen
     return SLFDailySnowMeasurements(measured_at, row[SNOW_DEPTH], row[NEW_SNOW])
 
 
+def _is_recent_day(day_measurements: SLFDailySnowMeasurements, today: date) -> bool:
+    """Tell whether a daily value is from today or yesterday."""
+    return day_measurements.measured_at.date() >= today - DAILY_VALUE_MAX_AGE
+
+
 def _parse_snow_history_value(value_text: str) -> Optional[float]:
     """Read one value of a snow history file, or None when it is empty."""
     if not value_text:
@@ -283,11 +288,6 @@ def _build_snow_station_daily_measurements(
         )
         daily_measurements.append(snow_measurements)
     return daily_measurements
-
-
-def _is_recent_day(day_measurements: SLFDailySnowMeasurements, today: date) -> bool:
-    """Tell whether a daily value is from today or yesterday."""
-    return day_measurements.measured_at.date() >= today - DAILY_VALUE_MAX_AGE
 
 
 def _sum_new_snow(all_days: List[SLFDailySnowMeasurements], last_day: date) -> Optional[float]:

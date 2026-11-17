@@ -39,6 +39,37 @@ MEASURED_FIELDS = (
 )
 
 
+def _find_meteoswiss_station_measurements(
+    meteoswiss_source: MeteoSwissMeasurementSource, place: SwisstopoPlace
+) -> List[MeteoSwissStationMeasurements]:
+    """
+    Find the measurements of the MeteoSwiss station for a place, the oldest first.
+
+    The stations are ranked by weighted distance, and the first of the first MAX_STATIONS_TRIED that
+    published a temperature in the last hour is taken. Raise CannotAnswerError when none did.
+    """
+    meteoswiss_stations = meteoswiss_source.list_stations()
+    ranked_meteoswiss_stations = rank_by_weighted_distance(place, meteoswiss_stations)
+    now = datetime.now(timezone.utc)
+    for station in ranked_meteoswiss_stations[:MAX_STATIONS_TRIED]:
+        all_measurements = meteoswiss_source.read_station_measurements(station)
+        # Some stations measure only a few values, such as wind on a tower, and would answer
+        # with almost every value None; a temperature marks a station that measures the usual set
+        if not all_measurements or all_measurements[-1].parameter_to_value[parameters.TEMPERATURE] is None:
+            logger.info(f"Station {station.abbr} has no current temperature, trying the next station")
+            continue
+        latest_measurements = all_measurements[-1]
+        if now - latest_measurements.measured_at > LATEST_MEASUREMENTS_MAX_AGE:
+            logger.info(f"Station {station.abbr} has no measurements in the last hour, trying the next station")
+            continue
+        return all_measurements
+
+    raise CannotAnswerError(
+        f"None of the {MAX_STATIONS_TRIED} stations tried for {place.display_name} published a "
+        f"temperature in the last hour, try again later."
+    )
+
+
 def _describe_meteoswiss_station(
     place: SwisstopoPlace, meteoswiss_station_measurements: MeteoSwissStationMeasurements
 ) -> str:
@@ -50,49 +81,6 @@ def _describe_meteoswiss_station(
         f"The measurements for {place.display_name} are those of the MeteoSwiss station {station.display_name}, "
         f"{distance_and_height}. It measured the following values at {swiss_measured_at:%H:%M}."
     )
-
-
-def _describe_slf_station(place: SwisstopoPlace, slf_station_measurements: SLFStationMeasurements) -> str:
-    """Say which SLF station suits a place better than the MeteoSwiss station, and when its values end."""
-    station = slf_station_measurements.station
-    distance_and_height = describe_distance_and_height(place, station)
-    swiss_measured_at = slf_station_measurements.measured_at.astimezone(SWISS_TZ)
-    return (
-        f"The SLF station {station.display_name}, {distance_and_height}, suits {place.display_name} better in "
-        f"distance and height than the MeteoSwiss station. Its values cover the 30 minutes up to "
-        f"{swiss_measured_at:%H:%M}."
-    )
-
-
-def _find_snow_surface_temperature_c(slf_station_measurements: SLFStationMeasurements) -> Optional[float]:
-    """Return the snow surface temperature, or None with less than 10 cm of snow or no snow depth."""
-    snow_depth_cm = slf_station_measurements.snow_depth_cm
-    if snow_depth_cm is None or snow_depth_cm < SNOW_SURFACE_MIN_SNOW_DEPTH_CM:
-        return None
-    return slf_station_measurements.snow_surface_temperature_c
-
-
-def _build_slf_station_block(place: SwisstopoPlace, slf_station_measurements: SLFStationMeasurements) -> Dict[str, Any]:
-    """Build the slf_station block of the weather now: the latest measurements of an SLF station."""
-    wind_direction_degrees = round_to_tenth(slf_station_measurements.wind_direction_degrees)
-    if wind_direction_degrees is None:
-        compass_point = None
-    else:
-        compass_point = find_compass_point(wind_direction_degrees)
-    block: Dict[str, Any] = {}
-    # A station next to the place stands for it, so the block does not name it
-    if not is_close(place, slf_station_measurements.station):
-        block["data_from"] = _describe_slf_station(place, slf_station_measurements)
-    block["measured_at"] = format_swiss_time(slf_station_measurements.measured_at)
-    block["temperature_c"] = round_to_tenth(slf_station_measurements.temperature_c)
-    block["humidity_percent"] = round_to_tenth(slf_station_measurements.humidity_percent)
-    block["wind_speed_kmh"] = round_to_tenth(slf_station_measurements.wind_speed_kmh)
-    block["wind_direction_degrees"] = wind_direction_degrees
-    block["compass_point"] = compass_point
-    block["strongest_gust_last_30_minutes_kmh"] = round_to_tenth(slf_station_measurements.strongest_gust_kmh)
-    snow_surface_temperature_c = _find_snow_surface_temperature_c(slf_station_measurements)
-    block["snow_surface_temperature_c"] = round_to_tenth(snow_surface_temperature_c)
-    return block
 
 
 def _find_measurements_at(all_measurements: List[MeteoSwissStationMeasurements],
@@ -154,37 +142,6 @@ def _find_highest_last_hour(all_measurements: List[MeteoSwissStationMeasurements
     return max(values)
 
 
-def _find_meteoswiss_station_measurements(
-    meteoswiss_source: MeteoSwissMeasurementSource, place: SwisstopoPlace
-) -> List[MeteoSwissStationMeasurements]:
-    """
-    Find the measurements of the MeteoSwiss station for a place, the oldest first.
-
-    The stations are ranked by weighted distance, and the first of the first MAX_STATIONS_TRIED that
-    published a temperature in the last hour is taken. Raise CannotAnswerError when none did.
-    """
-    meteoswiss_stations = meteoswiss_source.list_stations()
-    ranked_meteoswiss_stations = rank_by_weighted_distance(place, meteoswiss_stations)
-    now = datetime.now(timezone.utc)
-    for station in ranked_meteoswiss_stations[:MAX_STATIONS_TRIED]:
-        all_measurements = meteoswiss_source.read_station_measurements(station)
-        # Some stations measure only a few values, such as wind on a tower, and would answer
-        # with almost every value None; a temperature marks a station that measures the usual set
-        if not all_measurements or all_measurements[-1].parameter_to_value[parameters.TEMPERATURE] is None:
-            logger.info(f"Station {station.abbr} has no current temperature, trying the next station")
-            continue
-        latest_measurements = all_measurements[-1]
-        if now - latest_measurements.measured_at > LATEST_MEASUREMENTS_MAX_AGE:
-            logger.info(f"Station {station.abbr} has no measurements in the last hour, trying the next station")
-            continue
-        return all_measurements
-
-    raise CannotAnswerError(
-        f"None of the {MAX_STATIONS_TRIED} stations tried for {place.display_name} published a "
-        f"temperature in the last hour, try again later."
-    )
-
-
 def _find_recent_slf_station_measurements(
     slf_source: SLFMeasurementSource, ranked_slf_stations: List[SLFStation]
 ) -> Optional[SLFStationMeasurements]:
@@ -218,6 +175,49 @@ def _find_closer_slf_station_measurements(
     except requests.RequestException as error:
         logger.warning(f"Could not download the SLF measurements for {place.display_name}, answering without: {error}")
         return None
+
+
+def _describe_slf_station(place: SwisstopoPlace, slf_station_measurements: SLFStationMeasurements) -> str:
+    """Say which SLF station suits a place better than the MeteoSwiss station, and when its values end."""
+    station = slf_station_measurements.station
+    distance_and_height = describe_distance_and_height(place, station)
+    swiss_measured_at = slf_station_measurements.measured_at.astimezone(SWISS_TZ)
+    return (
+        f"The SLF station {station.display_name}, {distance_and_height}, suits {place.display_name} better in "
+        f"distance and height than the MeteoSwiss station. Its values cover the 30 minutes up to "
+        f"{swiss_measured_at:%H:%M}."
+    )
+
+
+def _find_snow_surface_temperature_c(slf_station_measurements: SLFStationMeasurements) -> Optional[float]:
+    """Return the snow surface temperature, or None with less than 10 cm of snow or no snow depth."""
+    snow_depth_cm = slf_station_measurements.snow_depth_cm
+    if snow_depth_cm is None or snow_depth_cm < SNOW_SURFACE_MIN_SNOW_DEPTH_CM:
+        return None
+    return slf_station_measurements.snow_surface_temperature_c
+
+
+def _build_slf_station_block(place: SwisstopoPlace, slf_station_measurements: SLFStationMeasurements) -> Dict[str, Any]:
+    """Build the slf_station block of the weather now: the latest measurements of an SLF station."""
+    wind_direction_degrees = round_to_tenth(slf_station_measurements.wind_direction_degrees)
+    if wind_direction_degrees is None:
+        compass_point = None
+    else:
+        compass_point = find_compass_point(wind_direction_degrees)
+    block: Dict[str, Any] = {}
+    # A station next to the place stands for it, so the block does not name it
+    if not is_close(place, slf_station_measurements.station):
+        block["data_from"] = _describe_slf_station(place, slf_station_measurements)
+    block["measured_at"] = format_swiss_time(slf_station_measurements.measured_at)
+    block["temperature_c"] = round_to_tenth(slf_station_measurements.temperature_c)
+    block["humidity_percent"] = round_to_tenth(slf_station_measurements.humidity_percent)
+    block["wind_speed_kmh"] = round_to_tenth(slf_station_measurements.wind_speed_kmh)
+    block["wind_direction_degrees"] = wind_direction_degrees
+    block["compass_point"] = compass_point
+    block["strongest_gust_last_30_minutes_kmh"] = round_to_tenth(slf_station_measurements.strongest_gust_kmh)
+    snow_surface_temperature_c = _find_snow_surface_temperature_c(slf_station_measurements)
+    block["snow_surface_temperature_c"] = round_to_tenth(snow_surface_temperature_c)
+    return block
 
 
 def build_current_answer(
