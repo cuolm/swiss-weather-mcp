@@ -163,6 +163,14 @@
     little sunshine (1) and hardly any sunshine (0). MeteoSwiss's ranges meet at 20, 50 and 80 %. A
     station exactly on such a border gets the sunnier term, so 2 minutes (20 %) is partly sunny. The
     cantons are sorted by the average sunshine of their stations.
+  - For the deepest snow and the most new snow, it lists the 5 SLF stations with the most snow, and
+    counts the stations with snow among those that measured. The values are of 06:00 UTC on the newest
+    morning of SLF's daily snow: those of about 130 automatic stations, and of the manual sites whose
+    observer measured that morning. MeteoSwiss publishes the snow of each station in its own file, so
+    its stations are not ranked. The new snow is of the 24 hours up to 06:00 UTC. SLF calculates it
+    for its automatic stations from the snow depth with its SNOWPACK model, while observers measure it
+    at the manual sites, so each station says which kind it is. The deepest snow is mostly at the
+    highest automatic stations: on 2026-11-17 the first 5 lay between 2252 and 2800 m.
   - Example: `measurements_extremes("sunniest")`.
 
 ## Avalanche Bulletin

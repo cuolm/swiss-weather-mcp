@@ -115,7 +115,7 @@ Answers name the forecast point when it is not next to the place (see [Forecast 
 | `measurements_current(location)` | What a station near the place measures now (see [Measurements](docs/how-it-works.md#measurements)) |
 | `measurements_history(location, start_date, days, values)` | 1 to 366 past days: lowest, mean and highest temperature, rain, sunshine, strongest gust, snow depth and new snow |
 | `measurements_snow(location)` | Snow depth now, and new snow of the last 24 hours and 3 days (see [Measurements](docs/how-it-works.md#measurements)) |
-| `measurements_extremes(extreme)` | Where it is `warmest`, `coldest`, `windiest`, `wettest` or `sunniest` now |
+| `measurements_extremes(extreme)` | Where it is `warmest`, `coldest`, `windiest`, `wettest` or `sunniest` now, or where the snow is deepest (`deepest_snow`) or most new snow fell (`most_new_snow`) |
 | `avalanche_bulletin(location)` | SLF avalanche bulletin valid now: danger level, avalanche problems and texts (see [Avalanche Bulletin](docs/how-it-works.md#avalanche-bulletin)) |
 | `astronomy_sun(location, date)` | Sunrise, sunset and civil twilight |
 | `astronomy_moon(location, date)` | Moonrise, moonset, phase and how much is lit |
