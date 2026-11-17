@@ -113,6 +113,7 @@ import requests
 
 from ..coordinates import calculate_lv95_east_m, calculate_lv95_north_m
 from ..downloads import ensure_recent_file, read_recent_json
+from ..formatting import find_canton_name
 from .snow_values import SNOW_DEPTH_MAX_AGE, SnowStationDailyMeasurements, LatestNewSnow, LatestSnowDepth
 
 logger = logging.getLogger(__name__)
@@ -166,6 +167,7 @@ class SLFStation(NamedTuple):
     """An IMIS station or a manual site as SLF's station lists describe it."""
     code: str
     name: str
+    canton: str  # the full name, such as "Valais"
     altitude_m: float
     east_m: float   # LV95, the Swiss grid in metres, turned from the WGS84 position SLF publishes
     north_m: float  # LV95
@@ -201,9 +203,11 @@ def _parse_station(station_object: Dict[str, Any], is_manual_site: bool) -> SLFS
     """Turn one object of a station list into a station on LV95."""
     latitude_deg = station_object["lat"]
     longitude_deg = station_object["lon"]
+    canton = find_canton_name(station_object["canton_code"])
     return SLFStation(
         code=station_object["code"],
         name=station_object["label"],
+        canton=canton,
         altitude_m=station_object["elevation"],
         east_m=calculate_lv95_east_m(latitude_deg, longitude_deg),
         north_m=calculate_lv95_north_m(latitude_deg, longitude_deg),

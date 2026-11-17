@@ -27,6 +27,12 @@ def test_list_snow_stations(slf_source_fixture):
     ]
 
 
+def test_list_snow_stations_names_the_canton(slf_source_fixture):
+    # SLF's lists give the canton abbreviation, the station gets its full name
+    davos = find_snow_station(slf_source_fixture, "5DF0")
+    assert davos.canton == "Graubünden"
+
+
 # --- read_snow_depth ---
 
 def test_read_snow_depth_of_an_imis_station(slf_source_fixture):

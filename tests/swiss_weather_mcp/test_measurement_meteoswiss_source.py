@@ -7,7 +7,7 @@ from fakes import MEASUREMENTS_NOW
 from swiss_weather_mcp.distance import calculate_weighted_distance_m
 from swiss_weather_mcp.measurements import parameters
 from swiss_weather_mcp.measurements.meteoswiss_source import (
-    MeteoSwissStation, _find_canton_name, _list_periods, _parse_reference_timestamp,
+    MeteoSwissStation, _list_periods, _parse_reference_timestamp,
 )
 from swiss_weather_mcp.measurements.snow_values import LatestSnowDepth
 from swiss_weather_mcp.places.place_source import SwisstopoPlace
@@ -41,15 +41,6 @@ def count_downloads(source_fixture, file_name: str) -> int:
 
 def find_station(meteoswiss_source_fixture, abbr: str):
     return meteoswiss_source_fixture._load_stations()[abbr]
-
-
-# --- _find_canton_name ---
-
-def test_find_canton_name():
-    # Liechtenstein is listed like a canton, and an abbreviation MeteoSwiss adds later stays as it is
-    assert [_find_canton_name(abbreviation) for abbreviation in ("GR", "FL", "XX")] == [
-        "Graubünden", "Liechtenstein", "XX",
-    ]
 
 
 # --- _parse_reference_timestamp ---

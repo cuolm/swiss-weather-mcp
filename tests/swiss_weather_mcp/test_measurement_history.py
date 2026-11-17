@@ -265,7 +265,8 @@ def build_meteoswiss_site(abbr: str) -> MeteoSwissStation:
 
 def build_slf_station(code: str) -> SLFStation:
     return SLFStation(
-        code=code, name=code, altitude_m=2500.0, east_m=2780000.0, north_m=1190000.0, is_manual_site=False
+        code=code, name=code, canton="Graubünden", altitude_m=2500.0, east_m=2780000.0, north_m=1190000.0,
+        is_manual_site=False,
     )
 
 

@@ -1,6 +1,8 @@
 from datetime import datetime, timezone
 
-from swiss_weather_mcp.formatting import describe_height_difference, find_compass_point, format_swiss_time
+from swiss_weather_mcp.formatting import (
+    describe_height_difference, find_canton_name, find_compass_point, format_swiss_time,
+)
 
 
 # --- format_swiss_time ---
@@ -25,4 +27,13 @@ def testfind_compass_point():
 def test_describe_height_difference():
     assert [describe_height_difference(difference_m) for difference_m in (195, -801, 0)] == [
         "195 m higher", "801 m lower", "at the same height",
+    ]
+
+
+# --- find_canton_name ---
+
+def test_find_canton_name():
+    # Liechtenstein is listed like a canton, and an abbreviation added later stays as it is
+    assert [find_canton_name(abbreviation) for abbreviation in ("GR", "FL", "XX")] == [
+        "Graubünden", "Liechtenstein", "XX",
     ]

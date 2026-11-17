@@ -105,6 +105,7 @@ from typing import Dict, List, NamedTuple, Optional, Sequence, Set
 
 from . import parameters
 from ..downloads import read_recent_csv_rows
+from ..formatting import find_canton_name
 from .snow_values import SNOW_DEPTH_MAX_AGE, SnowStationDailyMeasurements, LatestSnowDepth
 
 logger = logging.getLogger(__name__)
@@ -136,17 +137,6 @@ PERIOD_TO_MAX_AGE = {
 
 MISSING_VALUE_MARKERS = {"", "-"}
 
-# The station table names a canton by its abbreviation, and lists Liechtenstein like a canton
-CANTON_ABBREVIATION_TO_NAME = {
-    "AG": "Aargau", "AI": "Appenzell Innerrhoden", "AR": "Appenzell Ausserrhoden", "BE": "Bern",
-    "BL": "Basel-Landschaft", "BS": "Basel-Stadt", "FR": "Fribourg", "GE": "Geneva", "GL": "Glarus",
-    "GR": "Graubünden", "JU": "Jura", "LU": "Lucerne", "NE": "Neuchâtel", "NW": "Nidwalden",
-    "OW": "Obwalden", "SG": "St. Gallen", "SH": "Schaffhausen", "SO": "Solothurn", "SZ": "Schwyz",
-    "TG": "Thurgau", "TI": "Ticino", "UR": "Uri", "VD": "Vaud", "VS": "Valais", "ZG": "Zug",
-    "ZH": "Zurich", "FL": "Liechtenstein",
-}
-
-
 class MeteoSwissStation(NamedTuple):
     """A SwissMetNet weather station or a manual site, as their station tables describe them."""
     abbr: str
@@ -176,15 +166,10 @@ def _parse_data_since(date_text: str) -> date:
     return datetime.strptime(date_text, "%d.%m.%Y").date()
 
 
-def _find_canton_name(abbreviation: str) -> str:
-    """Find the full name of a canton, such as "Zurich" for "ZH"; an unknown abbreviation stays as it is."""
-    return CANTON_ABBREVIATION_TO_NAME.get(abbreviation, abbreviation)
-
-
 def _parse_station(row: Dict[str, str], is_manual_site: bool) -> MeteoSwissStation:
     """Turn one row of a station table into a station."""
     data_since = _parse_data_since(row["station_data_since"])
-    canton = _find_canton_name(row["station_canton"])
+    canton = find_canton_name(row["station_canton"])
     return MeteoSwissStation(
         abbr=row["station_abbr"],
         name=row["station_name"],
