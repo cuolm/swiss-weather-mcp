@@ -100,7 +100,7 @@ def test_find_place_refuses_a_near_far_from_every_place(place_finder_fixture):
 
 
 def test_find_place_refuses_an_unknown_near(place_finder_fixture):
-    with pytest.raises(CannotAnswerError, match="No 'Blausee' lies near 'Kandertal'"):
+    with pytest.raises(CannotAnswerError, match="No place is called 'Kandertal'. 'Blausee' is the name of 2 places"):
         place_finder_fixture.find_place("Blausee", nearby_location="Kandertal")
 
 

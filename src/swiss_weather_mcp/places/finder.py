@@ -39,7 +39,8 @@ The location is looked up among the places of swissNAMES3D, see lookup.py:
                              location="Blausee", near="Ramiswil": settlement, fewer than 20
                                people, 683 m, municipality Mümliswil-Ramiswil, canton Solothurn
                              ...
-                         (starting with "No 'Blausee' lies near 'Kandertal'." when one was given)
+                         (starting with "No 'Blausee' lies near 'Davos Dorf'." when one was given,
+                         or "No place is called 'Xyzdorf'." when no place has that name)
 
 The tools call nearby_location near, and the texts for the model call a settlement a village.
 Two places of a name can lie so close together that every settlement leads to the same one; the
@@ -182,7 +183,11 @@ class PlaceFinder:
 
         no_place_near_sentence = ""
         if nearby_location is not None:
-            no_place_near_sentence = f"No '{location}' lies near '{nearby_location}'. "
+            nearby_places = self.place_lookup.find_places_named(nearby_location)
+            if nearby_places:
+                no_place_near_sentence = f"No '{location}' lies near '{nearby_location}'. "
+            else:
+                no_place_near_sentence = f"No place is called '{nearby_location}'. "
         return CannotAnswerError(
             f"{no_place_near_sentence}'{location}' is the name of {len(places)} places. Call again with location "
             f"'{location}' and near set to the village next to the place the user means, or ask the user "
