@@ -29,56 +29,21 @@ WEATHER_VALUES = "weather"
 SNOW_VALUES = "snow"
 
 
-def _describe_meteoswiss_station(place: SwisstopoPlace, station: MeteoSwissStation) -> str:
-    """Say which station measured the values for a place, how far away and how much higher or lower."""
-    distance_and_height = describe_distance_and_height(place, station)
-    return (
-        f"The measurements for {place.display_name} are those of the MeteoSwiss station {station.display_name}, "
-        f"{distance_and_height}."
-    )
+def _find_last_past_day(first_day: date, last_day: date) -> date:
+    """
+    Find the last day before today up to last_day, as today and later days have no daily measurements yet.
 
-
-def _convert_minutes_to_hours(minutes: Optional[float]) -> Optional[float]:
-    """Turn minutes into hours rounded to a tenth, such as the sunshine of a day, or return None for None."""
-    if minutes is None:
-        return None
-    return round(minutes / MINUTES_PER_HOUR, 1)
-
-
-def _build_rain_field(parameter_to_value: Dict[str, Optional[float]]) -> Dict[str, Optional[float]]:
-    """Build the rain of a day: of the UTC day, or from 06:00 to 06:00 UTC when only that was measured."""
-    rain_mm = parameter_to_value[parameters.PRECIPITATION_DAY]
-    rain_06_to_06_utc_mm = parameter_to_value[parameters.PRECIPITATION_DAY_6_TO_6_UTC]
-    if rain_mm is None and rain_06_to_06_utc_mm is not None:
-        return {"rain_06_to_06_utc_mm": rain_06_to_06_utc_mm}
-    return {"rain_mm": rain_mm}
-
-
-def _build_weather_day_row(day_measurements: MeteoSwissStationMeasurements) -> Dict[str, Any]:
-    """Build the weather row of one day of a station's daily measurements."""
-    day = day_measurements.measured_at.date()
-    parameter_to_value = day_measurements.parameter_to_value
-    rain_field = _build_rain_field(parameter_to_value)
-    sunshine_min = parameter_to_value[parameters.SUNSHINE_DAY]
-    return {
-        "date": day.isoformat(),
-        "weekday": f"{day:%A}",
-        "temperature_mean_c": parameter_to_value[parameters.TEMPERATURE_DAY_MEAN],
-        "temperature_min_c": parameter_to_value[parameters.TEMPERATURE_DAY_MIN],
-        "temperature_max_c": parameter_to_value[parameters.TEMPERATURE_DAY_MAX],
-        **rain_field,
-        "sunshine_h": _convert_minutes_to_hours(sunshine_min),
-        "strongest_gust_kmh": parameter_to_value[parameters.WIND_GUSTS_DAY],
-    }
-
-
-def _build_snow_day_row(day_measurements: SnowStationDailyMeasurements) -> Dict[str, Any]:
-    """Build the snow row of one day."""
-    return {
-        "date": day_measurements.day.isoformat(),
-        "snow_depth_cm": day_measurements.snow_depth_cm,
-        "new_snow_cm": day_measurements.new_snow_cm,
-    }
+    Raise CannotAnswerError when first_day is today or later.
+    """
+    today = datetime.now(timezone.utc).date()
+    if first_day >= today:
+        raise CannotAnswerError(
+            f"There are no daily measurements for {first_day.isoformat()} yet. MeteoSwiss publishes "
+            f"the values of a day the next morning, so use measurements_current for now and forecast_daily "
+            f"for today and the days ahead."
+        )
+    yesterday = today - timedelta(days=1)
+    return min(last_day, yesterday)
 
 
 def _describe_days(first_day: date, last_day: date) -> str:
@@ -97,23 +62,6 @@ def _find_days_between(
         if first_day <= day_measurements.measured_at.date() <= last_day:
             days_between.append(day_measurements)
     return days_between
-
-
-def _find_last_past_day(first_day: date, last_day: date) -> date:
-    """
-    Find the last day before today up to last_day, as today and later days have no daily measurements yet.
-
-    Raise CannotAnswerError when first_day is today or later.
-    """
-    today = datetime.now(timezone.utc).date()
-    if first_day >= today:
-        raise CannotAnswerError(
-            f"There are no daily measurements for {first_day.isoformat()} yet. MeteoSwiss publishes "
-            f"the values of a day the next morning, so use measurements_current for now and forecast_daily "
-            f"for today and the days ahead."
-        )
-    yesterday = today - timedelta(days=1)
-    return min(last_day, yesterday)
 
 
 def _find_meteoswiss_station_daily_measurements(
@@ -163,9 +111,82 @@ def _find_meteoswiss_station_daily_measurements(
     )
 
 
-def _has_snow_value(day_measurements: SnowStationDailyMeasurements) -> bool:
-    """Tell whether a station measured the snow depth or the new snow on a day."""
-    return day_measurements.snow_depth_cm is not None or day_measurements.new_snow_cm is not None
+def _describe_meteoswiss_station(place: SwisstopoPlace, station: MeteoSwissStation) -> str:
+    """Say which station measured the values for a place, how far away and how much higher or lower."""
+    distance_and_height = describe_distance_and_height(place, station)
+    return (
+        f"The measurements for {place.display_name} are those of the MeteoSwiss station {station.display_name}, "
+        f"{distance_and_height}."
+    )
+
+
+def _build_rain_field(parameter_to_value: Dict[str, Optional[float]]) -> Dict[str, Optional[float]]:
+    """Build the rain of a day: of the UTC day, or from 06:00 to 06:00 UTC when only that was measured."""
+    rain_mm = parameter_to_value[parameters.PRECIPITATION_DAY]
+    rain_06_to_06_utc_mm = parameter_to_value[parameters.PRECIPITATION_DAY_6_TO_6_UTC]
+    if rain_mm is None and rain_06_to_06_utc_mm is not None:
+        return {"rain_06_to_06_utc_mm": rain_06_to_06_utc_mm}
+    return {"rain_mm": rain_mm}
+
+
+def _convert_minutes_to_hours(minutes: Optional[float]) -> Optional[float]:
+    """Turn minutes into hours rounded to a tenth, such as the sunshine of a day, or return None for None."""
+    if minutes is None:
+        return None
+    return round(minutes / MINUTES_PER_HOUR, 1)
+
+
+def _build_weather_day_row(day_measurements: MeteoSwissStationMeasurements) -> Dict[str, Any]:
+    """Build the weather row of one day of a station's daily measurements."""
+    day = day_measurements.measured_at.date()
+    parameter_to_value = day_measurements.parameter_to_value
+    rain_field = _build_rain_field(parameter_to_value)
+    sunshine_min = parameter_to_value[parameters.SUNSHINE_DAY]
+    return {
+        "date": day.isoformat(),
+        "weekday": f"{day:%A}",
+        "temperature_mean_c": parameter_to_value[parameters.TEMPERATURE_DAY_MEAN],
+        "temperature_min_c": parameter_to_value[parameters.TEMPERATURE_DAY_MIN],
+        "temperature_max_c": parameter_to_value[parameters.TEMPERATURE_DAY_MAX],
+        **rain_field,
+        "sunshine_h": _convert_minutes_to_hours(sunshine_min),
+        "strongest_gust_kmh": parameter_to_value[parameters.WIND_GUSTS_DAY],
+    }
+
+
+def _build_weather_block(
+    meteoswiss_source: MeteoSwissMeasurementSource, place: SwisstopoPlace, first_day: date, last_day: date
+) -> Dict[str, Any]:
+    """Build the weather block for a place from the best-suited station; raise CannotAnswerError if none has values."""
+    daily_measurements = _find_meteoswiss_station_daily_measurements(meteoswiss_source, place, first_day, last_day)
+    block: Dict[str, Any] = {}
+    station = daily_measurements[0].station
+    # A station next to the place stands for it, so the block does not name it
+    if not is_close(place, station):
+        block["data_from"] = _describe_meteoswiss_station(place, station)
+    day_rows = []
+    for day_measurements in daily_measurements:
+        day_row = _build_weather_day_row(day_measurements)
+        day_rows.append(day_row)
+    block["days"] = day_rows
+    return block
+
+
+def _list_snow_stations_to_try(ranked_snow_stations: List[SnowStation]) -> List[SnowStation]:
+    """List the first MAX_STATIONS_TRIED stations of each source, MeteoSwiss and SLF, in their order."""
+    meteoswiss_count = 0
+    slf_count = 0
+    snow_stations_to_try: List[SnowStation] = []
+    for station in ranked_snow_stations:
+        if isinstance(station, MeteoSwissStation):
+            meteoswiss_count += 1
+            if meteoswiss_count <= MAX_STATIONS_TRIED:
+                snow_stations_to_try.append(station)
+        else:
+            slf_count += 1
+            if slf_count <= MAX_STATIONS_TRIED:
+                snow_stations_to_try.append(station)
+    return snow_stations_to_try
 
 
 def _read_snow_history(
@@ -185,21 +206,9 @@ def _read_snow_history(
         return []
 
 
-def _list_snow_stations_to_try(ranked_snow_stations: List[SnowStation]) -> List[SnowStation]:
-    """List the first MAX_STATIONS_TRIED stations of each source, MeteoSwiss and SLF, in their order."""
-    meteoswiss_count = 0
-    slf_count = 0
-    snow_stations_to_try: List[SnowStation] = []
-    for station in ranked_snow_stations:
-        if isinstance(station, MeteoSwissStation):
-            meteoswiss_count += 1
-            if meteoswiss_count <= MAX_STATIONS_TRIED:
-                snow_stations_to_try.append(station)
-        else:
-            slf_count += 1
-            if slf_count <= MAX_STATIONS_TRIED:
-                snow_stations_to_try.append(station)
-    return snow_stations_to_try
+def _has_snow_value(day_measurements: SnowStationDailyMeasurements) -> bool:
+    """Tell whether a station measured the snow depth or the new snow on a day."""
+    return day_measurements.snow_depth_cm is not None or day_measurements.new_snow_cm is not None
 
 
 def _find_snow_station_daily_measurements(
@@ -256,22 +265,13 @@ def _find_snow_station_daily_measurements(
     )
 
 
-def _build_weather_block(
-    meteoswiss_source: MeteoSwissMeasurementSource, place: SwisstopoPlace, first_day: date, last_day: date
-) -> Dict[str, Any]:
-    """Build the weather block for a place from the best-suited station; raise CannotAnswerError if none has values."""
-    daily_measurements = _find_meteoswiss_station_daily_measurements(meteoswiss_source, place, first_day, last_day)
-    block: Dict[str, Any] = {}
-    station = daily_measurements[0].station
-    # A station next to the place stands for it, so the block does not name it
-    if not is_close(place, station):
-        block["data_from"] = _describe_meteoswiss_station(place, station)
-    day_rows = []
-    for day_measurements in daily_measurements:
-        day_row = _build_weather_day_row(day_measurements)
-        day_rows.append(day_row)
-    block["days"] = day_rows
-    return block
+def _build_snow_day_row(day_measurements: SnowStationDailyMeasurements) -> Dict[str, Any]:
+    """Build the snow row of one day."""
+    return {
+        "date": day_measurements.day.isoformat(),
+        "snow_depth_cm": day_measurements.snow_depth_cm,
+        "new_snow_cm": day_measurements.new_snow_cm,
+    }
 
 
 def _build_snow_block(
