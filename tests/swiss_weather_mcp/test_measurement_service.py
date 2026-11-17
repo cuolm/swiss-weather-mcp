@@ -10,7 +10,7 @@ from swiss_weather_mcp.measurements.meteoswiss_source import MeteoSwissStation, 
 from swiss_weather_mcp.measurements.slf_source import SLFDailySnowMeasurements
 
 FLUNTERN = MeteoSwissStation(
-    abbr="SMA", name="Zürich / Fluntern", canton="Zurich", altitude_m=604.0, east_m=2685223.0, north_m=1248410.0,
+    abbr="SMA", name="Zürich / Fluntern", canton="Zürich", altitude_m=604.0, east_m=2685223.0, north_m=1248410.0,
     data_since=date(1864, 1, 1), is_manual_site=False,
 )
 
@@ -417,8 +417,8 @@ async def test_read_extremes_warmest(measurement_service_fixture):
         "extreme": "warmest",
         "measured_at": "2026-09-25T16:00+02:00",
         "stations": [
-            {"station": "Zürich / Kloten (426 m)", "canton": "Zurich", "temperature_c": 22.4},
-            {"station": "Zürich / Fluntern (604 m)", "canton": "Zurich", "temperature_c": 21.0},
+            {"station": "Zürich / Kloten (426 m)", "canton": "Zürich", "temperature_c": 22.4},
+            {"station": "Zürich / Fluntern (604 m)", "canton": "Zürich", "temperature_c": 21.0},
             {"station": "Davos (1594 m)", "canton": "Graubünden", "temperature_c": 16.5},
         ],
     }
@@ -465,7 +465,7 @@ async def test_read_extremes_sunniest(measurement_service_fixture):
         "stations_by_sunshine": {"mostly_sunny": 3, "partly_sunny": 1, **no_station},
         "cantons": [
             {"canton": "Graubünden", "measuring_stations": 1, "mostly_sunny": 1, "partly_sunny": 0, **no_station},
-            {"canton": "Zurich", "measuring_stations": 3, "mostly_sunny": 2, "partly_sunny": 1, **no_station},
+            {"canton": "Zürich", "measuring_stations": 3, "mostly_sunny": 2, "partly_sunny": 1, **no_station},
         ],
     }
 
@@ -481,8 +481,8 @@ async def test_read_extremes_wettest(measurement_service_fixture):
         "measured_at": "2026-09-25T16:00+02:00",
         "rainy_stations": 1,
         "measuring_stations": 2,
-        "cantons": [{"canton": "Zurich", "rainy_stations": 1, "measuring_stations": 2, "rainy_percent": 50}],
-        "stations": [{"station": "Zürich / Kloten (426 m)", "canton": "Zurich", "rain_last_10_minutes_mm": 0.3}],
+        "cantons": [{"canton": "Zürich", "rainy_stations": 1, "measuring_stations": 2, "rainy_percent": 50}],
+        "stations": [{"station": "Zürich / Kloten (426 m)", "canton": "Zürich", "rain_last_10_minutes_mm": 0.3}],
     }
 
 
@@ -498,7 +498,7 @@ async def test_read_extremes_wettest_when_dry(mocker, measurement_service_fixtur
     assert (answer["rainy_stations"], answer["measuring_stations"]) == (0, 1)
     # The canton is listed with 0, so it is not mistaken for a canton without measurements
     assert answer["cantons"] == [
-        {"canton": "Zurich", "rainy_stations": 0, "measuring_stations": 1, "rainy_percent": 0},
+        {"canton": "Zürich", "rainy_stations": 0, "measuring_stations": 1, "rainy_percent": 0},
     ]
     assert answer["stations"] == []
 

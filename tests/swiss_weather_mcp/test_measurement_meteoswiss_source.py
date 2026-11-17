@@ -207,7 +207,7 @@ def test_read_all_stations_latest_measurements_skips_a_station_not_in_the_table(
 def test_read_all_stations_latest_measurements_time_and_canton(meteoswiss_source_fixture):
     fluntern = meteoswiss_source_fixture.read_all_stations_latest_measurements()[0]
     assert fluntern.measured_at == datetime(2026, 9, 25, 14, tzinfo=timezone.utc)
-    assert fluntern.station.canton == "Zurich"
+    assert fluntern.station.canton == "Zürich"
 
 
 def test_read_all_stations_latest_measurements_missing_value(meteoswiss_source_fixture):

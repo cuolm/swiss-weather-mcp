@@ -8,7 +8,7 @@ from swiss_weather_mcp.measurements.extremes import (
 from swiss_weather_mcp.measurements.meteoswiss_source import MeteoSwissStation
 
 FLUNTERN = MeteoSwissStation(
-    abbr="SMA", name="Zürich / Fluntern", canton="Zurich", altitude_m=604.0, east_m=2685223.0, north_m=1248410.0,
+    abbr="SMA", name="Zürich / Fluntern", canton="Zürich", altitude_m=604.0, east_m=2685223.0, north_m=1248410.0,
     data_since=date(1864, 1, 1), is_manual_site=False,
 )
 APPENZELL = MeteoSwissStation(
@@ -28,7 +28,7 @@ def test_build_canton_rows_puts_the_canton_with_more_stations_first():
     ]
 
     rows = _build_canton_rows(station_values, station_values, "rainy")
-    assert [(row["canton"], row["measuring_stations"]) for row in rows] == [("Zurich", 2), ("Appenzell Innerrhoden", 1)]
+    assert [(row["canton"], row["measuring_stations"]) for row in rows] == [("Zürich", 2), ("Appenzell Innerrhoden", 1)]
 
 
 # --- _find_sunshine_class ---
@@ -58,7 +58,7 @@ def test_build_sunshine_canton_rows_puts_the_sunnier_canton_first():
     ]
 
     rows = _build_sunshine_canton_rows(station_values)
-    assert [row["canton"] for row in rows] == ["Appenzell Innerrhoden", "Zurich"]
+    assert [row["canton"] for row in rows] == ["Appenzell Innerrhoden", "Zürich"]
     assert rows[1]["mostly_sunny"] == 1
     assert rows[1]["hardly_any_sunshine"] == 1
 
@@ -72,4 +72,4 @@ def test_build_sunshine_canton_rows_puts_the_canton_with_more_stations_first():
     ]
 
     rows = _build_sunshine_canton_rows(station_values)
-    assert [(row["canton"], row["measuring_stations"]) for row in rows] == [("Zurich", 2), ("Appenzell Innerrhoden", 1)]
+    assert [(row["canton"], row["measuring_stations"]) for row in rows] == [("Zürich", 2), ("Appenzell Innerrhoden", 1)]

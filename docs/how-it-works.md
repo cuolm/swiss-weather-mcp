@@ -29,7 +29,7 @@
   ```
 - The municipalities and cantons use swisstopo's names, in the local language, such as `Genève`
   or `Graubünden`. They appear once the swissBOUNDARIES3D GeoPackage has been downloaded, which
-  happens in the background at start.
+  happens in the background at start. The cantons of the stations use the same names.
 - An unknown name gets up to 10 suggestions, such as `Davos Dorf` and `Davos Platz` for `Davos`.
 
 ## Forecast Points

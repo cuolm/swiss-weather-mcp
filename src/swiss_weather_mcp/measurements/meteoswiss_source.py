@@ -142,7 +142,7 @@ class MeteoSwissStation(NamedTuple):
     """A SwissMetNet weather station or a manual site, as their station tables describe them."""
     abbr: str
     name: str
-    canton: str  # the full name, such as "Zurich"
+    canton: str  # the full name, such as "Zürich"
     altitude_m: float
     east_m: float   # LV95, the Swiss grid in metres
     north_m: float  # LV95
