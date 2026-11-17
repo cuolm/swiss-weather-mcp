@@ -168,12 +168,12 @@ class ForecastService:
             day = first_day + timedelta(days=offset)
             temperature_min_c = _get_daily_value(min_series, day)
             temperature_max_c = _get_daily_value(max_series, day)
-            rainfall_median_mm = _get_daily_value(rain_series, day)
-            rainfall_lower_mm = _get_daily_value(rain_lower_series, day)
-            rainfall_upper_mm = _get_daily_value(rain_upper_series, day)
+            rain_median_mm = _get_daily_value(rain_series, day)
+            rain_lower_mm = _get_daily_value(rain_lower_series, day)
+            rain_upper_mm = _get_daily_value(rain_upper_series, day)
             pictogram_value = _get_daily_value(pictogram_series, day)
             day_values = (
-                temperature_min_c, temperature_max_c, rainfall_median_mm, rainfall_lower_mm, rainfall_upper_mm,
+                temperature_min_c, temperature_max_c, rain_median_mm, rain_lower_mm, rain_upper_mm,
                 pictogram_value,
             )
             if all(value is None for value in day_values):
@@ -192,9 +192,9 @@ class ForecastService:
                 "weekday": f"{day:%A}",
                 "temperature_min_c": temperature_min_c,
                 "temperature_max_c": temperature_max_c,
-                "rainfall_median_mm": rainfall_median_mm,
-                "rainfall_10th_percentile_mm": rainfall_lower_mm,
-                "rainfall_90th_percentile_mm": rainfall_upper_mm,
+                "rain_median_mm": rain_median_mm,
+                "rain_10th_percentile_mm": rain_lower_mm,
+                "rain_90th_percentile_mm": rain_upper_mm,
                 "pictogram_code": pictogram_code,
                 "weather": weather,
                 "weather_emoji": weather_emoji,
@@ -282,7 +282,7 @@ class ForecastService:
                 "from": format_swiss_time(block_start),
                 "to": format_swiss_time(block_end),
                 "rain_chance_percent": chance_series.time_to_value[block_end],
-                "rainfall_median_mm": round(median_series.time_to_value[block_end], 1),
+                "rain_median_mm": round(median_series.time_to_value[block_end], 1),
                 "heaviest_hour_up_to_mm": round(heaviest_hour_mm, 1),
                 "weather": weather,
                 "weather_emoji": weather_emoji,
@@ -382,8 +382,7 @@ class ForecastService:
             sunshine_minutes += series.time_to_value[stamp]
         return {
             **_build_forecast_point_fields(place, point),
-            "value": round(sunshine_minutes / 60, 1),
-            "unit": "h",
+            "sunshine_h": round(sunshine_minutes / 60, 1),
             "from": format_swiss_time(start_moment),
             "to": format_swiss_time(end_moment),
             "model_run": format_swiss_time(series.run_time),
@@ -408,10 +407,10 @@ class ForecastService:
         compass_point = find_compass_point(direction_degrees)
         return {
             **_build_forecast_point_fields(place, point),
-            "speed_kmh": speed_kmh,
+            "wind_speed_kmh": speed_kmh,
             "gusts_kmh": gusts_kmh,
             "gusts_90th_percentile_kmh": upper_gusts_kmh,
-            "direction_degrees": direction_degrees,
+            "wind_direction_degrees": direction_degrees,
             "compass_point": compass_point,
             "valid_at": format_swiss_time(moment),
             "model_run": format_swiss_time(speed_series.run_time),
@@ -439,8 +438,7 @@ class ForecastService:
         clear_sky = (1 - low_fraction) * (1 - medium_fraction) * (1 - high_fraction)
         return {
             **_build_forecast_point_fields(place, point),
-            "value": round((1 - clear_sky) * 100, 1),
-            "unit": "%",
+            "cloud_cover_percent": round((1 - clear_sky) * 100, 1),
             "low_percent": round(low_fraction * 100, 1),
             "medium_percent": round(medium_fraction * 100, 1),
             "high_percent": round(high_fraction * 100, 1),
@@ -459,8 +457,7 @@ class ForecastService:
         freezing_level_m = _get_hourly_value(series, moment, point)
         return {
             **_build_forecast_point_fields(place, point),
-            "value": freezing_level_m,
-            "unit": "m above sea level",
+            "freezing_level_m": freezing_level_m,
             "valid_at": format_swiss_time(moment),
             "model_run": format_swiss_time(series.run_time),
         }

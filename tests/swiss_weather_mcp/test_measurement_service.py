@@ -44,7 +44,7 @@ async def test_read_current(measurement_service_fixture):
         "humidity_percent": 34.3,
         "dew_point_c": 4.7,
         "rain_last_10_minutes_mm": 0.0,
-        "sunshine_last_10_minutes_min": 10.0,
+        "sunshine_last_10_minutes_minutes": 10.0,
         "wind_speed_kmh": 4.7,
         "gusts_kmh": 10.1,
         "wind_direction_degrees": 23.0,
@@ -52,7 +52,7 @@ async def test_read_current(measurement_service_fixture):
         "compass_point": "NNE",
         "temperature_change_last_3_hours_c": 2.6,
         "pressure_change_last_3_hours_hpa": -1.2,
-        "sunshine_last_hour_min": 44.0,
+        "sunshine_last_hour_minutes": 44.0,
         "rain_last_hour_mm": 0.0,
         "strongest_gust_last_hour_kmh": 10.1,
     }
@@ -77,7 +77,7 @@ async def test_read_current_without_earlier_measurements(measurement_service_fix
     assert answer["temperature_c"] == 16.5
     assert answer["temperature_change_last_3_hours_c"] is None
     assert answer["pressure_change_last_3_hours_hpa"] is None
-    assert answer["sunshine_last_hour_min"] is None
+    assert answer["sunshine_last_hour_minutes"] is None
     assert answer["rain_last_hour_mm"] is None
     assert answer["strongest_gust_last_hour_kmh"] is None
 

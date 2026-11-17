@@ -181,7 +181,7 @@ async def test_astronomy_sun_passes_the_day_on(server_fixture):
 
 @pytest.mark.asyncio
 async def test_handle_tool_call_returns_the_answer(server_fixture):
-    answer = {"value": 3200.0, "unit": "m above sea level", "place": "Zürich (418 m)", "forecast_point": "Zürich 8001 (409 m)"}
+    answer = {"freezing_level_m": 3200.0, "place": "Zürich (418 m)", "forecast_point": "Zürich 8001 (409 m)"}
     server_fixture.forecast_service.read_freezing_level.return_value = answer
 
     tool_result = await server_fixture.mcp.call_tool("forecast_freezing_level", FREEZING_LEVEL_CALL)
@@ -191,7 +191,7 @@ async def test_handle_tool_call_returns_the_answer(server_fixture):
 @pytest.mark.asyncio
 async def test_handle_tool_call_logs_the_answer_only_at_debug(server_fixture, caplog):
     # An answer can be thousands of characters long, so the normal log shows only the call
-    answer = {"value": 3200.0, "unit": "m above sea level", "place": "Zürich (418 m)", "forecast_point": "Zürich 8001 (409 m)"}
+    answer = {"freezing_level_m": 3200.0, "place": "Zürich (418 m)", "forecast_point": "Zürich 8001 (409 m)"}
     server_fixture.forecast_service.read_freezing_level.return_value = answer
 
     with caplog.at_level(logging.DEBUG, logger="swiss_weather_mcp.server"):

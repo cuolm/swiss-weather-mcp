@@ -37,7 +37,7 @@ async def test_read_daily_one_day(service_fixture):
 async def test_read_daily_missing_parameter(service_fixture):
     # Only tre200px has rows in this fixture, the other daily files have none for Zurich
     answer = await service_fixture.read_daily("Zurich", date(2026, 9, 23), 1)
-    assert answer["days"][0]["rainfall_median_mm"] is None
+    assert answer["days"][0]["rain_median_mm"] is None
 
 
 @pytest.mark.asyncio
@@ -93,7 +93,7 @@ async def test_read_rain(service_fixture):
         ("2026-09-23T17:00+02:00", "2026-09-23T20:00+02:00"),
     ]
     assert [block["rain_chance_percent"] for block in answer["blocks"]] == [40.0, 80.0]
-    assert [block["rainfall_median_mm"] for block in answer["blocks"]] == [0.0, 2.4]
+    assert [block["rain_median_mm"] for block in answer["blocks"]] == [0.0, 2.4]
     # The heaviest hour of each block, not a sum: quantiles do not add up
     assert [block["heaviest_hour_up_to_mm"] for block in answer["blocks"]] == [1.1, 3.5]
     # The weather icon covers the same 3 hours as the block it ends
@@ -244,8 +244,7 @@ async def test_read_sunshine(service_fixture):
     answer = await service_fixture.read_sunshine(
         "Zurich", build_swiss_time("2026-09-23T08:00"), build_swiss_time("2026-09-23T15:00")
     )
-    assert answer["value"] == 1.8
-    assert answer["unit"] == "h"
+    assert answer["sunshine_h"] == 1.8
     assert answer["from"] == "2026-09-23T08:00+02:00"
     assert answer["to"] == "2026-09-23T15:00+02:00"
 
@@ -257,7 +256,7 @@ async def test_read_sunshine_single_hour(service_fixture):
     answer = await service_fixture.read_sunshine(
         "Zurich", build_swiss_time("2026-09-23T14:00"), build_swiss_time("2026-09-23T15:00")
     )
-    assert answer["value"] == 0.8
+    assert answer["sunshine_h"] == 0.8
 
 
 @pytest.mark.asyncio
@@ -265,7 +264,7 @@ async def test_read_sunshine_without_an_end(service_fixture):
     # Without an end, the one hour starting at start: 14:00 to 15:00 Swiss, the row stamped 13:00 UTC
     answer = await service_fixture.read_sunshine("Zurich", build_swiss_time("2026-09-23T14:00"))
 
-    assert answer["value"] == 0.8
+    assert answer["sunshine_h"] == 0.8
     assert (answer["from"], answer["to"]) == ("2026-09-23T14:00+02:00", "2026-09-23T15:00+02:00")
 
 
@@ -311,9 +310,9 @@ async def test_read_wind(service_fixture):
     # 14:00 Swiss is the hour ending at 12:00 UTC
     answer = await service_fixture.read_wind("Zurich", build_swiss_time("2026-09-23T14:00"))
 
-    assert (answer["speed_kmh"], answer["gusts_kmh"]) == (12.5, 38.0)
+    assert (answer["wind_speed_kmh"], answer["gusts_kmh"]) == (12.5, 38.0)
     assert answer["gusts_90th_percentile_kmh"] == 55.0
-    assert (answer["direction_degrees"], answer["compass_point"]) == (217.0, "SW")
+    assert (answer["wind_direction_degrees"], answer["compass_point"]) == (217.0, "SW")
     assert answer["valid_at"] == "2026-09-23T14:00+02:00"
     assert answer["place"] == "Zürich"
 
@@ -327,7 +326,7 @@ async def test_read_wind_names_the_forecast_point(service_fixture):
     assert "data_from" not in answer
     assert answer["place"] == "Lindenhof"
     assert "forecast_point" not in answer
-    assert answer["speed_kmh"] == 12.5
+    assert answer["wind_speed_kmh"] == 12.5
 
 
 # --- read_cloud_cover ---
@@ -337,8 +336,14 @@ async def test_read_cloud_cover(service_fixture):
     answer = await service_fixture.read_cloud_cover("Zurich", build_swiss_time("2026-09-23T14:00"))
 
     # Half the sky low and half high: clear only where both are clear, 1 - 0.5 * 0.5 = 75%
-    assert answer["value"] == 75.0
+    assert answer["cloud_cover_percent"] == 75.0
     assert (answer["low_percent"], answer["medium_percent"], answer["high_percent"]) == (50.0, 0.0, 50.0)
+
+
+@pytest.mark.asyncio
+async def test_read_freezing_level(service_fixture):
+    answer = await service_fixture.read_freezing_level("Zurich", build_swiss_time("2026-09-23T14:00"))
+    assert answer["freezing_level_m"] == 3200.0
 
 
 @pytest.mark.asyncio

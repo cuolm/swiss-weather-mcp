@@ -20,7 +20,7 @@ EXTREME_NAME_TO_EXTREME: Dict[ExtremeName, Extreme] = {
     "coldest": Extreme(parameters.TEMPERATURE, "temperature_c", highest_first=False),
     "windiest": Extreme(parameters.WIND_GUSTS, "gusts_kmh", highest_first=True),
     "wettest": Extreme(parameters.PRECIPITATION, "rain_last_10_minutes_mm", highest_first=True),
-    "sunniest": Extreme(parameters.SUNSHINE, "sunshine_last_10_minutes_min", highest_first=True),
+    "sunniest": Extreme(parameters.SUNSHINE, "sunshine_last_10_minutes_minutes", highest_first=True),
 }
 # How many stations a ranking lists
 STATION_COUNT = 5

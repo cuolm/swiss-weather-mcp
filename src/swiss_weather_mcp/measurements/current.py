@@ -31,7 +31,7 @@ MEASURED_FIELDS = (
     ("humidity_percent", parameters.HUMIDITY),
     ("dew_point_c", parameters.DEW_POINT),
     ("rain_last_10_minutes_mm", parameters.PRECIPITATION),
-    ("sunshine_last_10_minutes_min", parameters.SUNSHINE),
+    ("sunshine_last_10_minutes_minutes", parameters.SUNSHINE),
     ("wind_speed_kmh", parameters.WIND_SPEED),
     ("gusts_kmh", parameters.WIND_GUSTS),
     ("wind_direction_degrees", parameters.WIND_DIRECTION),
@@ -253,7 +253,7 @@ def build_current_answer(
     answer["pressure_change_last_3_hours_hpa"] = _calculate_change_last_3_hours(
         all_measurements, parameters.PRESSURE_SEA_LEVEL
     )
-    answer["sunshine_last_hour_min"] = _sum_last_hour(all_measurements, parameters.SUNSHINE)
+    answer["sunshine_last_hour_minutes"] = _sum_last_hour(all_measurements, parameters.SUNSHINE)
     answer["rain_last_hour_mm"] = _sum_last_hour(all_measurements, parameters.PRECIPITATION)
     answer["strongest_gust_last_hour_kmh"] = _find_highest_last_hour(all_measurements, parameters.WIND_GUSTS)
 
