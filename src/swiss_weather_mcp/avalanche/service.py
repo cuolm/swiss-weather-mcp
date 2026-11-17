@@ -125,10 +125,6 @@ class AvalancheService:
         self.place_finder = place_finder
         self.bulletin_source = bulletin_source
 
-    async def _find_place(self, location: str, nearby_location: Optional[str]) -> SwisstopoPlace:
-        """Find the place a user means in a worker thread, so a download does not block other requests."""
-        return await asyncio.to_thread(self.place_finder.find_place, location, nearby_location)
-
     async def read_bulletin(self, location: str, nearby_location: Optional[str] = None) -> Dict[str, Any]:
         """
         Read the SLF avalanche bulletin valid now for the location.
@@ -136,5 +132,5 @@ class AvalancheService:
         Raise CannotAnswerError for an unknown location, when SLF has no bulletin valid now, and when none of
         them covers the location.
         """
-        place = await self._find_place(location, nearby_location)
+        place = await asyncio.to_thread(self.place_finder.find_place, location, nearby_location)
         return await asyncio.to_thread(build_bulletin_answer, self.bulletin_source, place)

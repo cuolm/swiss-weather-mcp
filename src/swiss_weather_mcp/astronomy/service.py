@@ -3,7 +3,7 @@ from datetime import date, datetime, timedelta
 from typing import Any, Dict, Optional
 
 from ..formatting import format_swiss_time
-from ..places import PlaceFinder, SwisstopoPlace
+from ..places import PlaceFinder
 from .moon import calculate_moon_day
 from .sun import calculate_sun_day
 
@@ -36,17 +36,13 @@ class AstronomyService:
     def __init__(self, place_finder: PlaceFinder):
         self.place_finder = place_finder
 
-    async def _find_place(self, location: str, nearby_location: Optional[str]) -> SwisstopoPlace:
-        """Find the place a user means in a worker thread, so a download does not block other requests."""
-        return await asyncio.to_thread(self.place_finder.find_place, location, nearby_location)
-
     async def read_sun(self, location: str, day: date, nearby_location: Optional[str] = None) -> Dict[str, Any]:
         """
         Read when civil twilight begins, the Sun rises and sets, and civil twilight ends on a Swiss calendar day.
 
         Raise CannotAnswerError for an unknown location.
         """
-        place = await self._find_place(location, nearby_location)
+        place = await asyncio.to_thread(self.place_finder.find_place, location, nearby_location)
         # In a worker thread, so the calculation does not hold up other requests
         sun_day = await asyncio.to_thread(calculate_sun_day, day, place.latitude_deg, place.longitude_deg)
         return {
@@ -64,7 +60,7 @@ class AstronomyService:
 
         Raise CannotAnswerError for an unknown location.
         """
-        place = await self._find_place(location, nearby_location)
+        place = await asyncio.to_thread(self.place_finder.find_place, location, nearby_location)
         # In a worker thread, so the calculation does not hold up other requests
         moon_day = await asyncio.to_thread(calculate_moon_day, day, place.latitude_deg, place.longitude_deg)
 
