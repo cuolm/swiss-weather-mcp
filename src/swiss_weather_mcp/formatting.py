@@ -1,4 +1,4 @@
-"""Write times, wind directions, distances and height differences the way the tools answer with them."""
+"""Write times, wind directions, distances, height differences and canton names the way the tools answer with them."""
 from datetime import datetime
 from typing import NotRequired, Optional, TypedDict
 from zoneinfo import ZoneInfo
