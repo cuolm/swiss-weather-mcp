@@ -96,7 +96,6 @@ POPULATION_BAND_TO_NAME = {
 EXONYM = "Exonym"
 
 
-
 def _join_with_and(words: List[str]) -> str:
     """Join words the way a sentence lists them, such as "peak, viewpoint and cable car station"."""
     if len(words) == 1:

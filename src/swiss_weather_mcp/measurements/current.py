@@ -29,7 +29,6 @@ MEASUREMENTS_PER_HOUR = 6
 SNOW_SURFACE_MIN_SNOW_DEPTH_CM = 10
 
 
-
 class SLFStationBlock(DataFromField):
     """The slf_station block: the latest measurements of an SLF station that suits the place better."""
     measured_at: str

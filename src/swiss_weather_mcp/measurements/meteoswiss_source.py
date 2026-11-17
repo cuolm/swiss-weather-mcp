@@ -137,6 +137,7 @@ PERIOD_TO_MAX_AGE = {
 
 MISSING_VALUE_MARKERS = {"", "-"}
 
+
 class MeteoSwissStation(NamedTuple):
     """A SwissMetNet weather station or a manual site, as their station tables describe them."""
     abbr: str

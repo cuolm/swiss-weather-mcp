@@ -162,7 +162,6 @@ NEW_SNOW = "HN_1D"                # height of new snow during the last 24 hours,
 KMH_PER_M_PER_S = 3.6
 
 
-
 class SLFStation(NamedTuple):
     """An IMIS station or a manual site as SLF's station lists describe it."""
     code: str
