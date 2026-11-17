@@ -1,4 +1,4 @@
-"""Write times, wind directions, distances, height differences and canton names the way the tools answer with them."""
+"""Write times, wind directions, distances and height differences the way the tools answer with them."""
 from datetime import datetime
 from typing import NotRequired, Optional, TypedDict
 from zoneinfo import ZoneInfo
@@ -12,17 +12,6 @@ SWISS_TZ = ZoneInfo("Europe/Zurich")
 COMPASS_POINTS = ("N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
                   "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW")
 COMPASS_SECTOR_DEGREES = 360 / len(COMPASS_POINTS)
-
-# The station tables of MeteoSwiss and SLF name a canton by its abbreviation, and list Liechtenstein like a
-# canton
-CANTON_ABBREVIATION_TO_NAME = {
-    "AG": "Aargau", "AI": "Appenzell Innerrhoden", "AR": "Appenzell Ausserrhoden", "BE": "Bern",
-    "BL": "Basel-Landschaft", "BS": "Basel-Stadt", "FR": "Fribourg", "GE": "Geneva", "GL": "Glarus",
-    "GR": "Graubünden", "JU": "Jura", "LU": "Lucerne", "NE": "Neuchâtel", "NW": "Nidwalden",
-    "OW": "Obwalden", "SG": "St. Gallen", "SH": "Schaffhausen", "SO": "Solothurn", "SZ": "Schwyz",
-    "TG": "Thurgau", "TI": "Ticino", "UR": "Uri", "VD": "Vaud", "VS": "Valais", "ZG": "Zug",
-    "ZH": "Zurich", "FL": "Liechtenstein",
-}
 
 
 class DataFromField(TypedDict):
@@ -68,8 +57,3 @@ def round_to_tenth(value: Optional[float]) -> Optional[float]:
     if value is None:
         return None
     return round(value, 1)
-
-
-def find_canton_name(abbreviation: str) -> str:
-    """Find the full name of a canton, such as "Zurich" for "ZH"; an unknown abbreviation stays as it is."""
-    return CANTON_ABBREVIATION_TO_NAME.get(abbreviation, abbreviation)

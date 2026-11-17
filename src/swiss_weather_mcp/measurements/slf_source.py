@@ -119,7 +119,7 @@ import requests
 
 from ..coordinates import calculate_lv95_east_m, calculate_lv95_north_m
 from ..downloads import ensure_recent_file, read_recent_json
-from ..formatting import find_canton_name
+from ..cantons import find_canton_name
 from .snow_values import SNOW_DEPTH_MAX_AGE, SnowStationDailyMeasurements, LatestNewSnow, LatestSnowDepth
 
 logger = logging.getLogger(__name__)

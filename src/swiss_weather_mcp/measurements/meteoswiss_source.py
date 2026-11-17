@@ -105,7 +105,7 @@ from typing import Dict, List, NamedTuple, Optional, Sequence, Set
 
 from . import parameters
 from ..downloads import read_recent_csv_rows
-from ..formatting import find_canton_name
+from ..cantons import find_canton_name
 from .snow_values import SNOW_DEPTH_MAX_AGE, SnowStationDailyMeasurements, LatestSnowDepth
 
 logger = logging.getLogger(__name__)

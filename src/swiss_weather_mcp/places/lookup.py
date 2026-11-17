@@ -33,6 +33,7 @@ from collections import defaultdict
 from importlib import resources
 from typing import Dict, List, Tuple
 
+from ..cantons import SWISS_CANTON_ABBREVIATIONS
 from .place_source import OBJECT_TYPE_TO_NAME, SETTLEMENT_TYPES, SwisstopoPlace, SwisstopoPlaceSource
 from .suggestions import find_similar_places
 
@@ -40,12 +41,8 @@ logger = logging.getLogger(__name__)
 
 # Rows of the same lookup name this close together are one place
 SAME_PLACE_RADIUS_M = 2000
-CANTON_ABBREVIATIONS = (
-    "AG", "AI", "AR", "BE", "BL", "BS", "FR", "GE", "GL", "GR", "JU", "LU", "NE",
-    "NW", "OW", "SG", "SH", "SO", "SZ", "TG", "TI", "UR", "VD", "VS", "ZG", "ZH",
-)
 # A name such as "Wil SG", the canton telling it apart from the other places called Wil
-CANTON_SUFFIX = re.compile(rf"^(.*\S) (?:{'|'.join(CANTON_ABBREVIATIONS)})$")
+CANTON_SUFFIX = re.compile(rf"^(.*\S) (?:{'|'.join(SWISS_CANTON_ABBREVIATIONS)})$")
 # A settlement this big or bigger is named as near: 100 people or more
 MIN_NEAR_SETTLEMENT_BAND = 4
 # The order in which the types of a place are named, settlements first
