@@ -105,7 +105,7 @@ from typing import Dict, List, NamedTuple, Optional, Sequence, Set
 
 from . import parameters
 from ..downloads import read_recent_csv_rows
-from .snow_values import SNOW_DEPTH_MAX_AGE, LatestSnowDepth
+from .snow_values import SNOW_DEPTH_MAX_AGE, SnowStationDailyMeasurements, LatestSnowDepth
 
 logger = logging.getLogger(__name__)
 
@@ -390,6 +390,23 @@ class MeteoSwissMeasurementSource:
             period_days = self._read_station_daily_file(station, period)
             all_days.extend(period_days)
         return all_days
+
+    def read_snow_history(
+        self, manual_site: MeteoSwissStation, first_day: date, last_day: date
+    ) -> List[SnowStationDailyMeasurements]:
+        """Read a manual site's snow on the days of its daily files for first_day to last_day, the oldest first."""
+        all_days = self.read_station_daily_measurements(manual_site, first_day, last_day)
+        daily_measurements = []
+        for day_measurements in all_days:
+            parameter_to_value = day_measurements.parameter_to_value
+            snow_measurements = SnowStationDailyMeasurements(
+                manual_site,
+                day_measurements.measured_at.date(),
+                parameter_to_value[parameters.SNOW_DEPTH_DAY],
+                parameter_to_value[parameters.NEW_SNOW_DAY],
+            )
+            daily_measurements.append(snow_measurements)
+        return daily_measurements
 
     def list_snow_stations(self) -> List[MeteoSwissStation]:
         """List the stations that measure the snow depth now."""

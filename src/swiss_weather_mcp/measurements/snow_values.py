@@ -1,5 +1,5 @@
-"""The snow values both measurement sources return, so the snow tool compares their stations alike."""
-from datetime import datetime, timedelta
+"""The latest and the past snow values both measurement sources return, so their stations are treated alike."""
+from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, NamedTuple, Optional, Union
 
 if TYPE_CHECKING:
@@ -29,3 +29,11 @@ class LatestNewSnow(NamedTuple):
     measured_at: datetime
     new_snow_24_hours_cm: float
     new_snow_3_days_cm: Optional[float]  # None when one of the 3 days has no value
+
+
+class SnowStationDailyMeasurements(NamedTuple):
+    """The snow of a station on one past day: the depth at 06:00 UTC and the new snow of the 24 hours from then."""
+    station: SnowStation
+    day: date
+    snow_depth_cm: Optional[float]
+    new_snow_cm: Optional[float]

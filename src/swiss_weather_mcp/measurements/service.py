@@ -54,7 +54,9 @@ class MeasurementService:
         """
         check_day_count(days)
         place = await self._find_place(location, nearby_location)
-        return await asyncio.to_thread(build_history_answer, self.meteoswiss_source, place, first_day, days, values)
+        return await asyncio.to_thread(
+            build_history_answer, self.meteoswiss_source, self.slf_source, place, first_day, days, values
+        )
 
     async def read_snow(self, location: str, nearby_location: Optional[str] = None) -> Dict[str, Any]:
         """

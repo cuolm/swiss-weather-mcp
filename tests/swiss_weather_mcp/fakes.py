@@ -312,7 +312,7 @@ SLF_STATION_CODE_TO_ROWS = {
 
 # The IMIS daily snow of the 4 days up to MEASUREMENTS_NOW, with real values of 2026-11-07 to 2026-11-10
 # moved to those days, the newest day first as SLF publishes them. Triftchumme's new snow of 2026-09-24
-# is left out.
+# is left out, and its values of 2026-09-22 differ from its snow history file.
 SLF_DAILY_SNOW = (
     {"station_code": "GOR2", "measure_date": "2026-09-25T00:00:00", "HS": 21.0, "HN_1D": 0.0},
     {"station_code": "ZER2", "measure_date": "2026-09-25T00:00:00", "HS": 8.0, "HN_1D": 0.0},
@@ -321,7 +321,7 @@ SLF_DAILY_SNOW = (
     {"station_code": "GOR2", "measure_date": "2026-09-23T00:00:00", "HS": 25.0, "HN_1D": 0.0},
     {"station_code": "ZER2", "measure_date": "2026-09-23T00:00:00", "HS": 11.0, "HN_1D": 3.8},
     {"station_code": "GOR2", "measure_date": "2026-09-22T00:00:00", "HS": 27.0, "HN_1D": 4.2},
-    {"station_code": "ZER2", "measure_date": "2026-09-22T00:00:00", "HS": 13.0, "HN_1D": 0.0},
+    {"station_code": "ZER2", "measure_date": "2026-09-22T00:00:00", "HS": 12.0, "HN_1D": 0.5},
 )
 
 # Two objects of the SLF manual site list, as SLF publishes them
@@ -365,6 +365,39 @@ def build_slf_manual_sites_json() -> bytes:
 def build_slf_manual_site_days_json(code: str) -> bytes:
     rows = SLF_MANUAL_SITE_CODE_TO_ROWS[code]
     return json.dumps(rows).encode("utf-8")
+
+
+# Some rows of the SLF snow history files, in their format: a manual site's measured at 06:00 UTC, an IMIS
+# station's stamped 00:00 for the values of 06:00 UTC that day. Each file ends before the API's newest day,
+# as on SLF's server. Davos Flüelastr. has no new snow on 2025-01-02, and Gornergratsee has no history file.
+SLF_MANUAL_SITE_SNOW_HISTORY_COLUMNS = "station_code,measure_date,hyear,HS,HN_1D,HNW_1D"
+SLF_IMIS_SNOW_HISTORY_COLUMNS = "station_code,measure_date,hyear,HS,HN_1D"
+SLF_CODE_TO_SNOW_HISTORY_ROWS = {
+    "5DF0": (
+        "5DF0,2025-01-01 06:00:00+00:00,2025,40.0,0.0,0.0",
+        "5DF0,2025-01-02 06:00:00+00:00,2025,39.0,,",
+        "5DF0,2025-01-03 06:00:00+00:00,2025,44.0,6.0,5.2",
+        "5DF0,2025-01-04 06:00:00+00:00,2025,43.0,0.0,0.0",
+        "5DF0,2026-09-22 06:00:00+00:00,2026,16.0,0.0,0.0",
+        "5DF0,2026-09-23 06:00:00+00:00,2026,18.0,2.0,2.4",
+    ),
+    "ZER2": (
+        "ZER2,2026-09-20 00:00:00+00:00,2026,15.0,0.0",
+        "ZER2,2026-09-21 00:00:00+00:00,2026,14.0,0.0",
+        "ZER2,2026-09-22 00:00:00+00:00,2026,13.0,0.0",
+    ),
+}
+
+
+def build_slf_snow_history_csv(code: str) -> bytes:
+    """Build an SLF station's snow history file, the manual site's or the IMIS station's, as SLF publishes it."""
+    rows = SLF_CODE_TO_SNOW_HISTORY_ROWS[code]
+    if code[0].isdigit():
+        columns = SLF_MANUAL_SITE_SNOW_HISTORY_COLUMNS
+    else:
+        columns = SLF_IMIS_SNOW_HISTORY_COLUMNS
+    lines = [columns, *rows]
+    return ("\n".join(lines) + "\n").encode("utf-8")
 
 
 # Two real bulletins of the SLF bulletin API V4, with fewer regions, shorter texts and square outlines.

@@ -1,13 +1,15 @@
 from datetime import datetime
 
 import pytest
+import requests
 
 from fakes import (
     ALL_STATIONS_LATEST_VALUES_CSV, DATA_INVENTORY_CSV, MANUAL_SITE_INVENTORY_CSV, MEASUREMENTS_NOW, RUN_ID,
+    SLF_CODE_TO_SNOW_HISTORY_ROWS,
     FakeResponse, build_avalanche_bulletins_geojson, build_boundaries_archive, build_boundaries_editions,
     build_manual_site_daily_values_csv, build_manual_site_table_csv, build_parameter_csv,
     build_place_names_archive, build_place_names_editions, build_point_table_csv, build_slf_daily_snow_json,
-    build_slf_measurements_json, build_slf_stations_json, build_slf_manual_site_days_json,
+    build_slf_measurements_json, build_slf_snow_history_csv, build_slf_stations_json, build_slf_manual_site_days_json,
     build_slf_manual_sites_json, build_stac_item, build_station_daily_values_csv, build_station_now_values_csv,
     build_station_table_csv,
 )
@@ -105,6 +107,11 @@ def source_fixture(mocker, tmp_path, tmp_path_factory):
             return FakeResponse(body=build_slf_measurements_json(code))
         if url.endswith("/imis/daily-snow?period_in_days=3"):
             return FakeResponse(body=build_slf_daily_snow_json())
+        if url.startswith("https://measurement-data.slf.ch/"):
+            code = url.rsplit("/", 1)[-1].removesuffix(".csv").removeprefix("daily_snow_")
+            if code not in SLF_CODE_TO_SNOW_HISTORY_ROWS:
+                raise requests.HTTPError(f"404 Client Error: Not Found for url: {url}")
+            return FakeResponse(body=build_slf_snow_history_csv(code))
         if url.endswith("/study-plot/stations"):
             return FakeResponse(body=build_slf_manual_sites_json())
         if url.endswith("/measurements?period_in_days=7"):

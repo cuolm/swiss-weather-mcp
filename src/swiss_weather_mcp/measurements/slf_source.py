@@ -1,7 +1,8 @@
 """
-Read the latest measurements of the SLF stations from the SLF measurement API: the automatic
-IMIS weather stations, and the manual measuring sites, which the API calls study plots, where an
-observer measures the snow by hand.
+Read the measurements of the SLF stations: the latest ones from the SLF measurement API, and the
+snow of past days from SLF's data server. The stations are the automatic IMIS weather stations, and
+the manual measuring sites, which the API calls study plots, where an observer measures the snow by
+hand.
 
 What SLF publishes:
 - The measurements of an IMIS station, such as imis/station/DAV2/measurements, with
@@ -10,13 +11,22 @@ What SLF publishes:
   at that time. SLF adds a row about 10 minutes after its time. A value a station does not
   measure is null.
 - The daily snow of all IMIS snow stations, imis/daily-snow, with period_in_days=3 the
-  last 4 days, about 130 stations each. Each row holds the median snow depth of the 24
-  hours up to 06:00 UTC and the new snow of those 24 hours, which SLF calculates from the
-  snow depth with its SNOWPACK model. The rows are stamped with their day at 00:00.
+  last 4 days, about 130 stations each. Each row holds the snow depth at 06:00 UTC, which
+  the API describes as instantaneous, and the new snow of the 24 hours up to then, which SLF
+  calculates from the snow depth with its SNOWPACK model. The rows are stamped with their day
+  at 00:00.
 - The measurements of a manual site, such as study-plot/station/5DF0/measurements, with
   period_in_days=7 one row per day for the last 7 days, today's only once it is measured,
   stamped 06:00 UTC. An observer measures the snow depth and the new snow of the last 24
   hours by hand each morning, from November to April.
+- The snow history of a station on SLF's data server, https://measurement-data.slf.ch/, one CSV
+  file per station with every day it measured: study-plot/data/by_station/5DF0.csv for a manual
+  site, since 1945 at Davos Flüelastr., and imis/data/daily_snow_values/daily_snow_by_station/
+  daily_snow_DAV2.csv for an IMIS station, since 1998 at Bärentälli. SLF adds a day once a day,
+  and a file holds the days up to one or two mornings ago. The data server describes an IMIS
+  station's snow depth as the median of the 24 hours up to 06:00 UTC. On a day both hold, the
+  file's values can differ from the daily answer's: on 2026-11-14 and 15, 33 of 264 IMIS snow
+  depths did, most by 1 to 5 cm.
 - A station list each, imis/stations and study-plot/stations, with one object per station:
   its name, altitude, position in WGS84 latitude and longitude and canton, and for an IMIS
   station its type. About 200 IMIS stations, most of them between 1300 and 3300 m, and
@@ -48,6 +58,13 @@ What SLF publishes:
     │  ...]                                                              │  one row per day
     └────────────────────────────────────────────────────────────────────┘
 
+    study-plot/data/by_station/5DF0.csv  (snow history of the manual site Davos Flüelastr., the server reads 2 values)
+    ┌────────────────────────────────────────────────────────────────────┐
+    │ station_code,measure_date,hyear,HS,HN_1D,HNW_1D                    │  header
+    │ 5DF0,2026-11-14 06:00:00+00:00,2027,0.0,0.0,0.0                    │  morning in UTC, snow depth,
+    │ ...                                                                │  new snow; an empty field has no value
+    └────────────────────────────────────────────────────────────────────┘
+
     imis/stations  (station list)
     ┌────────────────────────────────────────────────────────────────────────┐
     │ [{"code": "DAV2", "label": "Bärentälli", "lon": 9.8194108372,          │  code, name, WGS84 position
@@ -71,22 +88,32 @@ How we use it, while the tools in current.py and snow.py choose the station:
    in the morning. A manual site's file is downloaded again when it is older than 1 hour.
 5. The new snow is the one of a station's newest day, when it is from today or yesterday,
    and the new snow of the 3 days up to it is their sum, as SLF adds them for its maps.
+6. For past days, read a station's snow history file, downloaded again when it is older than
+   1 day. Only when the days asked reach the file's newest day, add the days of its daily answer
+   after it. A day the file holds keeps the file's values, so its answer does not change later.
+   A row counts the new snow of the 24 hours up to its morning, so the new snow of the 24 hours
+   from a day's morning, as MeteoSwiss counts it, is the one of the next day's row.
 
     <cache dir>/slf/
     ├── imis_stations.json               (station list, downloaded again when older than 7 days)
     ├── imis_dav2_measurements.json      (measurements per station, downloaded again after 5 minutes)
     ├── imis_daily_snow.json             (daily snow of all IMIS snow stations, downloaded again after 1 hour)
     ├── manual_sites.json                (manual site list, downloaded again when older than 7 days)
-    └── manual_site_5df0_daily_snow.json (daily snow per manual site, downloaded again after 1 hour)
+    ├── manual_site_5df0_daily_snow.json (daily snow per manual site, downloaded again after 1 hour)
+    ├── manual_site_5df0_snow_history.csv (snow history per manual site, downloaded again after 1 day)
+    └── imis_dav2_snow_history.csv       (snow history per IMIS station, downloaded again after 1 day)
 """
+import csv
 import logging
 from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, NamedTuple, Optional
 
+import requests
+
 from ..coordinates import calculate_lv95_east_m, calculate_lv95_north_m
-from ..downloads import read_recent_json
-from .snow_values import SNOW_DEPTH_MAX_AGE, LatestNewSnow, LatestSnowDepth
+from ..downloads import ensure_recent_file, read_recent_json
+from .snow_values import SNOW_DEPTH_MAX_AGE, SnowStationDailyMeasurements, LatestNewSnow, LatestSnowDepth
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +123,11 @@ IMIS_DAILY_SNOW_URL = "https://measurement-api.slf.ch/public/api/imis/daily-snow
 MANUAL_SITE_LIST_URL = "https://measurement-api.slf.ch/public/api/study-plot/stations"
 # 3 days would be today and the 2 days before, too few for 3 days of new snow before today's reading
 MANUAL_SITE_DAILY_SNOW_URL = "https://measurement-api.slf.ch/public/api/study-plot/station/{code}/measurements?period_in_days=7"
+# Every day a station has measured, one file per station, https://measurement-data.slf.ch/
+MANUAL_SITE_SNOW_HISTORY_URL = "https://measurement-data.slf.ch/study-plot/data/by_station/{code}.csv"
+IMIS_SNOW_HISTORY_URL = (
+    "https://measurement-data.slf.ch/imis/data/daily_snow_values/daily_snow_by_station/daily_snow_{code}.csv"
+)
 
 # SLF says nothing on how often the list changes, so it is kept as long as the MeteoSwiss station table
 STATION_LIST_MAX_AGE = timedelta(days=7)
@@ -105,6 +137,8 @@ STATION_MEASUREMENTS_MAX_AGE = timedelta(minutes=5)
 # The daily values arrive once in the morning, so a file is at most 1 hour behind
 IMIS_DAILY_SNOW_MAX_AGE = timedelta(hours=1)
 MANUAL_SITE_DAILY_SNOW_MAX_AGE = timedelta(hours=1)
+# A history file is up to 1 MB, and the daily answers hold the days a file of yesterday lacks
+SNOW_HISTORY_MAX_AGE = timedelta(days=1)
 # A daily value counts when it is from today or yesterday, as today's arrives only in the morning
 DAILY_VALUE_MAX_AGE = timedelta(days=1)
 NEW_SNOW_DAYS = 3
@@ -214,6 +248,43 @@ def _parse_manual_site_daily_snow(row: Dict[str, Any]) -> SLFDailySnowMeasuremen
     return SLFDailySnowMeasurements(measured_at, row[SNOW_DEPTH], row[NEW_SNOW])
 
 
+def _parse_snow_history_value(value_text: str) -> Optional[float]:
+    """Read one value of a snow history file, or None when it is empty."""
+    if not value_text:
+        return None
+    return float(value_text)
+
+
+def _parse_snow_history_row(row: Dict[str, str]) -> SLFDailySnowMeasurements:
+    """Read one row of a snow history file; its day holds the values of 06:00 UTC that day."""
+    # A manual site's row is stamped 06:00, an IMIS station's 00:00
+    day = datetime.fromisoformat(row["measure_date"]).date()
+    measured_at = datetime.combine(day, DAILY_SNOW_TIME)
+    snow_depth_cm = _parse_snow_history_value(row[SNOW_DEPTH])
+    new_snow_cm = _parse_snow_history_value(row[NEW_SNOW])
+    return SLFDailySnowMeasurements(measured_at, snow_depth_cm, new_snow_cm)
+
+
+def _build_snow_station_daily_measurements(
+    station: SLFStation, all_days: List[SLFDailySnowMeasurements]
+) -> List[SnowStationDailyMeasurements]:
+    """Turn the daily rows of a station into the snow of each day, the oldest first."""
+    day_to_day_measurements: Dict[date, SLFDailySnowMeasurements] = {}
+    for day_measurements in all_days:
+        day_to_day_measurements[day_measurements.measured_at.date()] = day_measurements
+
+    daily_measurements = []
+    for day in sorted(day_to_day_measurements):
+        # SLF counts the new snow of the 24 hours up to a row, so the new snow from a day's 06:00 is in the next row
+        next_day_measurements = day_to_day_measurements.get(day + timedelta(days=1))
+        new_snow_cm = next_day_measurements.new_snow_cm if next_day_measurements is not None else None
+        snow_measurements = SnowStationDailyMeasurements(
+            station, day, day_to_day_measurements[day].snow_depth_cm, new_snow_cm
+        )
+        daily_measurements.append(snow_measurements)
+    return daily_measurements
+
+
 def _is_recent_day(day_measurements: SLFDailySnowMeasurements, today: date) -> bool:
     """Tell whether a daily value is from today or yesterday."""
     return day_measurements.measured_at.date() >= today - DAILY_VALUE_MAX_AGE
@@ -254,8 +325,17 @@ def _calculate_new_snow(
     return LatestNewSnow(station, newest_day.measured_at, newest_day.new_snow_cm, new_snow_3_days_cm)
 
 
+def _list_days_after(all_days: List[SLFDailySnowMeasurements], day: date) -> List[SLFDailySnowMeasurements]:
+    """List the days after day, in their order."""
+    later_days = []
+    for day_measurements in all_days:
+        if day_measurements.measured_at.date() > day:
+            later_days.append(day_measurements)
+    return later_days
+
+
 class SLFMeasurementSource:
-    """Read the SLF stations and their latest measurements: the weather and the snow."""
+    """Read the SLF stations, their latest measurements of the weather and the snow, and their snow history."""
 
     def __init__(self, cache_dir: Path):
         self.cache_dir = cache_dir / "slf"
@@ -371,6 +451,59 @@ class SLFMeasurementSource:
         manual_sites = self._load_manual_sites()
         snow_stations.extend(manual_sites)
         return snow_stations
+
+    def _read_snow_history_file(self, station: SLFStation) -> List[SLFDailySnowMeasurements]:
+        """Read every day of a station's snow history file, the oldest first."""
+        code = station.code.lower()
+        if station.is_manual_site:
+            snow_history_url = MANUAL_SITE_SNOW_HISTORY_URL.format(code=station.code)
+            snow_history_file = self.cache_dir / f"manual_site_{code}_snow_history.csv"
+        else:
+            snow_history_url = IMIS_SNOW_HISTORY_URL.format(code=station.code)
+            snow_history_file = self.cache_dir / f"imis_{code}_snow_history.csv"
+        recent_file = ensure_recent_file(
+            snow_history_url, snow_history_file, SNOW_HISTORY_MAX_AGE, serve_stale_on_error=True
+        )
+        with open(recent_file, newline="", encoding="utf-8") as file:
+            rows = list(csv.DictReader(file))
+
+        all_days = []
+        for row in rows:
+            day_measurements = _parse_snow_history_row(row)
+            all_days.append(day_measurements)
+        return all_days
+
+    def _read_newest_daily_snow(self, station: SLFStation) -> List[SLFDailySnowMeasurements]:
+        """Read a station's daily snow of the last days, which its history lacks, or none when SLF cannot be reached."""
+        try:
+            if station.is_manual_site:
+                return self._read_manual_site_daily_snow(station)
+            station_code_to_daily_snow = self._read_all_imis_stations_daily_snow()
+            return station_code_to_daily_snow.get(station.code, [])
+        except requests.RequestException as error:
+            logger.warning(
+                f"Could not download the newest snow of SLF station {station.code}, using its history alone: {error}"
+            )
+            return []
+
+    def read_snow_history(self, station: SLFStation, last_day: date) -> List[SnowStationDailyMeasurements]:
+        """
+        Read a station's snow on every day it measured, the oldest first, up to last_day or later.
+
+        A day of the history file keeps the file's values. The days after it come from the daily answer, which is
+        read only when last_day needs one of them. Raise requests.RequestException when the station's history file
+        cannot be downloaded and none is cached.
+        """
+        history_days = self._read_snow_history_file(station)
+        # A file without rows lacks every day
+        newest_history_day = history_days[-1].measured_at.date() if history_days else date.min
+        # The new snow from last_day's morning is in the next day's row
+        if last_day < newest_history_day:
+            return _build_snow_station_daily_measurements(station, history_days)
+        newest_days = self._read_newest_daily_snow(station)
+        later_days = _list_days_after(newest_days, newest_history_day)
+        all_days = [*history_days, *later_days]
+        return _build_snow_station_daily_measurements(station, all_days)
 
     def read_snow_depth(self, station: SLFStation) -> Optional[LatestSnowDepth]:
         """

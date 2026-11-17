@@ -7,9 +7,11 @@ from fakes import MEASUREMENTS_NOW
 from swiss_weather_mcp.errors import CannotAnswerError
 from swiss_weather_mcp.measurements import parameters
 from swiss_weather_mcp.measurements.history import (
-    _build_rain_field, _find_last_past_day, _find_meteoswiss_station_daily_measurements,
-    _find_meteoswiss_manual_site_daily_measurements, build_history_answer,
+    _build_rain_field, _find_snow_station_daily_measurements, _find_last_past_day,
+    _find_meteoswiss_station_daily_measurements, _list_snow_stations_to_try, build_history_answer,
 )
+from swiss_weather_mcp.measurements.meteoswiss_source import MeteoSwissStation
+from swiss_weather_mcp.measurements.slf_source import SLFStation
 from swiss_weather_mcp.places.place_source import SwisstopoPlace
 
 UETLIBERG = SwisstopoPlace(
@@ -117,59 +119,190 @@ def test_find_meteoswiss_station_daily_measurements_refuses_days_no_station_meas
     )
 
 
-# --- _find_meteoswiss_manual_site_daily_measurements ---
+# --- _find_snow_station_daily_measurements ---
 
-def test_find_meteoswiss_manual_site_daily_measurements_skips_a_manual_site_without_snow(meteoswiss_source_fixture):
+def find_station_place(station, name: str) -> SwisstopoPlace:
+    """Return a place at a station, at its height."""
+    return SwisstopoPlace(
+        name=name, object_types=("Ort",), population_band=4, is_exonym=False, altitude_m=station.altitude_m,
+        east_m=station.east_m, north_m=station.north_m,
+    )
+
+
+def find_slf_snow_station(slf_source_fixture, code: str):
+    for station in slf_source_fixture.list_snow_stations():
+        if station.code == code:
+            return station
+    raise AssertionError(f"no snow station {code}")
+
+
+def test_find_snow_station_daily_measurements_skips_a_manual_site_without_snow(
+    meteoswiss_source_fixture, slf_source_fixture
+):
     # Stallikon suits the Uetliberg best, but measured no snow on these days, so Fluntern is next
-    uetliberg_days = _find_meteoswiss_manual_site_daily_measurements(
-        meteoswiss_source_fixture, UETLIBERG, date(2026, 9, 23), date(2026, 9, 24)
+    uetliberg_days = _find_snow_station_daily_measurements(
+        meteoswiss_source_fixture, slf_source_fixture, UETLIBERG, date(2026, 9, 23), date(2026, 9, 24)
     )
     assert uetliberg_days[0].station.abbr == "SMA"
     assert uetliberg_days[0].station.is_manual_site
 
 
-def test_find_meteoswiss_manual_site_daily_measurements_skips_a_site_that_measured_later(source_fixture, meteoswiss_source_fixture):
+def test_find_snow_station_daily_measurements_skips_a_site_that_measured_later(
+    source_fixture, meteoswiss_source_fixture, slf_source_fixture
+):
     # Stallikon measures the snow since 1998, so for 1975 its files are not downloaded
-    uetliberg_days = _find_meteoswiss_manual_site_daily_measurements(
-        meteoswiss_source_fixture, UETLIBERG, date(1975, 7, 1), date(1975, 7, 1)
+    uetliberg_days = _find_snow_station_daily_measurements(
+        meteoswiss_source_fixture, slf_source_fixture, UETLIBERG, date(1975, 7, 1), date(1975, 7, 1)
     )
     assert uetliberg_days[0].station.abbr == "SMA"
     assert count_downloads(source_fixture, "ogd-nime_sko_d_historical.csv") == 0
 
 
-def test_find_meteoswiss_manual_site_daily_measurements_without_a_site_close_enough(meteoswiss_source_fixture):
-    # The Matterhorn is far from every manual site of the fakes
+def test_find_snow_station_daily_measurements_without_a_station_close_enough(
+    meteoswiss_source_fixture, slf_source_fixture
+):
+    # The Matterhorn is far from every snow station of the fakes in distance and height
     matterhorn = UETLIBERG._replace(name="Matterhorn", altitude_m=4478.0, east_m=2617049.0, north_m=1091673.0)
     with pytest.raises(CannotAnswerError, match=r"No snow station is close enough to Matterhorn \(4478 m\)"):
-        _find_meteoswiss_manual_site_daily_measurements(meteoswiss_source_fixture, matterhorn, date(2026, 9, 23), date(2026, 9, 23))
+        _find_snow_station_daily_measurements(
+            meteoswiss_source_fixture, slf_source_fixture, matterhorn, date(2026, 9, 23), date(2026, 9, 23)
+        )
 
 
-def test_find_meteoswiss_manual_site_daily_measurements_before_any_snow_measurement(meteoswiss_source_fixture):
-    with pytest.raises(CannotAnswerError, match="No MeteoSwiss observer measured the snow depth on 1930-01-01."):
-        _find_meteoswiss_manual_site_daily_measurements(meteoswiss_source_fixture, ZURICH, date(1930, 1, 1), date(1930, 1, 1))
+def test_find_snow_station_daily_measurements_before_any_snow_measurement_close_by(
+    meteoswiss_source_fixture, slf_source_fixture
+):
+    # No MeteoSwiss observer measured the snow in 1930, and the SLF stations of the fakes are far from Zürich
+    with pytest.raises(CannotAnswerError, match=r"No snow station is close enough to Zürich \(418 m\)"):
+        _find_snow_station_daily_measurements(
+            meteoswiss_source_fixture, slf_source_fixture, ZURICH, date(1930, 1, 1), date(1930, 1, 1)
+        )
 
 
-def test_find_meteoswiss_manual_site_daily_measurements_without_snow_values(meteoswiss_source_fixture):
+def test_find_snow_station_daily_measurements_without_snow_values(meteoswiss_source_fixture, slf_source_fixture):
     # The sites close to the Uetliberg have no rows on 2026-09-21, which MeteoSwiss has published
     with pytest.raises(CannotAnswerError) as raised:
-        _find_meteoswiss_manual_site_daily_measurements(meteoswiss_source_fixture, UETLIBERG, date(2026, 9, 21), date(2026, 9, 21))
+        _find_snow_station_daily_measurements(
+            meteoswiss_source_fixture, slf_source_fixture, UETLIBERG, date(2026, 9, 21), date(2026, 9, 21)
+        )
     assert str(raised.value) == "None of the 2 snow stations tried for Uetliberg (869 m) has snow values for 2026-09-21."
+
+
+def test_find_snow_station_daily_measurements_takes_a_closer_slf_manual_site(
+    meteoswiss_source_fixture, slf_source_fixture
+):
+    # Next to Davos Flüelastr. the SLF manual site suits better than the MeteoSwiss site Davos
+    davos_flueelastrasse = find_slf_snow_station(slf_source_fixture, "5DF0")
+    place = find_station_place(davos_flueelastrasse, "Davos Dorf")
+    davos_days = _find_snow_station_daily_measurements(
+        meteoswiss_source_fixture, slf_source_fixture, place, date(2025, 1, 2), date(2025, 1, 2)
+    )
+    assert davos_days[0].station.code == "5DF0"
+    assert (davos_days[0].snow_depth_cm, davos_days[0].new_snow_cm) == (39.0, 6.0)
+
+
+def test_find_snow_station_daily_measurements_takes_a_closer_meteoswiss_site(
+    meteoswiss_source_fixture, slf_source_fixture
+):
+    # At the MeteoSwiss site Davos its own observer suits best
+    manual_sites = meteoswiss_source_fixture.list_manual_sites(date(2025, 1, 2))
+    davos_site = next(site for site in manual_sites if site.abbr == "DAV")
+    place = find_station_place(davos_site, "Davos Platz")
+    davos_days = _find_snow_station_daily_measurements(
+        meteoswiss_source_fixture, slf_source_fixture, place, date(2025, 1, 2), date(2025, 1, 2)
+    )
+    assert davos_days[0].station.abbr == "DAV"
+    assert (davos_days[0].snow_depth_cm, davos_days[0].new_snow_cm) == (37.0, 5.0)
+
+
+def test_find_snow_station_daily_measurements_takes_an_slf_automatic_station(
+    meteoswiss_source_fixture, slf_source_fixture
+):
+    # High above Zermatt, the IMIS station Triftchumme suits best
+    triftchumme = find_slf_snow_station(slf_source_fixture, "ZER2")
+    place = find_station_place(triftchumme, "Triftchumme")
+    triftchumme_days = _find_snow_station_daily_measurements(
+        meteoswiss_source_fixture, slf_source_fixture, place, date(2026, 9, 21), date(2026, 9, 22)
+    )
+    assert [day_measurements.station.code for day_measurements in triftchumme_days] == ["ZER2", "ZER2"]
+    assert [day_measurements.new_snow_cm for day_measurements in triftchumme_days] == [0.0, 3.8]
+
+
+def test_find_snow_station_daily_measurements_without_the_slf_stations(
+    mocker, meteoswiss_source_fixture, slf_source_fixture
+):
+    # When SLF cannot be reached, the MeteoSwiss sites answer alone
+    mocker.patch.object(
+        slf_source_fixture, "list_snow_stations", side_effect=requests.ConnectionError("connection refused")
+    )
+    place = UETLIBERG._replace(name="Davos Dorf", altitude_m=1560.0, east_m=2783900.0, north_m=1188300.0)
+    davos_days = _find_snow_station_daily_measurements(
+        meteoswiss_source_fixture, slf_source_fixture, place, date(2025, 1, 2), date(2025, 1, 2)
+    )
+    assert davos_days[0].station.abbr == "DAV"
+
+
+def test_find_snow_station_daily_measurements_skips_an_slf_station_without_a_history_file(
+    meteoswiss_source_fixture, slf_source_fixture
+):
+    # Gornergratsee has no history file, so the next station of the 3 tried answers
+    gornergratsee = find_slf_snow_station(slf_source_fixture, "GOR2")
+    place = find_station_place(gornergratsee, "Gornergrat")
+    gornergrat_days = _find_snow_station_daily_measurements(
+        meteoswiss_source_fixture, slf_source_fixture, place, date(2026, 9, 21), date(2026, 9, 21)
+    )
+    assert gornergrat_days[0].station.code == "ZER2"
+
+
+# --- _list_snow_stations_to_try ---
+
+def build_meteoswiss_site(abbr: str) -> MeteoSwissStation:
+    return MeteoSwissStation(
+        abbr=abbr, name=abbr, canton="Graubünden", altitude_m=1500.0, east_m=2780000.0, north_m=1190000.0,
+        data_since=date(1931, 1, 1), is_manual_site=True,
+    )
+
+
+def build_slf_station(code: str) -> SLFStation:
+    return SLFStation(
+        code=code, name=code, altitude_m=2500.0, east_m=2780000.0, north_m=1190000.0, is_manual_site=False
+    )
+
+
+def test_list_snow_stations_to_try_gives_each_source_its_own_tries():
+    # Four SLF stations suit a place better than the first MeteoSwiss site, which is still tried: for a day
+    # before they started, or in summer, the SLF stations have no values
+    slf_stations = [build_slf_station(code) for code in ("AAA2", "BBB2", "CCC2", "DDD2")]
+    meteoswiss_sites = [build_meteoswiss_site(abbr) for abbr in ("AAA", "BBB", "CCC", "DDD")]
+    ranked_snow_stations = [*slf_stations, *meteoswiss_sites]
+
+    snow_stations_to_try = _list_snow_stations_to_try(ranked_snow_stations)
+    assert snow_stations_to_try == [*slf_stations[:3], *meteoswiss_sites[:3]]
+
+
+def test_list_snow_stations_to_try_keeps_the_order_of_suitability():
+    aaa2 = build_slf_station("AAA2")
+    aaa = build_meteoswiss_site("AAA")
+    bbb2 = build_slf_station("BBB2")
+    assert _list_snow_stations_to_try([aaa2, aaa, bbb2]) == [aaa2, aaa, bbb2]
 
 
 # --- build_history_answer ---
 
-def test_build_history_answer_without_the_manual_sites(mocker, meteoswiss_source_fixture, measurement_tools_now_fixture):
+def test_build_history_answer_without_the_manual_sites(
+    mocker, meteoswiss_source_fixture, slf_source_fixture, measurement_tools_now_fixture
+):
     # The weather stays when the manual site table cannot be downloaded
     mocker.patch.object(
         meteoswiss_source_fixture, "list_manual_sites", side_effect=requests.ConnectionError("connection refused")
     )
-    answer = build_history_answer(meteoswiss_source_fixture, ZURICH, date(2026, 9, 23), 1)
+    answer = build_history_answer(meteoswiss_source_fixture, slf_source_fixture, ZURICH, date(2026, 9, 23), 1)
     assert answer["weather"]["days"][0]["date"] == "2026-09-23"
     assert answer["snow"] is None
 
 
 def test_build_history_answer_when_a_manual_site_cannot_be_downloaded(
-    mocker, meteoswiss_source_fixture, measurement_tools_now_fixture
+    mocker, meteoswiss_source_fixture, slf_source_fixture, measurement_tools_now_fixture
 ):
     # Fluntern's weather downloads, but its manual site's files do not, so the answer holds only the weather
     read_daily = meteoswiss_source_fixture.read_station_daily_measurements
@@ -182,29 +315,31 @@ def test_build_history_answer_when_a_manual_site_cannot_be_downloaded(
     mocker.patch.object(
         meteoswiss_source_fixture, "read_station_daily_measurements", side_effect=read_daily_except_the_manual_site
     )
-    answer = build_history_answer(meteoswiss_source_fixture, ZURICH, date(2026, 9, 23), 1)
+    answer = build_history_answer(meteoswiss_source_fixture, slf_source_fixture, ZURICH, date(2026, 9, 23), 1)
     assert answer["weather"]["days"][0]["date"] == "2026-09-23"
     assert answer["snow"] is None
 
 
 def test_build_history_answer_only_the_snow_without_the_manual_sites(
-    mocker, meteoswiss_source_fixture, measurement_tools_now_fixture
+    mocker, meteoswiss_source_fixture, slf_source_fixture, measurement_tools_now_fixture
 ):
     # The server tells the model it could not download the data
     mocker.patch.object(
         meteoswiss_source_fixture, "list_manual_sites", side_effect=requests.ConnectionError("connection refused")
     )
     with pytest.raises(requests.ConnectionError):
-        build_history_answer(meteoswiss_source_fixture, ZURICH, date(2026, 9, 23), 1, "snow")
+        build_history_answer(meteoswiss_source_fixture, slf_source_fixture, ZURICH, date(2026, 9, 23), 1, "snow")
 
 
-def test_build_history_answer_only_the_snow_of_a_day_not_published_yet(mocker, meteoswiss_source_fixture):
+def test_build_history_answer_only_the_snow_of_a_day_not_published_yet(
+    mocker, meteoswiss_source_fixture, slf_source_fixture
+):
     # A day later, at 14:05 UTC, but MeteoSwiss has not added the row of 2026-09-25 to the recent files
     for module in ("history", "meteoswiss_source"):
         datetime_mock = mocker.patch(f"swiss_weather_mcp.measurements.{module}.datetime", wraps=datetime)
         datetime_mock.now.return_value = MEASUREMENTS_NOW + timedelta(days=1)
     with pytest.raises(CannotAnswerError) as raised:
-        build_history_answer(meteoswiss_source_fixture, ZURICH, date(2026, 9, 25), 1, "snow")
+        build_history_answer(meteoswiss_source_fixture, slf_source_fixture, ZURICH, date(2026, 9, 25), 1, "snow")
     assert str(raised.value) == (
-        "MeteoSwiss has not published the daily measurements for 2026-09-25 yet, try again later."
+        "The snow measurements for 2026-09-25 are not published yet, try again later."
     )

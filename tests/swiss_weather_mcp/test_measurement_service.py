@@ -227,21 +227,22 @@ async def test_read_history_only_the_weather(source_fixture, measurement_service
 
 @pytest.mark.asyncio
 async def test_read_history_only_the_snow(source_fixture, measurement_service_fixture):
-    # The manual site Davos is next to Davos Dorf, so the block does not name it. The 5 cm of new snow of
-    # 2025-01-02 show in the snow depth of the next morning.
+    # The SLF manual site Davos Flüelastr. is next to Davos Dorf and nearer than the MeteoSwiss site Davos,
+    # so the block does not name it. Its row of 2025-01-02 has no new snow, so 2025-01-01 has none either.
     answer = await measurement_service_fixture.read_history("Davos Dorf", date(2025, 1, 1), 3, "snow")
 
     assert answer == {
         "place": "Davos Dorf",
         "snow": {
             "days": [
-                {"date": "2025-01-01", "snow_depth_cm": 38.0, "new_snow_cm": 0.0},
-                {"date": "2025-01-02", "snow_depth_cm": 37.0, "new_snow_cm": 5.0},
-                {"date": "2025-01-03", "snow_depth_cm": 41.0, "new_snow_cm": 0.0},
+                {"date": "2025-01-01", "snow_depth_cm": 40.0, "new_snow_cm": None},
+                {"date": "2025-01-02", "snow_depth_cm": 39.0, "new_snow_cm": 6.0},
+                {"date": "2025-01-03", "snow_depth_cm": 44.0, "new_snow_cm": 0.0},
             ],
         },
     }
     assert count_downloads(source_fixture, "ogd-smn_dav_d_") == 0
+    assert count_downloads(source_fixture, "ogd-nime_dav_d_") == 0
 
 
 @pytest.mark.asyncio

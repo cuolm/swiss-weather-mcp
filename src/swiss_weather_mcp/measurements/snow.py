@@ -67,7 +67,7 @@ def _build_new_snow_block(place: SwisstopoPlace, new_snow: LatestNewSnow) -> Dic
     return block
 
 
-def _list_slf_snow_stations(slf_source: SLFMeasurementSource) -> List[SLFStation]:
+def list_slf_snow_stations(slf_source: SLFMeasurementSource) -> List[SLFStation]:
     """List the SLF snow stations, or none when SLF cannot be reached; the MeteoSwiss stations then answer alone."""
     try:
         return slf_source.list_snow_stations()
@@ -159,7 +159,7 @@ def build_snow_answer(
     CannotAnswerError when no snow station is close enough, and when neither has a current value.
     """
     meteoswiss_snow_stations = meteoswiss_source.list_snow_stations()
-    slf_snow_stations = _list_slf_snow_stations(slf_source)
+    slf_snow_stations = list_slf_snow_stations(slf_source)
     # Both sources measure the snow depth, only SLF the new snow
     snow_depth_stations: List[SnowStation] = [*meteoswiss_snow_stations, *slf_snow_stations]
     snow_depth = _find_snow_depth(meteoswiss_source, slf_source, place, snow_depth_stations)

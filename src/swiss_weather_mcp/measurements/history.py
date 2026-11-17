@@ -11,7 +11,11 @@ from ..errors import CannotAnswerError
 from ..formatting import describe_distance_and_height
 from ..places import SwisstopoPlace
 from .meteoswiss_source import MeteoSwissMeasurementSource, MeteoSwissStation, MeteoSwissStationMeasurements
-from .snow import MAX_SNOW_STATION_WEIGHTED_DISTANCE_M, describe_closest_snow_station, describe_snow_station
+from .slf_source import SLFMeasurementSource
+from .snow import (
+    MAX_SNOW_STATION_WEIGHTED_DISTANCE_M, describe_closest_snow_station, describe_snow_station, list_slf_snow_stations,
+)
+from .snow_values import SnowStationDailyMeasurements, SnowStation
 
 logger = logging.getLogger(__name__)
 
@@ -68,14 +72,12 @@ def _build_weather_day_row(day_measurements: MeteoSwissStationMeasurements) -> D
     }
 
 
-def _build_snow_day_row(day_measurements: MeteoSwissStationMeasurements) -> Dict[str, Any]:
-    """Build the snow row of one day of a manual site's daily measurements."""
-    day = day_measurements.measured_at.date()
-    parameter_to_value = day_measurements.parameter_to_value
+def _build_snow_day_row(day_measurements: SnowStationDailyMeasurements) -> Dict[str, Any]:
+    """Build the snow row of one day."""
     return {
-        "date": day.isoformat(),
-        "snow_depth_cm": parameter_to_value[parameters.SNOW_DEPTH_DAY],
-        "new_snow_cm": parameter_to_value[parameters.NEW_SNOW_DAY],
+        "date": day_measurements.day.isoformat(),
+        "snow_depth_cm": day_measurements.snow_depth_cm,
+        "new_snow_cm": day_measurements.new_snow_cm,
     }
 
 
@@ -161,54 +163,94 @@ def _find_meteoswiss_station_daily_measurements(
     )
 
 
-def _has_snow_value(day_measurements: MeteoSwissStationMeasurements) -> bool:
-    """Tell whether a manual site measured the snow depth or the new snow on a day."""
-    parameter_to_value = day_measurements.parameter_to_value
-    has_snow_depth = parameter_to_value[parameters.SNOW_DEPTH_DAY] is not None
-    has_new_snow = parameter_to_value[parameters.NEW_SNOW_DAY] is not None
-    return has_snow_depth or has_new_snow
+def _has_snow_value(day_measurements: SnowStationDailyMeasurements) -> bool:
+    """Tell whether a station measured the snow depth or the new snow on a day."""
+    return day_measurements.snow_depth_cm is not None or day_measurements.new_snow_cm is not None
 
 
-def _find_meteoswiss_manual_site_daily_measurements(
-    meteoswiss_source: MeteoSwissMeasurementSource, place: SwisstopoPlace, first_day: date, last_day: date
-) -> List[MeteoSwissStationMeasurements]:
+def _read_snow_history(
+    meteoswiss_source: MeteoSwissMeasurementSource,
+    slf_source: SLFMeasurementSource,
+    station: SnowStation,
+    first_day: date,
+    last_day: date,
+) -> List[SnowStationDailyMeasurements]:
+    """Read a station's snow from its source, or none when its SLF history cannot be downloaded."""
+    if isinstance(station, MeteoSwissStation):
+        return meteoswiss_source.read_snow_history(station, first_day, last_day)
+    try:
+        return slf_source.read_snow_history(station, last_day)
+    except requests.RequestException as error:
+        logger.warning(f"Could not download the snow history of SLF station {station.code}: {error}")
+        return []
+
+
+def _list_snow_stations_to_try(ranked_snow_stations: List[SnowStation]) -> List[SnowStation]:
+    """List the first MAX_STATIONS_TRIED stations of each source, MeteoSwiss and SLF, in their order."""
+    meteoswiss_count = 0
+    slf_count = 0
+    snow_stations_to_try: List[SnowStation] = []
+    for station in ranked_snow_stations:
+        if isinstance(station, MeteoSwissStation):
+            meteoswiss_count += 1
+            if meteoswiss_count <= MAX_STATIONS_TRIED:
+                snow_stations_to_try.append(station)
+        else:
+            slf_count += 1
+            if slf_count <= MAX_STATIONS_TRIED:
+                snow_stations_to_try.append(station)
+    return snow_stations_to_try
+
+
+def _find_snow_station_daily_measurements(
+    meteoswiss_source: MeteoSwissMeasurementSource,
+    slf_source: SLFMeasurementSource,
+    place: SwisstopoPlace,
+    first_day: date,
+    last_day: date,
+) -> List[SnowStationDailyMeasurements]:
     """
-    Find the daily snow of the manual site for a place from first_day to last_day, the oldest first.
+    Find the daily measurements of the snow station for a place from first_day to last_day, the oldest first.
 
-    The manual sites that started measuring the snow depth by last_day and lie within
-    MAX_SNOW_STATION_WEIGHTED_DISTANCE_M are ranked by weighted distance, and the first of the first
-    MAX_STATIONS_TRIED with a snow value on one of the days is taken; a day it has no row for is left out.
-    Raise CannotAnswerError when no site measured the snow then, none is close enough, MeteoSwiss has not
-    published the days yet, or none of the sites tried has snow values for them.
+    The MeteoSwiss manual sites that started measuring the snow depth by last_day and the SLF snow stations
+    within MAX_SNOW_STATION_WEIGHTED_DISTANCE_M are ranked by weighted distance. The first MAX_STATIONS_TRIED
+    of each source are tried in that order, and the first with a snow value on one of the days is taken; a
+    day it has no row for is left out. Raise CannotAnswerError when no station is close enough, the days are
+    not published yet, or none of the stations tried has snow values for them.
     """
     described_days = _describe_days(first_day, last_day)
-    manual_sites = meteoswiss_source.list_manual_sites(last_day)
-    if not manual_sites:
-        raise CannotAnswerError(f"No MeteoSwiss observer measured the snow depth on {described_days}.")
-    ranked_manual_sites = rank_by_weighted_distance(place, manual_sites, MAX_SNOW_STATION_WEIGHTED_DISTANCE_M)
-    if not ranked_manual_sites:
-        closest_snow_station_sentence = describe_closest_snow_station(place, manual_sites)
+    meteoswiss_manual_sites = meteoswiss_source.list_manual_sites(last_day)
+    slf_snow_stations = list_slf_snow_stations(slf_source)
+    snow_stations: List[SnowStation] = [*meteoswiss_manual_sites, *slf_snow_stations]
+    if not snow_stations:
+        raise CannotAnswerError(f"No snow station measured the snow depth on {described_days}.")
+    ranked_snow_stations = rank_by_weighted_distance(place, snow_stations, MAX_SNOW_STATION_WEIGHTED_DISTANCE_M)
+    if not ranked_snow_stations:
+        closest_snow_station_sentence = describe_closest_snow_station(place, snow_stations)
         raise CannotAnswerError(closest_snow_station_sentence)
 
-    tried_manual_sites = ranked_manual_sites[:MAX_STATIONS_TRIED]
+    # Each source has its own tries: many SLF stations started after the asked days, and most SLF observers
+    # pause in summer, so they would use up the tries of a MeteoSwiss site that measured
+    tried_snow_stations = _list_snow_stations_to_try(ranked_snow_stations)
     newest_published_days = []
-    for manual_site in tried_manual_sites:
-        all_days = meteoswiss_source.read_station_daily_measurements(manual_site, first_day, last_day)
-        if all_days:
-            newest_published_days.append(all_days[-1].measured_at.date())
+    for station in tried_snow_stations:
+        daily_measurements = _read_snow_history(meteoswiss_source, slf_source, station, first_day, last_day)
+        if daily_measurements:
+            newest_published_days.append(daily_measurements[-1].day)
 
-        asked_days = _find_days_between(all_days, first_day, last_day)
-        has_snow = any(_has_snow_value(day_measurements) for day_measurements in asked_days)
+        asked_daily_measurements = []
+        for day_measurements in daily_measurements:
+            if first_day <= day_measurements.day <= last_day:
+                asked_daily_measurements.append(day_measurements)
+        has_snow = any(_has_snow_value(day_measurements) for day_measurements in asked_daily_measurements)
         if has_snow:
-            return asked_days
-        logger.info(f"Manual site {manual_site.abbr} has no snow for {described_days}, trying the next one")
+            return asked_daily_measurements
+        logger.info(f"Snow station {station.display_name} has no snow for {described_days}, trying the next one")
 
-    # As for the weather: days after the newest row of every site tried are not published yet
+    # As for the weather: days after the newest row of every station tried are not published yet
     if newest_published_days and max(newest_published_days) < first_day:
-        raise CannotAnswerError(
-            f"MeteoSwiss has not published the daily measurements for {described_days} yet, try again later."
-        )
-    tried_count = len(tried_manual_sites)
+        raise CannotAnswerError(f"The snow measurements for {described_days} are not published yet, try again later.")
+    tried_count = len(tried_snow_stations)
     raise CannotAnswerError(
         f"None of the {tried_count} snow stations tried for {place.display_name} has snow values for {described_days}."
     )
@@ -217,7 +259,7 @@ def _find_meteoswiss_manual_site_daily_measurements(
 def _build_weather_block(
     meteoswiss_source: MeteoSwissMeasurementSource, place: SwisstopoPlace, first_day: date, last_day: date
 ) -> Dict[str, Any]:
-    """Build the weather block from the daily measurements of the station for a place; raise CannotAnswerError as its find does."""
+    """Build the weather block for a place from the best-suited station; raise CannotAnswerError if none has values."""
     daily_measurements = _find_meteoswiss_station_daily_measurements(meteoswiss_source, place, first_day, last_day)
     block: Dict[str, Any] = {}
     station = daily_measurements[0].station
@@ -233,15 +275,21 @@ def _build_weather_block(
 
 
 def _build_snow_block(
-    meteoswiss_source: MeteoSwissMeasurementSource, place: SwisstopoPlace, first_day: date, last_day: date
+    meteoswiss_source: MeteoSwissMeasurementSource,
+    slf_source: SLFMeasurementSource,
+    place: SwisstopoPlace,
+    first_day: date,
+    last_day: date,
 ) -> Dict[str, Any]:
-    """Build the snow block from the daily snow of the manual site for a place; raise CannotAnswerError as its find does."""
-    daily_measurements = _find_meteoswiss_manual_site_daily_measurements(meteoswiss_source, place, first_day, last_day)
+    """Build the snow block for a place from the best-suited station; raise CannotAnswerError if none has values."""
+    daily_measurements = _find_snow_station_daily_measurements(
+        meteoswiss_source, slf_source, place, first_day, last_day
+    )
     block: Dict[str, Any] = {}
-    manual_site = daily_measurements[0].station
-    # A manual site next to the place stands for it, so the block does not name it
-    if not is_close(place, manual_site):
-        block["data_from"] = describe_snow_station(place, manual_site, "snow")
+    station = daily_measurements[0].station
+    # A station next to the place stands for it, so the block does not name it
+    if not is_close(place, station):
+        block["data_from"] = describe_snow_station(place, station, "snow")
     day_rows = []
     for day_measurements in daily_measurements:
         day_row = _build_snow_day_row(day_measurements)
@@ -258,6 +306,7 @@ def check_day_count(days: int) -> None:
 
 def build_history_answer(
     meteoswiss_source: MeteoSwissMeasurementSource,
+    slf_source: SLFMeasurementSource,
     place: SwisstopoPlace,
     first_day: date,
     days: int,
@@ -276,15 +325,15 @@ def build_history_answer(
     if values == WEATHER_VALUES:
         answer["weather"] = _build_weather_block(meteoswiss_source, place, first_day, last_day)
     elif values == SNOW_VALUES:
-        answer["snow"] = _build_snow_block(meteoswiss_source, place, first_day, last_day)
+        answer["snow"] = _build_snow_block(meteoswiss_source, slf_source, place, first_day, last_day)
     else:
         answer["weather"] = _build_weather_block(meteoswiss_source, place, first_day, last_day)
         # Next to the weather the snow is optional: without it the answer still holds the weather
         try:
-            answer["snow"] = _build_snow_block(meteoswiss_source, place, first_day, last_day)
+            answer["snow"] = _build_snow_block(meteoswiss_source, slf_source, place, first_day, last_day)
         except CannotAnswerError:
             answer["snow"] = None
         except requests.RequestException as error:
-            logger.warning(f"Could not download the manual sites, answering without the snow: {error}")
+            logger.warning(f"Could not download the snow stations, answering without the snow: {error}")
             answer["snow"] = None
     return answer
