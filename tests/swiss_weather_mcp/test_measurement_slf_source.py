@@ -33,6 +33,24 @@ def test_list_snow_stations_names_the_canton(slf_source_fixture):
     assert davos.canton == "Graubünden"
 
 
+# --- read_morning_snow ---
+
+def test_read_morning_snow_takes_the_newest_imis_morning(slf_source_fixture):
+    # Zermatt's manual site last measured the morning before, so it does not count
+    all_morning_snow = slf_source_fixture.read_morning_snow()
+    assert [(morning_snow.station.code, morning_snow.snow_depth_cm) for morning_snow in all_morning_snow] == [
+        ("GOR2", 21.0), ("ZER2", 8.0), ("5DF0", 31.0),
+    ]
+    assert {morning_snow.measured_at for morning_snow in all_morning_snow} == {
+        datetime(2026, 9, 25, 6, tzinfo=timezone.utc),
+    }
+
+
+def test_read_morning_snow_without_imis_daily_snow(mocker, slf_source_fixture):
+    mocker.patch.object(slf_source_fixture, "_read_all_imis_stations_daily_snow", return_value={})
+    assert slf_source_fixture.read_morning_snow() == []
+
+
 # --- read_snow_depth ---
 
 def test_read_snow_depth_of_an_imis_station(slf_source_fixture):

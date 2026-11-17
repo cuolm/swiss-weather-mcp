@@ -1,26 +1,37 @@
-"""Build the measurements_extremes answer: where in Switzerland a measured value is at its extreme now."""
-from typing import Any, Dict, List, Literal, NamedTuple, NotRequired, TypedDict
+"""Build the measurements_extremes answer: where in Switzerland a value is at its extreme now or this morning."""
+from typing import Any, Dict, List, Literal, NamedTuple, NotRequired, Optional, TypedDict, Union
 
 from . import parameters
 from ..errors import CannotAnswerError
 from ..formatting import format_swiss_time
 from .meteoswiss_source import MeteoSwissMeasurementSource, MeteoSwissStation, MeteoSwissStationMeasurements
+from .slf_source import SLFMeasurementSource, SLFMorningSnow, SLFStation
 
 
 class MeteoSwissExtreme(NamedTuple):
-    """The measured value an extreme ranks the stations by."""
+    """The value of MeteoSwiss's file of all stations an extreme ranks the stations by."""
     parameter: str
     field: str  # the field the value fills in the answer
     highest_first: bool
 
 
-ExtremeName = Literal["warmest", "coldest", "windiest", "wettest", "sunniest"]
-EXTREME_NAME_TO_EXTREME: Dict[ExtremeName, MeteoSwissExtreme] = {
+class SLFExtreme(NamedTuple):
+    """The morning snow value an extreme ranks the SLF stations by."""
+    field: str  # the field the value fills in the answer
+    is_new_snow: bool  # the new snow of the 24 hours up to the morning; otherwise the snow depth
+
+
+ExtremeName = Literal["warmest", "coldest", "windiest", "wettest", "sunniest", "deepest_snow", "most_new_snow"]
+EXTREME_NAME_TO_EXTREME: Dict[ExtremeName, Union[MeteoSwissExtreme, SLFExtreme]] = {
     "warmest": MeteoSwissExtreme(parameters.TEMPERATURE, "temperature_c", highest_first=True),
     "coldest": MeteoSwissExtreme(parameters.TEMPERATURE, "temperature_c", highest_first=False),
     "windiest": MeteoSwissExtreme(parameters.WIND_GUSTS, "gusts_kmh", highest_first=True),
     "wettest": MeteoSwissExtreme(parameters.PRECIPITATION, "rain_last_10_minutes_mm", highest_first=True),
     "sunniest": MeteoSwissExtreme(parameters.SUNSHINE, "sunshine_last_10_minutes_minutes", highest_first=True),
+    # MeteoSwiss publishes the snow of each station in its own file, so only SLF's answers of all stations are
+    # ranked
+    "deepest_snow": SLFExtreme("snow_depth_cm", is_new_snow=False),
+    "most_new_snow": SLFExtreme("new_snow_24_hours_cm", is_new_snow=True),
 }
 # How many stations a ranking lists
 STATION_COUNT = 5
@@ -53,6 +64,12 @@ class MeteoSwissStationValue(NamedTuple):
     value: float
 
 
+class SLFStationValue(NamedTuple):
+    """One morning snow value of one SLF station."""
+    station: SLFStation
+    value: float
+
+
 class ExtremesAnswer(TypedDict):
     """
     The measurements_extremes answer.
@@ -64,9 +81,85 @@ class ExtremesAnswer(TypedDict):
     measured_at: str
     rainy_stations: NotRequired[int]
     measuring_stations: NotRequired[int]
+    stations_with_snow: NotRequired[int]
     stations_by_sunshine: NotRequired[Dict[str, int]]
     cantons: NotRequired[List[Dict[str, Any]]]
     stations: NotRequired[List[Dict[str, Any]]]
+
+
+def _read_snow_value(morning_snow: SLFMorningSnow, slf_extreme: SLFExtreme) -> Optional[float]:
+    """Read the value of a station's morning snow that a snow extreme ranks by."""
+    if slf_extreme.is_new_snow:
+        return morning_snow.new_snow_cm
+    return morning_snow.snow_depth_cm
+
+
+def _find_slf_station_values(
+    all_morning_snow: List[SLFMorningSnow], slf_extreme: SLFExtreme
+) -> List[SLFStationValue]:
+    """Find the stations that have the value a snow extreme ranks by, so a station without one is never counted."""
+    slf_station_values = []
+    for morning_snow in all_morning_snow:
+        value = _read_snow_value(morning_snow, slf_extreme)
+        if value is not None:
+            slf_station_value = SLFStationValue(morning_snow.station, value)
+            slf_station_values.append(slf_station_value)
+    return slf_station_values
+
+
+def _describe_station_kind(station: SLFStation, slf_extreme: SLFExtreme) -> str:
+    """Say what kind of station a value is from, and for the new snow whether it was measured or modelled."""
+    if station.is_manual_site:
+        kind = "manual SLF site"
+        method = "measured"
+    else:
+        kind = "automatic SLF station"
+        # SLF calculates the new snow of its automatic stations from the snow depth with its SNOWPACK model
+        method = "modelled"
+    if slf_extreme.is_new_snow:
+        return f"{kind}, {method}"
+    return kind
+
+
+def _build_slf_station_rows(
+    snowy_values: List[SLFStationValue], slf_extreme: SLFExtreme
+) -> List[Dict[str, Any]]:
+    """Build the answer rows of the first STATION_COUNT stations, the most snow first."""
+    ranked_values = sorted(snowy_values, key=lambda slf_station_value: (
+        -slf_station_value.value, slf_station_value.station.name
+    ))
+    rows = []
+    for slf_station_value in ranked_values[:STATION_COUNT]:
+        kind = _describe_station_kind(slf_station_value.station, slf_extreme)
+        rows.append({
+            "station": slf_station_value.station.display_name,
+            "canton": slf_station_value.station.canton,
+            "kind": kind,
+            slf_extreme.field: slf_station_value.value,
+        })
+    return rows
+
+
+def _build_snow_extremes_answer(
+    slf_source: SLFMeasurementSource, extreme_name: str, slf_extreme: SLFExtreme
+) -> ExtremesAnswer:
+    """Build the answer of a snow extreme from the morning snow of the SLF stations."""
+    all_morning_snow = slf_source.read_morning_snow()
+    if not all_morning_snow:
+        raise CannotAnswerError("SLF currently publishes no daily snow, try again later.")
+    slf_station_values = _find_slf_station_values(all_morning_snow, slf_extreme)
+    snowy_values = []
+    for slf_station_value in slf_station_values:
+        if slf_station_value.value > 0:
+            snowy_values.append(slf_station_value)
+    return {
+        "extreme": extreme_name,
+        # Every station's value is of the same morning
+        "measured_at": format_swiss_time(all_morning_snow[0].measured_at),
+        "measuring_stations": len(slf_station_values),
+        "stations_with_snow": len(snowy_values),
+        "stations": _build_slf_station_rows(snowy_values, slf_extreme),
+    }
 
 
 def _find_station_values(
@@ -192,22 +285,26 @@ def _build_station_rows(
     return rows
 
 
-def build_extremes_answer(meteoswiss_source: MeteoSwissMeasurementSource, extreme_name: str) -> ExtremesAnswer:
+def build_extremes_answer(
+    meteoswiss_source: MeteoSwissMeasurementSource, slf_source: SLFMeasurementSource, extreme_name: str
+) -> ExtremesAnswer:
     """
     Build the measurements_extremes answer; run it in a worker thread, as it downloads.
 
-    extreme_name is one of EXTREME_NAME_TO_EXTREME. Raise CannotAnswerError for an unknown extreme or when
-    MeteoSwiss publishes no measurements.
+    extreme_name is one of EXTREME_NAME_TO_EXTREME. Raise CannotAnswerError for an unknown extreme, and when
+    MeteoSwiss, or SLF for the snow, publishes no measurements.
     """
     if extreme_name not in EXTREME_NAME_TO_EXTREME:
         extreme_names = ", ".join(EXTREME_NAME_TO_EXTREME)
         raise CannotAnswerError(f"'{extreme_name}' is not a known extreme, use one of: {extreme_names}.")
+    extreme = EXTREME_NAME_TO_EXTREME[extreme_name]
+    if isinstance(extreme, SLFExtreme):
+        return _build_snow_extremes_answer(slf_source, extreme_name, extreme)
 
     all_measurements = meteoswiss_source.read_all_stations_latest_measurements()
     if not all_measurements:
         raise CannotAnswerError("MeteoSwiss currently publishes no measurements, try again later.")
 
-    extreme = EXTREME_NAME_TO_EXTREME[extreme_name]
     station_values = _find_station_values(all_measurements, extreme.parameter)
     answer: ExtremesAnswer = {
         "extreme": extreme_name,

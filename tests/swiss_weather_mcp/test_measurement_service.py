@@ -7,6 +7,7 @@ from fakes import MEASUREMENTS_NOW, SLF_STATION_CODE_TO_ROWS
 from swiss_weather_mcp.errors import CannotAnswerError
 from swiss_weather_mcp.measurements import parameters
 from swiss_weather_mcp.measurements.meteoswiss_source import MeteoSwissStation, MeteoSwissStationMeasurements
+from swiss_weather_mcp.measurements.slf_source import SLFDailySnowMeasurements
 
 FLUNTERN = MeteoSwissStation(
     abbr="SMA", name="Zürich / Fluntern", canton="Zurich", altitude_m=604.0, east_m=2685223.0, north_m=1248410.0,
@@ -503,8 +504,53 @@ async def test_read_extremes_wettest_when_dry(mocker, measurement_service_fixtur
 
 
 @pytest.mark.asyncio
+async def test_read_extremes_deepest_snow(measurement_service_fixture):
+    answer = await measurement_service_fixture.read_extremes("deepest_snow")
+
+    assert answer["measured_at"] == "2026-09-25T08:00+02:00"
+    assert (answer["measuring_stations"], answer["stations_with_snow"]) == (3, 3)
+    assert answer["stations"][0] == {
+        "station": "Davos Flüelastr. (1560 m)", "canton": "Graubünden", "kind": "manual SLF site",
+        "snow_depth_cm": 31.0,
+    }
+    assert [row["kind"] for row in answer["stations"][1:]] == ["automatic SLF station", "automatic SLF station"]
+
+
+@pytest.mark.asyncio
+async def test_read_extremes_most_new_snow(measurement_service_fixture):
+    # Only Davos Flüelastr. had new snow; the automatic stations had none
+    answer = await measurement_service_fixture.read_extremes("most_new_snow")
+
+    assert (answer["measuring_stations"], answer["stations_with_snow"]) == (3, 1)
+    assert answer["stations"] == [{
+        "station": "Davos Flüelastr. (1560 m)", "canton": "Graubünden", "kind": "manual SLF site, measured",
+        "new_snow_24_hours_cm": 6.0,
+    }]
+
+
+@pytest.mark.asyncio
+async def test_read_extremes_most_new_snow_names_the_modelled_value(mocker, measurement_service_fixture):
+    morning = datetime(2026, 9, 25, 6, tzinfo=timezone.utc)
+    snowy_gornergratsee = {"GOR2": [SLFDailySnowMeasurements(morning, 30.0, 12.5)]}
+    mocker.patch.object(
+        measurement_service_fixture.slf_source, "_read_all_imis_stations_daily_snow", return_value=snowy_gornergratsee,
+    )
+    answer = await measurement_service_fixture.read_extremes("most_new_snow")
+
+    assert answer["stations"][0]["kind"] == "automatic SLF station, modelled"
+    assert answer["stations"][0]["new_snow_24_hours_cm"] == 12.5
+
+
+@pytest.mark.asyncio
+async def test_read_extremes_snow_without_slf_daily_snow(mocker, measurement_service_fixture):
+    mocker.patch.object(measurement_service_fixture.slf_source, "_read_all_imis_stations_daily_snow", return_value={})
+    with pytest.raises(CannotAnswerError, match="SLF currently publishes no daily snow"):
+        await measurement_service_fixture.read_extremes("deepest_snow")
+
+
+@pytest.mark.asyncio
 async def test_read_extremes_unknown_extreme(measurement_service_fixture):
-    with pytest.raises(CannotAnswerError, match="warmest, coldest, windiest, wettest, sunniest"):
+    with pytest.raises(CannotAnswerError, match="warmest, coldest, windiest, wettest, sunniest, deepest_snow"):
         await measurement_service_fixture.read_extremes("foggiest")
 
 

@@ -19,6 +19,8 @@ What SLF publishes:
   period_in_days=7 one row per day for the last 7 days, today's only once it is measured,
   stamped 06:00 UTC. An observer measures the snow depth and the new snow of the last 24
   hours by hand each morning, from November to April.
+- The measurements of all manual sites, study-plot/measurements, those of the last 24 hours:
+  each site's row of this morning, once its observer has measured.
 - The snow history of a station on SLF's data server, https://measurement-data.slf.ch/, one CSV
   file per station with every day it measured: study-plot/data/by_station/5DF0.csv for a manual
   site, since 1945 at Davos Flüelastr., and imis/data/daily_snow_values/daily_snow_by_station/
@@ -93,6 +95,9 @@ How we use it, while the tools in current.py and snow.py choose the station:
    after it. A day the file holds keeps the file's values, so its answer does not change later.
    A row counts the new snow of the 24 hours up to its morning, so the new snow of the 24 hours
    from a day's morning, as MeteoSwiss counts it, is the one of the next day's row.
+7. For the snow of all stations, take the newest morning of the IMIS daily snow, and the manual
+   sites that measured that morning too. The file of all manual sites is downloaded again when it
+   is older than 1 hour.
 
     <cache dir>/slf/
     ├── imis_stations.json               (station list, downloaded again when older than 7 days)
@@ -100,6 +105,7 @@ How we use it, while the tools in current.py and snow.py choose the station:
     ├── imis_daily_snow.json             (daily snow of all IMIS snow stations, downloaded again after 1 hour)
     ├── manual_sites.json                (manual site list, downloaded again when older than 7 days)
     ├── manual_site_5df0_daily_snow.json (daily snow per manual site, downloaded again after 1 hour)
+    ├── manual_sites_daily_snow.json     (this morning's snow of all manual sites, downloaded again after 1 hour)
     ├── manual_site_5df0_snow_history.csv (snow history per manual site, downloaded again after 1 day)
     └── imis_dav2_snow_history.csv       (snow history per IMIS station, downloaded again after 1 day)
 """
@@ -124,6 +130,7 @@ IMIS_DAILY_SNOW_URL = "https://measurement-api.slf.ch/public/api/imis/daily-snow
 MANUAL_SITE_LIST_URL = "https://measurement-api.slf.ch/public/api/study-plot/stations"
 # 3 days would be today and the 2 days before, too few for 3 days of new snow before today's reading
 MANUAL_SITE_DAILY_SNOW_URL = "https://measurement-api.slf.ch/public/api/study-plot/station/{code}/measurements?period_in_days=7"
+ALL_MANUAL_SITES_DAILY_SNOW_URL = "https://measurement-api.slf.ch/public/api/study-plot/measurements"
 # Every day a station has measured, one file per station, https://measurement-data.slf.ch/
 MANUAL_SITE_SNOW_HISTORY_URL = "https://measurement-data.slf.ch/study-plot/data/by_station/{code}.csv"
 IMIS_SNOW_HISTORY_URL = (
@@ -196,6 +203,14 @@ class SLFDailySnowMeasurements(NamedTuple):
     measured_at: datetime
     snow_depth_cm: Optional[float]
     new_snow_cm: Optional[float]  # of the 24 hours up to measured_at
+
+
+class SLFMorningSnow(NamedTuple):
+    """The snow of one station on a morning: the depth at 06:00 UTC and the new snow of the 24 hours up to then."""
+    station: SLFStation
+    measured_at: datetime
+    snow_depth_cm: Optional[float]
+    new_snow_cm: Optional[float]
 
 
 def _parse_station(station_object: Dict[str, Any], is_manual_site: bool) -> SLFStation:
@@ -335,6 +350,16 @@ def _calculate_new_snow(
     newest_date = newest_day.measured_at.date()
     new_snow_3_days_cm = _sum_new_snow(all_days, newest_date)
     return LatestNewSnow(station, newest_day.measured_at, newest_day.new_snow_cm, new_snow_3_days_cm)
+
+
+def _find_morning(
+    all_days: List[SLFDailySnowMeasurements], measured_at: datetime
+) -> Optional[SLFDailySnowMeasurements]:
+    """Find the day measured at a moment, or None when there is none."""
+    for day_measurements in all_days:
+        if day_measurements.measured_at == measured_at:
+            return day_measurements
+    return None
 
 
 class SLFMeasurementSource:
@@ -533,3 +558,47 @@ class SLFMeasurementSource:
             all_days = station_code_to_daily_snow.get(station.code, [])
         today = datetime.now(timezone.utc).date()
         return _calculate_new_snow(station, all_days, today)
+
+    def _read_all_manual_sites_daily_snow(self) -> Dict[str, List[SLFDailySnowMeasurements]]:
+        """Read the daily snow of every manual site in the last 24 hours, keyed by station code, the oldest first."""
+        all_manual_sites_daily_snow_file = self.cache_dir / "manual_sites_daily_snow.json"
+        rows = read_recent_json(
+            ALL_MANUAL_SITES_DAILY_SNOW_URL, all_manual_sites_daily_snow_file, MANUAL_SITE_DAILY_SNOW_MAX_AGE
+        )
+        station_code_to_daily_snow: Dict[str, List[SLFDailySnowMeasurements]] = {}
+        for row in rows:
+            day_measurements = _parse_manual_site_daily_snow(row)
+            station_code_to_daily_snow.setdefault(row["station_code"], []).append(day_measurements)
+        for all_days in station_code_to_daily_snow.values():
+            all_days.sort(key=lambda day_measurements: day_measurements.measured_at)
+        return station_code_to_daily_snow
+
+    def read_morning_snow(self) -> List[SLFMorningSnow]:
+        """
+        Read the snow of every SLF snow station on the newest morning of the IMIS daily snow.
+
+        A manual site counts only when its observer measured that morning too. Return none when the IMIS
+        daily snow is empty.
+        """
+        station_code_to_imis_daily_snow = self._read_all_imis_stations_daily_snow()
+        station_code_to_manual_site_daily_snow = self._read_all_manual_sites_daily_snow()
+        all_imis_mornings = []
+        for all_days in station_code_to_imis_daily_snow.values():
+            for day_measurements in all_days:
+                all_imis_mornings.append(day_measurements.measured_at)
+        if not all_imis_mornings:
+            return []
+        newest_morning = max(all_imis_mornings)
+
+        stations_and_days = []
+        for station in self._load_stations():
+            stations_and_days.append((station, station_code_to_imis_daily_snow.get(station.code, [])))
+        for manual_site in self._load_manual_sites():
+            stations_and_days.append((manual_site, station_code_to_manual_site_daily_snow.get(manual_site.code, [])))
+        all_morning_snow = []
+        for station, all_days in stations_and_days:
+            morning = _find_morning(all_days, newest_morning)
+            if morning is not None:
+                morning_snow = SLFMorningSnow(station, morning.measured_at, morning.snow_depth_cm, morning.new_snow_cm)
+                all_morning_snow.append(morning_snow)
+        return all_morning_snow

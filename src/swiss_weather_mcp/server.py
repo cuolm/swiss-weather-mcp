@@ -472,28 +472,37 @@ class SwissWeatherMCPServer:
         @_handle_tool_call
         async def measurements_extremes(extreme: ExtremeName) -> ExtremesAnswer:
             """
-            Get where in Switzerland it is warmest, coldest, windiest, wettest or sunniest now.
+            Get where in Switzerland it is warmest, coldest, windiest, wettest or sunniest now, or
+            where the snow is deepest or most new snow fell by this morning.
 
-            Use this for "where is it warmest now" or "where is it sunny now". The values are those
-            of about 160 MeteoSwiss stations, so give the altitude with each station. For the
-            sunniest, the stations are grouped by their sun in the last 10 minutes with MeteoSwiss's
-            sunshine terms: mostly sunny (8 to 10 minutes), rather sunny (5 to 7), partly sunny (2 to
-            4), only a little sunshine (1) and hardly any sunshine (0). The cantons come in order of
-            their stations' average sun, sunniest first. A station is rainy when it had rain in the
-            last 10 minutes.
+            Use this for "where is it warmest now", "where is it sunny now", "where is the most snow"
+            or "where did it snow most last night". The values are those of about 160 MeteoSwiss
+            stations, so give the altitude with each station. For the sunniest, the stations are
+            grouped by their sun in the last 10 minutes with MeteoSwiss's sunshine terms: mostly
+            sunny (8 to 10 minutes), rather sunny (5 to 7), partly sunny (2 to 4), only a little
+            sunshine (1) and hardly any sunshine (0). The cantons come in order of their stations'
+            average sun, sunniest first. A station is rainy when it had rain in the last 10 minutes.
+            The snow is that of about 130 automatic SLF stations and the SLF manual sites at 06:00
+            UTC this morning, or yesterday's before SLF has published today's: the snow depth, and
+            the new snow of the 24 hours up to then. SLF calculates the new snow of its automatic
+            stations with a model, while observers measure it at the manual sites, so say which one
+            a value is. The deepest snow is mostly at the highest stations.
 
             Args:
-                extreme (str): One of "warmest", "coldest", "windiest", "wettest" or "sunniest".
+                extreme (str): One of "warmest", "coldest", "windiest", "wettest", "sunniest",
+                    "deepest_snow" or "most_new_snow".
 
             Returns:
                 dict: the time of the measurements and the first 5 stations, each with altitude, canton
                     and value. For the sunniest instead the number of stations in each sunshine group, in
                     Switzerland and in each canton, the sunniest canton first. For the wettest also the
                     number of rainy stations out of those that measure rain, in Switzerland and in each
-                    canton.
+                    canton. For the snow the stations with snow, each with its kind, and the number of
+                    stations with snow out of those that measured.
 
             Examples:
                 measurements_extremes("warmest")
+                measurements_extremes("most_new_snow")
             """
             return await self.measurement_service.read_extremes(extreme)
 

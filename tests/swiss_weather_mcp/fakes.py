@@ -367,6 +367,18 @@ def build_slf_manual_site_days_json(code: str) -> bytes:
     return json.dumps(rows).encode("utf-8")
 
 
+# The measurements of all manual sites in the last 24 hours. Davos Flüelastr. measured on the newest morning
+# of the IMIS daily snow, Zermatt's row is from the morning before.
+SLF_ALL_MANUAL_SITES_DAILY_SNOW = (
+    {"station_code": "5DF0", "measure_date": "2026-09-25T06:00:00Z", "HS": 31.0, "HN_1D": 6.0, "HNW_1D": 6.8},
+    {"station_code": "4ZE0", "measure_date": "2026-09-24T06:00:00Z", "HS": 12.0, "HN_1D": 9.0, "HNW_1D": 9.5},
+)
+
+
+def build_slf_all_manual_sites_daily_snow_json() -> bytes:
+    return json.dumps(SLF_ALL_MANUAL_SITES_DAILY_SNOW).encode("utf-8")
+
+
 # Some rows of the SLF snow history files, in their format: a manual site's measured at 06:00 UTC, an IMIS
 # station's stamped 00:00 for the values of 06:00 UTC that day. Each file ends before the API's newest day,
 # as on SLF's server. Davos Flüelastr. has no new snow on 2025-01-02, and Gornergratsee has no history file.

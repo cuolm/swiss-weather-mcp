@@ -156,7 +156,7 @@ async def test_measurements_history_refuses_unknown_values(server_fixture):
 
 @pytest.mark.asyncio
 async def test_measurements_extremes_refuses_an_unknown_extreme(server_fixture):
-    with pytest.raises(ToolError, match="'warmest', 'coldest', 'windiest', 'wettest' or 'sunniest'"):
+    with pytest.raises(ToolError, match="'wettest', 'sunniest', 'deepest_snow' or 'most_new_snow'"):
         await server_fixture.mcp.call_tool("measurements_extremes", {"extreme": "hottest"})
     server_fixture.measurement_service.read_extremes.assert_not_awaited()
 

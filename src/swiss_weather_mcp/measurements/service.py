@@ -66,9 +66,9 @@ class MeasurementService:
 
     async def read_extremes(self, extreme: str) -> ExtremesAnswer:
         """
-        Read where in Switzerland a measured value is at its extreme now.
+        Read where in Switzerland a measured value is at its extreme now, or for the snow this morning.
 
-        extreme is one of EXTREME_NAME_TO_EXTREME. Raise CannotAnswerError for an unknown extreme or when
-        MeteoSwiss publishes no measurements.
+        Raise CannotAnswerError for an unknown extreme, and when MeteoSwiss, or SLF for the snow, publishes no
+        measurements.
         """
-        return await asyncio.to_thread(build_extremes_answer, self.meteoswiss_source, extreme)
+        return await asyncio.to_thread(build_extremes_answer, self.meteoswiss_source, self.slf_source, extreme)
