@@ -116,13 +116,20 @@
     measuring it that way later: 87 of the 140 stations with rain started in 1981 or in the 2010s,
     Zürich / Fluntern in 1981. For days before that, the answer gives the rain from 06:00 UTC to
     06:00 UTC the next day instead, as rain_06_to_06_utc_mm.
-  - It also gives the snow of each day in a separate block. The snow comes from one of the 247 sites where
-    a MeteoSwiss observer measures it each morning; half of them have done so since 1971 or earlier. The
-    block gives the snow depth at 06:00 UTC and the new snow of the 24 hours after it.
-  - The snow site is chosen as for `measurements_snow`, see below: of the 3 best within the 25 km limit,
-    the first with snow values on the days asked. The block is null when no site is close enough. That is
-    the case for fewer than 2 % of the 5817 forecast points below 1200 m, for 8 % between 1200 and 2000 m
-    and for 80 % above.
+  - It also gives the snow of each day in a separate block, from one of three kinds of station: one of
+    the 247 sites where a MeteoSwiss observer measures each morning, half of them since 1971 or earlier;
+    one of about 100 SLF manual sites, where an observer measures too, at Davos Flüelastr. since 1945; or
+    one of about 130 automatic SLF stations, at Bärentälli since 1998. The block gives the snow depth at
+    06:00 UTC and the new snow of the 24 hours after it.
+  - At an automatic SLF station, the snow depth is the median of the 24 hours up to 06:00 UTC, and the
+    new snow is calculated by SLF from the snow depth.
+  - The snow station is the first with snow values on the days asked, among the 3 best MeteoSwiss sites
+    and the 3 best SLF stations within the 25 km limit of `measurements_snow`, see below. They are tried
+    in order of distance plus 20 times the height gap. Each kind has its own 3 tries, because many SLF
+    stations started after the days asked, and most SLF observers do not measure in summer. Only the
+    stations that SLF lists as active are used.
+  - The block is null when no station is close enough. For the 5817 forecast points, that is the case
+    for fewer than 1 % below 1200 m, for 2 % between 1200 and 2000 m and for 21 % above.
   - `values="weather"` or `values="snow"` returns only one of the two blocks.
   - Example: `measurements_history("Braunwald", "2025-01-01", 7, "snow")`, for only the snow of a week.
 - `measurements_snow` gives the snow depth and the new snow, each from its own station: the first of the
@@ -215,6 +222,7 @@
   | Current measurements (MeteoSwiss and SLF) | 5 minutes |
   | Avalanche bulletin | 10 minutes |
   | Recent days and SLF daily snow | 1 hour |
+  | SLF snow history files | 1 day |
   | Older days | 30 days |
 
 - Tables, lists and the forecast point table are also kept in memory after the first read, until the
