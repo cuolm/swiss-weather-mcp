@@ -1,14 +1,14 @@
 """Build the measurements_history answer: the daily weather and snow measurements of the stations for a place."""
 import logging
 from datetime import date, datetime, timedelta, timezone
-from typing import Any, Dict, List, Literal, Optional
+from typing import Dict, List, Literal, NotRequired, Optional, TypedDict
 
 import requests
 
 from . import parameters
 from ..distance import MAX_STATIONS_TRIED, is_close, rank_by_weighted_distance
 from ..errors import CannotAnswerError
-from ..formatting import describe_distance_and_height
+from ..formatting import DataFromField, describe_distance_and_height
 from ..places import SwisstopoPlace
 from .meteoswiss_source import MeteoSwissMeasurementSource, MeteoSwissStation, MeteoSwissStationMeasurements
 from .slf_source import SLFMeasurementSource
@@ -27,6 +27,47 @@ MAX_HISTORY_DAYS = 366
 HistoryValues = Literal["weather", "snow"]
 WEATHER_VALUES = "weather"
 SNOW_VALUES = "snow"
+
+
+class RainField(TypedDict):
+    """The rain of a day: rain_mm of the UTC day, or rain_06_to_06_utc_mm when only that was measured."""
+    rain_mm: NotRequired[Optional[float]]
+    rain_06_to_06_utc_mm: NotRequired[float]
+
+
+class WeatherDayRow(RainField):
+    """The weather of one day at a station; None where it has no value."""
+    date: str
+    weekday: str
+    temperature_mean_c: Optional[float]
+    temperature_min_c: Optional[float]
+    temperature_max_c: Optional[float]
+    sunshine_h: Optional[float]
+    strongest_gust_kmh: Optional[float]
+
+
+class WeatherBlock(DataFromField):
+    """The weather block of the measurements_history answer."""
+    days: List[WeatherDayRow]
+
+
+class SnowDayRow(TypedDict):
+    """The snow of one day at a station; None where it has no value."""
+    date: str
+    snow_depth_cm: Optional[float]
+    new_snow_cm: Optional[float]
+
+
+class SnowBlock(DataFromField):
+    """The snow block of the measurements_history answer."""
+    days: List[SnowDayRow]
+
+
+class HistoryAnswer(TypedDict):
+    """The measurements_history answer; snow is None when it was not asked alone and no station has it."""
+    place: str
+    weather: NotRequired[WeatherBlock]
+    snow: NotRequired[Optional[SnowBlock]]
 
 
 def _find_last_past_day(first_day: date, last_day: date) -> date:
@@ -120,7 +161,7 @@ def _describe_meteoswiss_station(place: SwisstopoPlace, station: MeteoSwissStati
     )
 
 
-def _build_rain_field(parameter_to_value: Dict[str, Optional[float]]) -> Dict[str, Optional[float]]:
+def _build_rain_field(parameter_to_value: Dict[str, Optional[float]]) -> RainField:
     """Build the rain of a day: of the UTC day, or from 06:00 to 06:00 UTC when only that was measured."""
     rain_mm = parameter_to_value[parameters.PRECIPITATION_DAY]
     rain_06_to_06_utc_mm = parameter_to_value[parameters.PRECIPITATION_DAY_6_TO_6_UTC]
@@ -136,7 +177,7 @@ def _convert_minutes_to_hours(minutes: Optional[float]) -> Optional[float]:
     return round(minutes / MINUTES_PER_HOUR, 1)
 
 
-def _build_weather_day_row(day_measurements: MeteoSwissStationMeasurements) -> Dict[str, Any]:
+def _build_weather_day_row(day_measurements: MeteoSwissStationMeasurements) -> WeatherDayRow:
     """Build the weather row of one day of a station's daily measurements."""
     day = day_measurements.measured_at.date()
     parameter_to_value = day_measurements.parameter_to_value
@@ -156,20 +197,19 @@ def _build_weather_day_row(day_measurements: MeteoSwissStationMeasurements) -> D
 
 def _build_weather_block(
     meteoswiss_source: MeteoSwissMeasurementSource, place: SwisstopoPlace, first_day: date, last_day: date
-) -> Dict[str, Any]:
+) -> WeatherBlock:
     """Build the weather block for a place from the best-suited station; raise CannotAnswerError if none has values."""
     daily_measurements = _find_meteoswiss_station_daily_measurements(meteoswiss_source, place, first_day, last_day)
-    block: Dict[str, Any] = {}
+    data_from_field: DataFromField = {}
     station = daily_measurements[0].station
     # A station next to the place stands for it, so the block does not name it
     if not is_close(place, station):
-        block["data_from"] = _describe_meteoswiss_station(place, station)
+        data_from_field = {"data_from": _describe_meteoswiss_station(place, station)}
     day_rows = []
     for day_measurements in daily_measurements:
         day_row = _build_weather_day_row(day_measurements)
         day_rows.append(day_row)
-    block["days"] = day_rows
-    return block
+    return {**data_from_field, "days": day_rows}
 
 
 def _list_snow_stations_to_try(ranked_snow_stations: List[SnowStation]) -> List[SnowStation]:
@@ -265,7 +305,7 @@ def _find_snow_station_daily_measurements(
     )
 
 
-def _build_snow_day_row(day_measurements: SnowStationDailyMeasurements) -> Dict[str, Any]:
+def _build_snow_day_row(day_measurements: SnowStationDailyMeasurements) -> SnowDayRow:
     """Build the snow row of one day."""
     return {
         "date": day_measurements.day.isoformat(),
@@ -280,22 +320,21 @@ def _build_snow_block(
     place: SwisstopoPlace,
     first_day: date,
     last_day: date,
-) -> Dict[str, Any]:
+) -> SnowBlock:
     """Build the snow block for a place from the best-suited station; raise CannotAnswerError if none has values."""
     daily_measurements = _find_snow_station_daily_measurements(
         meteoswiss_source, slf_source, place, first_day, last_day
     )
-    block: Dict[str, Any] = {}
+    data_from_field: DataFromField = {}
     station = daily_measurements[0].station
     # A station next to the place stands for it, so the block does not name it
     if not is_close(place, station):
-        block["data_from"] = describe_snow_station(place, station, "snow")
+        data_from_field = {"data_from": describe_snow_station(place, station, "snow")}
     day_rows = []
     for day_measurements in daily_measurements:
         day_row = _build_snow_day_row(day_measurements)
         day_rows.append(day_row)
-    block["days"] = day_rows
-    return block
+    return {**data_from_field, "days": day_rows}
 
 
 def check_day_count(days: int) -> None:
@@ -311,7 +350,7 @@ def build_history_answer(
     first_day: date,
     days: int,
     values: Optional[HistoryValues] = None,
-) -> Dict[str, Any]:
+) -> HistoryAnswer:
     """
     Build the measurements_history answer for a number of UTC days from first_day; run it in a worker thread.
 
@@ -321,7 +360,7 @@ def build_history_answer(
     asked_last_day = first_day + timedelta(days=days - 1)
     last_day = _find_last_past_day(first_day, asked_last_day)
 
-    answer: Dict[str, Any] = {"place": place.name}
+    answer: HistoryAnswer = {"place": place.name}
     if values == WEATHER_VALUES:
         answer["weather"] = _build_weather_block(meteoswiss_source, place, first_day, last_day)
     elif values == SNOW_VALUES:

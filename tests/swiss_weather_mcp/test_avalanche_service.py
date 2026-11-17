@@ -1,7 +1,10 @@
+import logging
+
 import pytest
 
 from swiss_weather_mcp.avalanche.service import (
-    MAP_URL, SOURCE, AvalancheService, _describe_heights, _format_danger_level, build_bulletin_answer,
+    MAP_URL, SOURCE, AvalancheService, _build_danger_level_fields, _describe_heights, _format_danger_level,
+    build_bulletin_answer,
 )
 from swiss_weather_mcp.avalanche.source import DangerRating, Elevation
 from swiss_weather_mcp.errors import CannotAnswerError
@@ -28,6 +31,16 @@ def test_format_danger_level_with_a_subdivision():
 
 def test_format_danger_level_without_a_subdivision():
     assert _format_danger_level(DangerRating("very_high", None, "all_day")) == "very high (5)"
+
+
+# --- _build_danger_level_fields ---
+
+def test_build_danger_level_fields_leaves_out_an_unknown_time_period(caplog):
+    danger_ratings = [DangerRating("considerable", "minus", "all_day"), DangerRating("moderate", None, "earlier")]
+    with caplog.at_level(logging.WARNING):
+        danger_level_fields = _build_danger_level_fields(danger_ratings)
+    assert danger_level_fields == {"danger_level": "considerable (3-)"}
+    assert "unknown time period 'earlier'" in caplog.text
 
 
 # --- _describe_heights ---

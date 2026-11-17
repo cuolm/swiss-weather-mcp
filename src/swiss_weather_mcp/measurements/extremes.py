@@ -1,5 +1,5 @@
 """Build the measurements_extremes answer: where in Switzerland a measured value is at its extreme now."""
-from typing import Any, Dict, List, Literal, NamedTuple
+from typing import Any, Dict, List, Literal, NamedTuple, NotRequired, TypedDict
 
 from . import parameters
 from ..errors import CannotAnswerError
@@ -51,6 +51,22 @@ class StationValue(NamedTuple):
     """One measured value of one station."""
     station: MeteoSwissStation
     value: float
+
+
+class ExtremesAnswer(TypedDict):
+    """
+    The measurements_extremes answer.
+
+    The rows stay plain dicts, as some of their keys come from the data: the field of the extreme in a
+    station row, and the sunshine classes in a canton row of the sunniest.
+    """
+    extreme: str
+    measured_at: str
+    rainy_stations: NotRequired[int]
+    measuring_stations: NotRequired[int]
+    stations_by_sunshine: NotRequired[Dict[str, int]]
+    cantons: NotRequired[List[Dict[str, Any]]]
+    stations: NotRequired[List[Dict[str, Any]]]
 
 
 def _find_station_values(all_measurements: List[MeteoSwissStationMeasurements], parameter: str) -> List[StationValue]:
@@ -169,7 +185,7 @@ def _build_station_rows(station_values: List[StationValue], extreme: Extreme) ->
     return rows
 
 
-def build_extremes_answer(meteoswiss_source: MeteoSwissMeasurementSource, extreme_name: str) -> Dict[str, Any]:
+def build_extremes_answer(meteoswiss_source: MeteoSwissMeasurementSource, extreme_name: str) -> ExtremesAnswer:
     """
     Build the measurements_extremes answer; run it in a worker thread, as it downloads.
 
@@ -186,7 +202,7 @@ def build_extremes_answer(meteoswiss_source: MeteoSwissMeasurementSource, extrem
 
     extreme = EXTREME_NAME_TO_EXTREME[extreme_name]
     station_values = _find_station_values(all_measurements, extreme.parameter)
-    answer: Dict[str, Any] = {
+    answer: ExtremesAnswer = {
         "extreme": extreme_name,
         # Every row of the all stations file has the same time
         "measured_at": format_swiss_time(all_measurements[0].measured_at),

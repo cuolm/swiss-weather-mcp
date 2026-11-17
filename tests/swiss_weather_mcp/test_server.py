@@ -101,6 +101,14 @@ async def test_register_tools_marks_every_tool_read_only(server_fixture):
 
 
 @pytest.mark.asyncio
+async def test_register_tools_publishes_no_output_schema_for_the_weather_tools(server_fixture):
+    # The model reads the answers as text, and a schema would lengthen the tool list of every conversation
+    for tool in await server_fixture.mcp.list_tools():
+        if tool.name != "current_date_and_time":
+            assert tool.output_schema is None
+
+
+@pytest.mark.asyncio
 async def test_register_tools_describes_near(server_fixture):
     for tool in await server_fixture.mcp.list_tools():
         near = tool.input_schema.get("properties", {}).get("near")

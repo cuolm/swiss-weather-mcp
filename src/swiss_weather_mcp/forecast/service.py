@@ -1,12 +1,12 @@
 import asyncio
 import logging
 from datetime import date, datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple, TypedDict
 
 from . import parameters
 from ..distance import is_close
 from ..errors import CannotAnswerError
-from ..formatting import describe_distance_and_height, find_compass_point, format_swiss_time
+from ..formatting import PlaceFields, describe_distance_and_height, find_compass_point, format_swiss_time
 from ..places import PlaceFinder, SwisstopoPlace
 from .source import ForecastRun, ForecastSeries, ForecastSource, MeteoSwissPoint
 
@@ -17,6 +17,92 @@ MAX_DAYS = 9
 
 HOUR = timedelta(hours=1)
 RAIN_BLOCK = timedelta(hours=3)
+
+
+# The functional form, as "from" is a Python keyword
+PeriodFields = TypedDict("PeriodFields", {"from": str, "to": str})
+
+
+class DailyForecastRow(TypedDict):
+    """The whole-day forecast of one day; None where MeteoSwiss publishes no value."""
+    date: str
+    weekday: str
+    temperature_min_c: Optional[float]
+    temperature_max_c: Optional[float]
+    rain_median_mm: Optional[float]
+    rain_10th_percentile_mm: Optional[float]
+    rain_90th_percentile_mm: Optional[float]
+    pictogram_code: Optional[int]
+    weather: Optional[str]
+    weather_emoji: Optional[str]
+
+
+class DailyForecastAnswer(PlaceFields):
+    """The forecast_daily answer."""
+    days: List[DailyForecastRow]
+    model_run: str
+
+
+class RainBlock(PeriodFields):
+    """The rain forecast of one 3-hour block."""
+    rain_chance_percent: float
+    rain_median_mm: float
+    heaviest_hour_up_to_mm: float
+    weather: str
+    weather_emoji: Optional[str]
+
+
+class RainAnswer(PlaceFields):
+    """The forecast_rain answer."""
+    blocks: List[RainBlock]
+    model_run: str
+
+
+class TemperatureHour(PeriodFields):
+    """The temperature forecast of one hour."""
+    temperature_c: float
+    temperature_10th_percentile_c: float
+    temperature_90th_percentile_c: float
+
+
+class TemperatureAnswer(PlaceFields):
+    """The forecast_temperature answer."""
+    hours: List[TemperatureHour]
+    model_run: str
+
+
+class SunshineAnswer(PlaceFields, PeriodFields):
+    """The forecast_sunshine answer."""
+    sunshine_h: float
+    model_run: str
+
+
+class WindAnswer(PlaceFields):
+    """The forecast_wind answer."""
+    wind_speed_kmh: float
+    gusts_kmh: float
+    gusts_90th_percentile_kmh: float
+    wind_direction_degrees: float
+    compass_point: str
+    valid_at: str
+    model_run: str
+
+
+class CloudCoverAnswer(PlaceFields):
+    """The forecast_cloud_cover answer."""
+    cloud_cover_percent: float
+    low_percent: float
+    medium_percent: float
+    high_percent: float
+    valid_at: str
+    model_run: str
+
+
+class FreezingLevelAnswer(PlaceFields):
+    """The forecast_freezing_level answer."""
+    freezing_level_m: float
+    valid_at: str
+    model_run: str
 
 
 def _check_full_hour(moment: datetime) -> None:
@@ -88,7 +174,7 @@ def _get_hourly_value(series: ForecastSeries, moment: datetime, point: MeteoSwis
     return series.time_to_value[stamp]
 
 
-def _build_forecast_point_fields(place: SwisstopoPlace, point: MeteoSwissPoint) -> Dict[str, Any]:
+def _build_forecast_point_fields(place: SwisstopoPlace, point: MeteoSwissPoint) -> PlaceFields:
     """
     Build the answer fields that name the place, and the forecast point when it is not next to it.
 
@@ -142,7 +228,7 @@ class ForecastService:
 
     async def read_daily(
         self, location: str, first_day: date, days: int, nearby_location: Optional[str] = None
-    ) -> Dict[str, Any]:
+    ) -> DailyForecastAnswer:
         """
         Read the whole-day forecast for 1 to MAX_DAYS Swiss calendar days in a row from first_day.
 
@@ -163,7 +249,7 @@ class ForecastService:
             self._read_daily_series_if_published(parameters.WEATHER_PICTOGRAM_DAY, point, run),
         )
 
-        rows = []
+        rows: List[DailyForecastRow] = []
         for offset in range(days):
             day = first_day + timedelta(days=offset)
             temperature_min_c = _get_daily_value(min_series, day)
@@ -187,7 +273,7 @@ class ForecastService:
                 pictogram_code = int(pictogram_value)
                 weather, weather_emoji = _describe_pictogram(pictogram_code)
 
-            row = {
+            row: DailyForecastRow = {
                 "date": day.isoformat(),
                 "weekday": f"{day:%A}",
                 "temperature_min_c": temperature_min_c,
@@ -217,7 +303,7 @@ class ForecastService:
 
     async def read_rain(
         self, location: str, start_moment: datetime, end_moment: datetime, nearby_location: Optional[str] = None
-    ) -> Dict[str, Any]:
+    ) -> RainAnswer:
         """
         Read when and how much it may rain, and the weather in words, in 3-hour blocks from start to end.
 
@@ -272,7 +358,7 @@ class ForecastService:
                     f"by the forecast for {point.display_name}. {_describe_covered_range(median_series)}"
                 )
 
-        blocks = []
+        blocks: List[RainBlock] = []
         for block_end in block_ends:
             block_start = block_end - RAIN_BLOCK
             block_hour_stamps = _create_stamps(block_start + HOUR, block_end, HOUR)
@@ -297,7 +383,7 @@ class ForecastService:
     async def read_temperature(
         self, location: str, start_moment: datetime, end_moment: Optional[datetime] = None,
         nearby_location: Optional[str] = None,
-    ) -> Dict[str, Any]:
+    ) -> TemperatureAnswer:
         """
         Read the temperature hour by hour from start to end, or for the one hour from start when end is None.
 
@@ -335,7 +421,7 @@ class ForecastService:
                     f"{_describe_covered_range(temperature_series)}"
                 )
 
-        hours = []
+        hours: List[TemperatureHour] = []
         for stamp in hour_stamps:
             hours.append({
                 "from": format_swiss_time(stamp - HOUR),
@@ -354,7 +440,7 @@ class ForecastService:
     async def read_sunshine(
         self, location: str, start_moment: datetime, end_moment: Optional[datetime] = None,
         nearby_location: Optional[str] = None,
-    ) -> Dict[str, Any]:
+    ) -> SunshineAnswer:
         """Add up the sunshine over a period in hours, or over the one hour from start when end is None."""
         _check_full_hour(start_moment)
         if end_moment is None:
@@ -388,7 +474,7 @@ class ForecastService:
             "model_run": format_swiss_time(series.run_time),
         }
 
-    async def read_wind(self, location: str, moment: datetime, nearby_location: Optional[str] = None) -> Dict[str, Any]:
+    async def read_wind(self, location: str, moment: datetime, nearby_location: Optional[str] = None) -> WindAnswer:
         """Read the wind for the hour up to a moment: mean speed, gusts and direction."""
         _check_full_hour(moment)
         place, point = await self._find_place_and_point(location, nearby_location)
@@ -418,7 +504,7 @@ class ForecastService:
 
     async def read_cloud_cover(
         self, location: str, moment: datetime, nearby_location: Optional[str] = None
-    ) -> Dict[str, Any]:
+    ) -> CloudCoverAnswer:
         """Estimate the total cloud cover at a moment from the three overlapping layers."""
         _check_full_hour(moment)
         place, point = await self._find_place_and_point(location, nearby_location)
@@ -448,7 +534,7 @@ class ForecastService:
 
     async def read_freezing_level(
         self, location: str, moment: datetime, nearby_location: Optional[str] = None
-    ) -> Dict[str, Any]:
+    ) -> FreezingLevelAnswer:
         """Read the height of the 0 °C line at a moment."""
         _check_full_hour(moment)
         place, point = await self._find_place_and_point(location, nearby_location)

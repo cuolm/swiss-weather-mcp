@@ -1,11 +1,14 @@
 """Answer the avalanche_bulletin tool: the SLF avalanche bulletin valid now for a place."""
 import asyncio
-from typing import Any, Dict, Optional
+import logging
+from typing import List, NotRequired, Optional, TypedDict
 
 from ..errors import CannotAnswerError
 from ..formatting import format_swiss_time
 from ..places import PlaceFinder, SwisstopoPlace
 from .source import AvalancheBulletin, AvalancheProblem, DangerRating, Elevation, SLFBulletinSource
+
+logger = logging.getLogger(__name__)
 
 # The danger levels, https://www.slf.ch/en/avalanche-bulletin-and-snow-situation/about-the-avalanche-bulletin/danger-levels/
 LEVEL_TO_NUMBER = {"low": 1, "moderate": 2, "considerable": 3, "high": 4, "very_high": 5}
@@ -18,6 +21,41 @@ SOURCE = "Avalanche bulletin of SLF, the WSL Institute for Snow and Avalanche Re
 MAP_URL = "https://aws.slf.ch/api/bulletin/document/iconmap/en/gif"
 
 
+class ProblemBlock(TypedDict):
+    """The block of one avalanche problem."""
+    problem: str
+    danger_level: str
+    time_of_day: str
+    heights: Optional[str]
+    aspects: List[str]
+    summary: Optional[str]
+    description: str
+
+
+class DangerLevelFields(TypedDict):
+    """The danger level of the whole day, and in spring the one of the wet snow later in the day."""
+    danger_level: NotRequired[str]
+    danger_level_later: NotRequired[str]
+
+
+class BulletinAnswer(DangerLevelFields):
+    """The avalanche_bulletin answer."""
+    place: str
+    place_altitude_m: int
+    regions: List[str]
+    published_at: str
+    valid_from: str
+    valid_until: str
+    next_update: Optional[str]
+    avalanche_problems: List[ProblemBlock]
+    snowpack: str
+    outlook: str
+    weather_forecast: Optional[str]
+    weather_review: Optional[str]
+    map: str
+    source: str
+
+
 def _format_danger_level(danger_rating: DangerRating) -> str:
     """Write a danger level as SLF does, such as "considerable (3-)", or "low (1)" without a subdivision."""
     level_name = danger_rating.level.replace("_", " ")
@@ -26,6 +64,20 @@ def _format_danger_level(danger_rating: DangerRating) -> str:
         return f"{level_name} ({level_number})"
     sign = SUBDIVISION_TO_SIGN[danger_rating.subdivision]
     return f"{level_name} ({level_number}{sign})"
+
+
+def _build_danger_level_fields(danger_ratings: List[DangerRating]) -> DangerLevelFields:
+    """Build the danger level of the whole day, and the one later in the day when SLF gives it."""
+    danger_level_fields: DangerLevelFields = {}
+    for danger_rating in danger_ratings:
+        danger_level = _format_danger_level(danger_rating)
+        if danger_rating.time_period == "all_day":
+            danger_level_fields["danger_level"] = danger_level
+        elif danger_rating.time_period == "later":
+            danger_level_fields["danger_level_later"] = danger_level
+        else:
+            logger.warning(f"Left out a danger level of the unknown time period {danger_rating.time_period!r}")
+    return danger_level_fields
 
 
 def _describe_heights(elevation: Optional[Elevation]) -> Optional[str]:
@@ -43,7 +95,7 @@ def _describe_heights(elevation: Optional[Elevation]) -> Optional[str]:
     return "all heights"
 
 
-def _build_problem_block(problem: AvalancheProblem) -> Dict[str, Any]:
+def _build_problem_block(problem: AvalancheProblem) -> ProblemBlock:
     """Build the block of one avalanche problem."""
     problem_name = problem.problem_type.replace("_", " ")
     danger_level = _format_danger_level(problem.danger_rating)
@@ -60,12 +112,17 @@ def _build_problem_block(problem: AvalancheProblem) -> Dict[str, Any]:
     }
 
 
-def _build_answer(place: SwisstopoPlace, bulletin: AvalancheBulletin) -> Dict[str, Any]:
+def _build_answer(place: SwisstopoPlace, bulletin: AvalancheBulletin) -> BulletinAnswer:
     """Build the answer from the bulletin that covers a place."""
     next_update = None
     if bulletin.next_update is not None:
         next_update = format_swiss_time(bulletin.next_update)
-    answer: Dict[str, Any] = {
+    danger_level_fields = _build_danger_level_fields(bulletin.danger_ratings)
+    problem_blocks = []
+    for problem in bulletin.problems:
+        problem_block = _build_problem_block(problem)
+        problem_blocks.append(problem_block)
+    return {
         "place": place.name,
         "place_altitude_m": round(place.altitude_m),
         "regions": bulletin.region_names,
@@ -73,31 +130,18 @@ def _build_answer(place: SwisstopoPlace, bulletin: AvalancheBulletin) -> Dict[st
         "valid_from": format_swiss_time(bulletin.valid_from),
         "valid_until": format_swiss_time(bulletin.valid_until),
         "next_update": next_update,
+        **danger_level_fields,
+        "avalanche_problems": problem_blocks,
+        "snowpack": bulletin.snowpack,
+        "outlook": bulletin.outlook,
+        "weather_forecast": bulletin.weather_forecast,
+        "weather_review": bulletin.weather_review,
+        "map": MAP_URL,
+        "source": SOURCE,
     }
 
-    # The danger level of the whole day, and in spring the one of the wet snow later in the day
-    for danger_rating in bulletin.danger_ratings:
-        if danger_rating.time_period == "all_day":
-            danger_level_key = "danger_level"
-        else:
-            danger_level_key = f"danger_level_{danger_rating.time_period}"
-        answer[danger_level_key] = _format_danger_level(danger_rating)
-    problem_blocks = []
-    for problem in bulletin.problems:
-        problem_block = _build_problem_block(problem)
-        problem_blocks.append(problem_block)
-    answer["avalanche_problems"] = problem_blocks
 
-    answer["snowpack"] = bulletin.snowpack
-    answer["outlook"] = bulletin.outlook
-    answer["weather_forecast"] = bulletin.weather_forecast
-    answer["weather_review"] = bulletin.weather_review
-    answer["map"] = MAP_URL
-    answer["source"] = SOURCE
-    return answer
-
-
-def build_bulletin_answer(bulletin_source: SLFBulletinSource, place: SwisstopoPlace) -> Dict[str, Any]:
+def build_bulletin_answer(bulletin_source: SLFBulletinSource, place: SwisstopoPlace) -> BulletinAnswer:
     """
     Build the avalanche_bulletin answer for a place; run it in a worker thread, as it downloads.
 
@@ -125,7 +169,7 @@ class AvalancheService:
         self.place_finder = place_finder
         self.bulletin_source = bulletin_source
 
-    async def read_bulletin(self, location: str, nearby_location: Optional[str] = None) -> Dict[str, Any]:
+    async def read_bulletin(self, location: str, nearby_location: Optional[str] = None) -> BulletinAnswer:
         """
         Read the SLF avalanche bulletin valid now for the location.
 

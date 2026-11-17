@@ -1,14 +1,14 @@
 import asyncio
 from datetime import date
-from typing import Any, Dict, Optional
+from typing import Optional
 
 from ..places import PlaceFinder
-from .current import build_current_answer
-from .extremes import build_extremes_answer
-from .history import HistoryValues, build_history_answer, check_day_count
+from .current import CurrentAnswer, build_current_answer
+from .extremes import ExtremesAnswer, build_extremes_answer
+from .history import HistoryAnswer, HistoryValues, build_history_answer, check_day_count
 from .meteoswiss_source import MeteoSwissMeasurementSource
 from .slf_source import SLFMeasurementSource
-from .snow import build_snow_answer
+from .snow import SnowAnswer, build_snow_answer
 
 
 class MeasurementService:
@@ -24,7 +24,7 @@ class MeasurementService:
         self.meteoswiss_source = meteoswiss_source
         self.slf_source = slf_source
 
-    async def read_current(self, location: str, nearby_location: Optional[str] = None) -> Dict[str, Any]:
+    async def read_current(self, location: str, nearby_location: Optional[str] = None) -> CurrentAnswer:
         """
         Read the latest measurements of the station chosen for the location.
 
@@ -41,7 +41,7 @@ class MeasurementService:
         days: int,
         values: Optional[HistoryValues] = None,
         nearby_location: Optional[str] = None,
-    ) -> Dict[str, Any]:
+    ) -> HistoryAnswer:
         """
         Read the daily weather and snow of the stations chosen for the location, for 1 to MAX_HISTORY_DAYS UTC days from first_day.
 
@@ -54,7 +54,7 @@ class MeasurementService:
             build_history_answer, self.meteoswiss_source, self.slf_source, place, first_day, days, values
         )
 
-    async def read_snow(self, location: str, nearby_location: Optional[str] = None) -> Dict[str, Any]:
+    async def read_snow(self, location: str, nearby_location: Optional[str] = None) -> SnowAnswer:
         """
         Read the current snow depth and the new snow for the location, each from its own best station.
 
@@ -64,7 +64,7 @@ class MeasurementService:
         place = await asyncio.to_thread(self.place_finder.find_place, location, nearby_location)
         return await asyncio.to_thread(build_snow_answer, self.meteoswiss_source, self.slf_source, place)
 
-    async def read_extremes(self, extreme: str) -> Dict[str, Any]:
+    async def read_extremes(self, extreme: str) -> ExtremesAnswer:
         """
         Read where in Switzerland a measured value is at its extreme now.
 

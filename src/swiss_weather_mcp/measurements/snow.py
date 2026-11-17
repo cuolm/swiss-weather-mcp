@@ -1,12 +1,12 @@
 """Build the measurements_snow answer: the snow depth and the new snow for a place, each from its own station."""
 import logging
-from typing import Any, Dict, List, Optional, Sequence
+from typing import List, Optional, Sequence, TypedDict
 
 import requests
 
 from ..distance import MAX_STATIONS_TRIED, is_close, rank_by_weighted_distance
 from ..errors import CannotAnswerError
-from ..formatting import SWISS_TZ, describe_distance_and_height, format_swiss_time, round_to_tenth
+from ..formatting import SWISS_TZ, DataFromField, describe_distance_and_height, format_swiss_time, round_to_tenth
 from ..places import SwisstopoPlace
 from .meteoswiss_source import MeteoSwissMeasurementSource, MeteoSwissStation
 from .slf_source import SLFMeasurementSource, SLFStation
@@ -19,6 +19,26 @@ logger = logging.getLogger(__name__)
 # forecast points: 94 % of those between 1200 and 2000 m keep a new snow station, and 88 % of those below
 # 800 m, where the nearest SLF station is often 40 km away and 600 m higher, get none.
 MAX_SNOW_STATION_WEIGHTED_DISTANCE_M = 25000
+
+
+class SnowDepthBlock(DataFromField):
+    """The snow_depth block of the measurements_snow answer."""
+    measured_at: str
+    snow_depth_cm: Optional[float]
+
+
+class NewSnowBlock(DataFromField):
+    """The new_snow block of the measurements_snow answer."""
+    measured_at: str
+    new_snow_24_hours_cm: Optional[float]
+    new_snow_3_days_cm: Optional[float]
+
+
+class SnowAnswer(TypedDict):
+    """The measurements_snow answer; a block is None when no station close enough has a current value."""
+    place: str
+    snow_depth: Optional[SnowDepthBlock]
+    new_snow: Optional[NewSnowBlock]
 
 
 def list_slf_snow_stations(slf_source: SLFMeasurementSource) -> List[SLFStation]:
@@ -117,41 +137,49 @@ def describe_snow_station(place: SwisstopoPlace, station: SnowStation, value_nam
     return f"The {value_name} for {place.display_name} {source}, {distance_and_height}."
 
 
-def _build_snow_depth_block(place: SwisstopoPlace, snow_depth: LatestSnowDepth) -> Dict[str, Any]:
+def _build_snow_depth_block(place: SwisstopoPlace, snow_depth: LatestSnowDepth) -> SnowDepthBlock:
     """Build the snow_depth block of the snow answer."""
-    block: Dict[str, Any] = {}
+    data_from_field: DataFromField = {}
     # A station next to the place stands for it, so the block does not name it
     if not is_close(place, snow_depth.station):
         station_sentence = describe_snow_station(place, snow_depth.station, "snow depth")
         swiss_measured_at = snow_depth.measured_at.astimezone(SWISS_TZ)
-        block["data_from"] = (
-            f"{station_sentence} It was measured at {swiss_measured_at:%H:%M} on {swiss_measured_at:%Y-%m-%d}."
-        )
-    block["measured_at"] = format_swiss_time(snow_depth.measured_at)
-    block["snow_depth_cm"] = round_to_tenth(snow_depth.snow_depth_cm)
-    return block
+        data_from_field = {
+            "data_from": (
+                f"{station_sentence} It was measured at {swiss_measured_at:%H:%M} on {swiss_measured_at:%Y-%m-%d}."
+            ),
+        }
+    return {
+        **data_from_field,
+        "measured_at": format_swiss_time(snow_depth.measured_at),
+        "snow_depth_cm": round_to_tenth(snow_depth.snow_depth_cm),
+    }
 
 
-def _build_new_snow_block(place: SwisstopoPlace, new_snow: LatestNewSnow) -> Dict[str, Any]:
+def _build_new_snow_block(place: SwisstopoPlace, new_snow: LatestNewSnow) -> NewSnowBlock:
     """Build the new_snow block of the snow answer."""
-    block: Dict[str, Any] = {}
+    data_from_field: DataFromField = {}
     # A station next to the place stands for it, so the block does not name it
     if not is_close(place, new_snow.station):
         station_sentence = describe_snow_station(place, new_snow.station, "new snow")
         swiss_measured_at = new_snow.measured_at.astimezone(SWISS_TZ)
-        block["data_from"] = (
-            f"{station_sentence} It covers the 24 hours and the 3 days up to {swiss_measured_at:%H:%M} on "
-            f"{swiss_measured_at:%Y-%m-%d}."
-        )
-    block["measured_at"] = format_swiss_time(new_snow.measured_at)
-    block["new_snow_24_hours_cm"] = round_to_tenth(new_snow.new_snow_24_hours_cm)
-    block["new_snow_3_days_cm"] = round_to_tenth(new_snow.new_snow_3_days_cm)
-    return block
+        data_from_field = {
+            "data_from": (
+                f"{station_sentence} It covers the 24 hours and the 3 days up to {swiss_measured_at:%H:%M} on "
+                f"{swiss_measured_at:%Y-%m-%d}."
+            ),
+        }
+    return {
+        **data_from_field,
+        "measured_at": format_swiss_time(new_snow.measured_at),
+        "new_snow_24_hours_cm": round_to_tenth(new_snow.new_snow_24_hours_cm),
+        "new_snow_3_days_cm": round_to_tenth(new_snow.new_snow_3_days_cm),
+    }
 
 
 def build_snow_answer(
     meteoswiss_source: MeteoSwissMeasurementSource, slf_source: SLFMeasurementSource, place: SwisstopoPlace
-) -> Dict[str, Any]:
+) -> SnowAnswer:
     """
     Build the measurements_snow answer for a place; run it in a worker thread, as it downloads.
 
@@ -176,7 +204,7 @@ def build_snow_answer(
             f"distance and height has a current value. The SLF observers measure the snow from November to April."
         )
 
-    answer: Dict[str, Any] = {"place": place.name, "snow_depth": None, "new_snow": None}
+    answer: SnowAnswer = {"place": place.name, "snow_depth": None, "new_snow": None}
     if snow_depth is not None:
         answer["snow_depth"] = _build_snow_depth_block(place, snow_depth)
     if new_snow is not None:

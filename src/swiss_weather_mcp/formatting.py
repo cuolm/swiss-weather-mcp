@@ -1,6 +1,6 @@
 """Write times, wind directions, distances and height differences the way the tools answer with them."""
 from datetime import datetime
-from typing import Optional
+from typing import NotRequired, Optional, TypedDict
 from zoneinfo import ZoneInfo
 
 from .distance import METRES_PER_KILOMETRE, GridPosition, calculate_distance_m
@@ -12,6 +12,16 @@ SWISS_TZ = ZoneInfo("Europe/Zurich")
 COMPASS_POINTS = ("N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
                   "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW")
 COMPASS_SECTOR_DEGREES = 360 / len(COMPASS_POINTS)
+
+
+class DataFromField(TypedDict):
+    """The data_from field of an answer or block whose station or forecast point is not next to the place."""
+    data_from: NotRequired[str]
+
+
+class PlaceFields(DataFromField):
+    """The fields that open an answer: data_from when there is one, then the place."""
+    place: str
 
 
 def format_swiss_time(moment: datetime) -> str:
