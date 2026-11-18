@@ -94,5 +94,9 @@ replacement = '[\g<text>](https://github.com/cuolm/swiss-weather-mcp/tree/master
 pattern = 'src="(?:\./|/)?docs/(?P<path>[^"]+)"'
 replacement = 'src="https://raw.githubusercontent.com/cuolm/swiss-weather-mcp/master/docs/\g<path>"'
 
+[tool.hatch.build.targets.sdist]
+# Only what building and testing the package needs; the leading slashes keep mcpb/pyproject.toml out
+include = ["/src", "/tests", "/README.md", "/LICENSE.txt", "/pyproject.toml"]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/swiss_weather_mcp"]

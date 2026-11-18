@@ -16,6 +16,10 @@ env/
 # Test output
 .tox/
 .pytest_cache/
+.coverage
+
+# Built packages
+dist/
 
 # macOS system files
 .DS_Store
