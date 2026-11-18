@@ -4,7 +4,7 @@ import logging
 from typing import NotRequired, Optional, TypedDict
 
 from ..errors import CannotAnswerError
-from ..formatting import format_swiss_time
+from ..formatting import describe_source, format_swiss_time
 from ..places import PlaceFinder, SwisstopoPlace
 from .source import AvalancheBulletin, AvalancheProblem, DangerRating, Elevation, SLFBulletinSource
 
@@ -16,8 +16,7 @@ LEVEL_TO_NUMBER = {"low": 1, "moderate": 2, "considerable": 3, "high": 4, "very_
 # Written after the number, as SLF does in "considerable (3-)"
 SUBDIVISION_TO_SIGN = {"minus": "-", "neutral": "=", "plus": "+"}
 
-# SLF asks for a visible source with a link, https://www.slf.ch/en/services-and-products/slf-data-service/
-SOURCE = "Avalanche bulletin of SLF, the WSL Institute for Snow and Avalanche Research, https://www.slf.ch"
+SOURCE = describe_source(uses_meteoswiss=False, uses_slf=True, uses_swisstopo=True)
 # SLF's map of the bulletin valid now, a GIF of Switzerland with the danger levels, from its bulletin document API
 MAP_URL = "https://aws.slf.ch/api/bulletin/document/iconmap/en/gif"
 

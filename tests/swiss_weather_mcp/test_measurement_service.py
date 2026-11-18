@@ -57,6 +57,7 @@ async def test_read_current(measurement_service_fixture):
         "sunshine_last_hour_minutes": 44.0,
         "rain_last_hour_mm": 0.0,
         "strongest_gust_last_hour_kmh": 10.1,
+        "source": "MeteoSwiss www.meteoswiss.admin.ch, swisstopo www.swisstopo.admin.ch",
     }
 
 
@@ -105,6 +106,7 @@ async def test_read_current_adds_an_slf_station_in_the_mountains(measurement_ser
         "strongest_gust_last_30_minutes_kmh": 16.4,
         "snow_surface_temperature_c": None,
     }
+    assert answer["source"] == "MeteoSwiss www.meteoswiss.admin.ch, SLF www.slf.ch, swisstopo www.swisstopo.admin.ch"
 
 
 @pytest.mark.asyncio
@@ -195,6 +197,7 @@ async def test_read_history(measurement_service_fixture):
                 {"date": "2026-09-24", "snow_depth_cm": 0.0, "new_snow_cm": 0.0},
             ],
         },
+        "source": "MeteoSwiss www.meteoswiss.admin.ch, swisstopo www.swisstopo.admin.ch",
     }
 
 
@@ -223,7 +226,7 @@ async def test_read_history_up_to_yesterday(measurement_service_fixture):
 async def test_read_history_only_the_weather(source_fixture, measurement_service_fixture):
     answer = await measurement_service_fixture.read_history("Zurich", date(2026, 9, 23), 2, "weather")
 
-    assert list(answer) == ["place", "weather"]
+    assert list(answer) == ["place", "weather", "source"]
     assert count_downloads(source_fixture, "ogd-nime") == 0
 
 
@@ -242,6 +245,7 @@ async def test_read_history_only_the_snow(source_fixture, measurement_service_fi
                 {"date": "2025-01-03", "snow_depth_cm": 44.0, "new_snow_cm": 0.0},
             ],
         },
+        "source": "SLF www.slf.ch, swisstopo www.swisstopo.admin.ch",
     }
     assert count_downloads(source_fixture, "ogd-smn_dav_d_") == 0
     assert count_downloads(source_fixture, "ogd-nime_dav_d_") == 0
@@ -306,6 +310,7 @@ async def test_read_snow_from_two_stations(mocker, measurement_service_fixture):
             "new_snow_24_hours_cm": 6.0,
             "new_snow_3_days_cm": 16.0,
         },
+        "source": "MeteoSwiss www.meteoswiss.admin.ch, SLF www.slf.ch, swisstopo www.swisstopo.admin.ch",
     }
 
 
@@ -318,6 +323,7 @@ async def test_read_snow_from_stations_next_to_the_place(measurement_service_fix
         "place": "Seeli",
         "snow_depth": {"measured_at": "2026-09-25T16:00+02:00", "snow_depth_cm": 12.0},
         "new_snow": {"measured_at": "2026-09-25T08:00+02:00", "new_snow_24_hours_cm": 6.0, "new_snow_3_days_cm": 16.0},
+        "source": "MeteoSwiss www.meteoswiss.admin.ch, SLF www.slf.ch, swisstopo www.swisstopo.admin.ch",
     }
 
 
@@ -422,6 +428,7 @@ async def test_read_extremes_warmest(measurement_service_fixture):
             {"station": "Zürich / Fluntern (604 m)", "canton": "Zürich", "temperature_c": 21.0},
             {"station": "Davos (1594 m)", "canton": "Graubünden", "temperature_c": 16.5},
         ],
+        "source": "MeteoSwiss www.meteoswiss.admin.ch",
     }
 
 
@@ -468,6 +475,7 @@ async def test_read_extremes_sunniest(measurement_service_fixture):
             {"canton": "Graubünden", "measuring_stations": 1, "mostly_sunny": 1, "partly_sunny": 0, **no_station},
             {"canton": "Zürich", "measuring_stations": 3, "mostly_sunny": 2, "partly_sunny": 1, **no_station},
         ],
+        "source": "MeteoSwiss www.meteoswiss.admin.ch",
     }
 
 
@@ -484,6 +492,7 @@ async def test_read_extremes_wettest(measurement_service_fixture):
         "measuring_stations": 2,
         "cantons": [{"canton": "Zürich", "rainy_stations": 1, "measuring_stations": 2, "rainy_percent": 50}],
         "stations": [{"station": "Zürich / Kloten (426 m)", "canton": "Zürich", "rain_last_10_minutes_mm": 0.3}],
+        "source": "MeteoSwiss www.meteoswiss.admin.ch",
     }
 
 
@@ -515,6 +524,7 @@ async def test_read_extremes_deepest_snow(measurement_service_fixture):
         "snow_depth_cm": 31.0,
     }
     assert [row["kind"] for row in answer["stations"][1:]] == ["automatic SLF station", "automatic SLF station"]
+    assert answer["source"] == "SLF www.slf.ch"
 
 
 @pytest.mark.asyncio

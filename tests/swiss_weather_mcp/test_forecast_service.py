@@ -377,12 +377,14 @@ async def test_read_hour_when_the_clocks_go_back(service_fixture, source_fixture
     ("read_cloud_cover", ("Zurich", build_swiss_time("2026-09-23T14:00"))),
     ("read_freezing_level", ("Zurich", build_swiss_time("2026-09-23T14:00"))),
 ])
-async def test_answer_starts_with_the_place_and_ends_with_the_model_run(service_fixture, method_name, arguments):
+async def test_answer_starts_with_the_place_and_ends_with_the_model_run_and_source(
+    service_fixture, method_name, arguments
+):
     # A model reads the answer from the top, so where the values come from comes first
     answer = await getattr(service_fixture, method_name)(*arguments)
 
     field_names = list(answer)
-    assert (field_names[0], field_names[-1]) == ("place", "model_run")
+    assert (field_names[0], field_names[-2], field_names[-1]) == ("place", "model_run", "source")
 
 
 # --- parallel reads ---

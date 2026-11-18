@@ -1,4 +1,4 @@
-"""Write times, wind directions, distances and height differences as text."""
+"""Write times, wind directions, distances, height differences and data sources as text."""
 from datetime import datetime
 from typing import NotRequired, Optional, TypedDict
 
@@ -11,6 +11,14 @@ from .swiss_time import SWISS_TZ
 COMPASS_POINTS = ("N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
                   "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW")
 COMPASS_SECTOR_DEGREES = 360 / len(COMPASS_POINTS)
+
+# Each source with its link, as the terms of use ask for the source,
+# https://opendatadocs.meteoswiss.ch/general/terms-of-use,
+# https://www.slf.ch/en/services-and-products/slf-data-service/ and
+# https://www.swisstopo.admin.ch/en/terms-of-use-free-geodata-and-geoservices
+METEOSWISS_SOURCE = "MeteoSwiss www.meteoswiss.admin.ch"
+SLF_SOURCE = "SLF www.slf.ch"
+SWISSTOPO_SOURCE = "swisstopo www.swisstopo.admin.ch"
 
 
 class DataFromField(TypedDict):
@@ -56,3 +64,15 @@ def round_to_tenth(value: Optional[float]) -> Optional[float]:
     if value is None:
         return None
     return round(value, 1)
+
+
+def describe_source(uses_meteoswiss: bool, uses_slf: bool, uses_swisstopo: bool) -> str:
+    """Name the data sources an answer uses, each with its link, such as "SLF www.slf.ch, swisstopo ..."."""
+    sources = []
+    if uses_meteoswiss:
+        sources.append(METEOSWISS_SOURCE)
+    if uses_slf:
+        sources.append(SLF_SOURCE)
+    if uses_swisstopo:
+        sources.append(SWISSTOPO_SOURCE)
+    return ", ".join(sources)

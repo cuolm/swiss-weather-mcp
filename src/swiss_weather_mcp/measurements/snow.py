@@ -7,7 +7,7 @@ import requests
 
 from ..distance import MAX_STATIONS_TRIED, is_close, rank_by_weighted_distance
 from ..errors import CannotAnswerError
-from ..formatting import DataFromField, describe_distance_and_height, format_swiss_time, round_to_tenth
+from ..formatting import DataFromField, describe_distance_and_height, describe_source, format_swiss_time, round_to_tenth
 from ..places import SwisstopoPlace
 from ..swiss_time import SWISS_TZ
 from .meteoswiss_source import MeteoSwissMeasurementSource, MeteoSwissStation
@@ -42,6 +42,7 @@ class SnowAnswer(TypedDict):
     place: str
     snow_depth: Optional[SnowDepthBlock]
     new_snow: Optional[NewSnowBlock]
+    source: str
 
 
 def list_slf_snow_stations(slf_source: SLFMeasurementSource) -> list[SLFStation]:
@@ -208,7 +209,11 @@ def build_snow_answer(
             f"distance and height has a current value. The SLF observers measure the snow from November to April."
         )
 
-    answer: SnowAnswer = {"place": place.name, "snow_depth": None, "new_snow": None}
+    # SLF measures every new snow, and the snow depth when its station is an SLF one
+    uses_meteoswiss = snow_depth is not None and isinstance(snow_depth.station, MeteoSwissStation)
+    uses_slf = new_snow is not None or (snow_depth is not None and isinstance(snow_depth.station, SLFStation))
+    source = describe_source(uses_meteoswiss=uses_meteoswiss, uses_slf=uses_slf, uses_swisstopo=True)
+    answer: SnowAnswer = {"place": place.name, "snow_depth": None, "new_snow": None, "source": source}
     if snow_depth is not None:
         answer["snow_depth"] = _build_snow_depth_block(place, snow_depth)
     if new_snow is not None:

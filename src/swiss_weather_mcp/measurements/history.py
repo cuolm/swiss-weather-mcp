@@ -7,11 +7,11 @@ import requests
 
 from ..distance import MAX_STATIONS_TRIED, is_close, rank_by_weighted_distance
 from ..errors import CannotAnswerError
-from ..formatting import DataFromField, describe_distance_and_height
+from ..formatting import DataFromField, describe_distance_and_height, describe_source
 from ..places import SwisstopoPlace
 from . import parameters
 from .meteoswiss_source import MeteoSwissMeasurementSource, MeteoSwissStation, MeteoSwissStationMeasurements
-from .slf_source import SLFMeasurementSource
+from .slf_source import SLFMeasurementSource, SLFStation
 from .snow import (
     MAX_SNOW_STATION_WEIGHTED_DISTANCE_M,
     describe_closest_snow_station,
@@ -67,15 +67,20 @@ class SnowBlock(DataFromField):
     days: list[SnowDayRow]
 
 
-class HistoryAnswer(TypedDict):
+class HistoryBlocks(TypedDict):
     """
-    The measurements_history answer.
+    The place and the blocks of the measurements_history answer.
 
     snow is None when it was not asked alone and no station has it, or its data cannot be downloaded.
     """
     place: str
     weather: NotRequired[WeatherBlock]
     snow: NotRequired[Optional[SnowBlock]]
+
+
+class HistoryAnswer(HistoryBlocks):
+    """The measurements_history answer."""
+    source: str
 
 
 def _find_last_past_day(first_day: date, last_day: date) -> date:
@@ -327,17 +332,8 @@ def _build_snow_day_row(day_measurements: SnowStationDailyMeasurements) -> SnowD
     }
 
 
-def _build_snow_block(
-    meteoswiss_source: MeteoSwissMeasurementSource,
-    slf_source: SLFMeasurementSource,
-    place: SwisstopoPlace,
-    first_day: date,
-    last_day: date,
-) -> SnowBlock:
-    """Build the snow block for a place from the best-suited station; raise CannotAnswerError if none has values."""
-    daily_measurements = _find_snow_station_daily_measurements(
-        meteoswiss_source, slf_source, place, first_day, last_day
-    )
+def _build_snow_block(place: SwisstopoPlace, daily_measurements: list[SnowStationDailyMeasurements]) -> SnowBlock:
+    """Build the snow block for a place from the daily measurements of its snow station."""
     data_from_field: DataFromField = {}
     station = daily_measurements[0].station
     # A station next to the place stands for it, so the block does not name it
@@ -373,19 +369,35 @@ def build_history_answer(
     asked_last_day = first_day + timedelta(days=days - 1)
     last_day = _find_last_past_day(first_day, asked_last_day)
 
-    answer: HistoryAnswer = {"place": place.name}
+    blocks: HistoryBlocks = {"place": place.name}
+    snow_measurements: list[SnowStationDailyMeasurements] = []
     if values == WEATHER_VALUES:
-        answer["weather"] = _build_weather_block(meteoswiss_source, place, first_day, last_day)
+        blocks["weather"] = _build_weather_block(meteoswiss_source, place, first_day, last_day)
     elif values == SNOW_VALUES:
-        answer["snow"] = _build_snow_block(meteoswiss_source, slf_source, place, first_day, last_day)
+        snow_measurements = _find_snow_station_daily_measurements(
+            meteoswiss_source, slf_source, place, first_day, last_day
+        )
+        blocks["snow"] = _build_snow_block(place, snow_measurements)
     else:
-        answer["weather"] = _build_weather_block(meteoswiss_source, place, first_day, last_day)
+        blocks["weather"] = _build_weather_block(meteoswiss_source, place, first_day, last_day)
         # Next to the weather the snow is optional: without it the answer still holds the weather
         try:
-            answer["snow"] = _build_snow_block(meteoswiss_source, slf_source, place, first_day, last_day)
+            snow_measurements = _find_snow_station_daily_measurements(
+                meteoswiss_source, slf_source, place, first_day, last_day
+            )
+            blocks["snow"] = _build_snow_block(place, snow_measurements)
         except CannotAnswerError:
-            answer["snow"] = None
+            blocks["snow"] = None
         except requests.RequestException as error:
             logger.warning(f"Could not download the snow stations, answering without the snow: {error}")
-            answer["snow"] = None
-    return answer
+            blocks["snow"] = None
+
+    # The weather is always MeteoSwiss's; the snow is MeteoSwiss's or SLF's, by its station
+    uses_meteoswiss = "weather" in blocks
+    uses_slf = False
+    if snow_measurements:
+        snow_station = snow_measurements[0].station
+        uses_meteoswiss = uses_meteoswiss or isinstance(snow_station, MeteoSwissStation)
+        uses_slf = isinstance(snow_station, SLFStation)
+    source = describe_source(uses_meteoswiss=uses_meteoswiss, uses_slf=uses_slf, uses_swisstopo=True)
+    return {**blocks, "source": source}

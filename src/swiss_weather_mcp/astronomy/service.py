@@ -3,13 +3,15 @@ import asyncio
 from datetime import date, datetime, timedelta
 from typing import NotRequired, Optional, TypedDict
 
-from ..formatting import format_swiss_time
+from ..formatting import describe_source, format_swiss_time
 from ..places import PlaceFinder
 from .moon import calculate_moon_day
 from .sun import calculate_sun_day
 
 
 HALF_A_MINUTE = timedelta(seconds=30)
+# The times are calculated here; only the place comes from a source
+SOURCE = describe_source(uses_meteoswiss=False, uses_slf=False, uses_swisstopo=True)
 
 # The Unicode moon symbols, named like the phases, U+1F311 to U+1F318
 MOON_PHASE_TO_EMOJI = {
@@ -32,6 +34,7 @@ class SunAnswer(TypedDict):
     sunrise: Optional[str]
     sunset: Optional[str]
     civil_twilight_end: Optional[str]
+    source: str
 
 
 class MoonPhaseTimeField(TypedDict):
@@ -48,6 +51,7 @@ class MoonAnswer(MoonPhaseTimeField):
     moon_phase: str
     moon_phase_emoji: str
     illuminated_percent: int
+    source: str
 
 
 def _format_to_the_minute(moment: Optional[datetime]) -> Optional[str]:
@@ -80,6 +84,7 @@ class AstronomyService:
             "sunrise": _format_to_the_minute(sun_day.sunrise),
             "sunset": _format_to_the_minute(sun_day.sunset),
             "civil_twilight_end": _format_to_the_minute(sun_day.civil_twilight_end),
+            "source": SOURCE,
         }
 
     async def read_moon(self, location: str, day: date, nearby_location: Optional[str] = None) -> MoonAnswer:
@@ -104,4 +109,5 @@ class AstronomyService:
             "moon_phase_emoji": MOON_PHASE_TO_EMOJI[moon_day.phase],
             **phase_time_field,
             "illuminated_percent": round(moon_day.illuminated_percent),
+            "source": SOURCE,
         }

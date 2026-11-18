@@ -11,6 +11,7 @@ from ..formatting import (
     DataFromField,
     PlaceFields,
     describe_distance_and_height,
+    describe_source,
     find_compass_point,
     format_swiss_time,
     round_to_tenth,
@@ -70,6 +71,7 @@ class CurrentAnswer(PlaceFields, SLFStationField):
     sunshine_last_hour_minutes: Optional[float]
     rain_last_hour_mm: Optional[float]
     strongest_gust_last_hour_kmh: Optional[float]
+    source: str
 
 
 def _find_meteoswiss_station_measurements(
@@ -297,6 +299,8 @@ def build_current_answer(
     slf_station_field: SLFStationField = {}
     if slf_station_measurements is not None:
         slf_station_field = {"slf_station": _build_slf_station_block(place, slf_station_measurements)}
+    uses_slf = slf_station_measurements is not None
+    source = describe_source(uses_meteoswiss=True, uses_slf=uses_slf, uses_swisstopo=True)
 
     return {
         **place_fields,
@@ -317,4 +321,5 @@ def build_current_answer(
         "rain_last_hour_mm": rain_last_hour_mm,
         "strongest_gust_last_hour_kmh": strongest_gust_last_hour_kmh,
         **slf_station_field,
+        "source": source,
     }

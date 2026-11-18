@@ -2,7 +2,7 @@
 from typing import Any, Literal, NamedTuple, NotRequired, Optional, TypedDict, Union
 
 from ..errors import CannotAnswerError
-from ..formatting import format_swiss_time
+from ..formatting import describe_source, format_swiss_time
 from . import parameters
 from .meteoswiss_source import MeteoSwissMeasurementSource, MeteoSwissStation, MeteoSwissStationMeasurements
 from .slf_source import SLFMeasurementSource, SLFMorningSnow, SLFStation
@@ -37,6 +37,9 @@ EXTREME_NAME_TO_EXTREME: dict[ExtremeName, Union[MeteoSwissExtreme, SLFExtreme]]
 RANKED_STATION_COUNT = 5
 # The smallest rain MeteoSwiss publishes, as the 10-minute rain has one decimal
 RAINY_MIN_RAIN_MM = 0.1
+# The rankings name stations and cantons, no swisstopo place
+METEOSWISS_EXTREMES_SOURCE = describe_source(uses_meteoswiss=True, uses_slf=False, uses_swisstopo=False)
+SLF_EXTREMES_SOURCE = describe_source(uses_meteoswiss=False, uses_slf=True, uses_swisstopo=False)
 
 
 class SunshineClass(NamedTuple):
@@ -70,9 +73,9 @@ class SLFStationValue(NamedTuple):
     value: float
 
 
-class ExtremesAnswer(TypedDict):
+class ExtremesRanking(TypedDict):
     """
-    The measurements_extremes answer.
+    The ranking of the measurements_extremes answer.
 
     The rows stay plain dicts, as some of their keys come from the data: the field of the extreme in a
     station row, and the sunshine classes in a canton row of the sunniest.
@@ -85,6 +88,11 @@ class ExtremesAnswer(TypedDict):
     stations_by_sunshine: NotRequired[dict[str, int]]
     cantons: NotRequired[list[dict[str, Any]]]
     stations: NotRequired[list[dict[str, Any]]]
+
+
+class ExtremesAnswer(ExtremesRanking):
+    """The measurements_extremes answer."""
+    source: str
 
 
 def _read_snow_value(morning_snow: SLFMorningSnow, slf_extreme: SLFExtreme) -> Optional[float]:
@@ -159,6 +167,7 @@ def _build_snow_extremes_answer(
         "measuring_stations": len(slf_station_values),
         "stations_with_snow": len(snowy_values),
         "stations": _build_slf_station_rows(snowy_values, slf_extreme),
+        "source": SLF_EXTREMES_SOURCE,
     }
 
 
@@ -307,21 +316,21 @@ def build_extremes_answer(
         raise CannotAnswerError("MeteoSwiss currently publishes no measurements, try again later.")
 
     station_values = _find_station_values(all_measurements, extreme.parameter)
-    answer: ExtremesAnswer = {
+    ranking: ExtremesRanking = {
         "extreme": extreme_name,
         # Every row of the all stations file has the same time
         "measured_at": format_swiss_time(all_measurements[0].measured_at),
     }
     if extreme_name == "sunniest":
-        answer["measuring_stations"] = len(station_values)
-        answer["stations_by_sunshine"] = _count_stations_by_sunshine_class(station_values)
-        answer["cantons"] = _build_sunshine_canton_rows(station_values)
+        ranking["measuring_stations"] = len(station_values)
+        ranking["stations_by_sunshine"] = _count_stations_by_sunshine_class(station_values)
+        ranking["cantons"] = _build_sunshine_canton_rows(station_values)
     elif extreme_name == "wettest":
         rainy_values = _find_station_values_at_least(station_values, RAINY_MIN_RAIN_MM)
-        answer["rainy_stations"] = len(rainy_values)
-        answer["measuring_stations"] = len(station_values)
-        answer["cantons"] = _build_canton_rows(station_values, rainy_values, "rainy")
-        answer["stations"] = _build_station_rows(rainy_values, extreme)
+        ranking["rainy_stations"] = len(rainy_values)
+        ranking["measuring_stations"] = len(station_values)
+        ranking["cantons"] = _build_canton_rows(station_values, rainy_values, "rainy")
+        ranking["stations"] = _build_station_rows(rainy_values, extreme)
     else:
-        answer["stations"] = _build_station_rows(station_values, extreme)
-    return answer
+        ranking["stations"] = _build_station_rows(station_values, extreme)
+    return {**ranking, "source": METEOSWISS_EXTREMES_SOURCE}

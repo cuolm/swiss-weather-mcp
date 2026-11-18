@@ -27,6 +27,7 @@ async def test_read_sun(astronomy_service_fixture):
         "sunrise": "2026-10-28T07:03+01:00",
         "sunset": "2026-10-28T17:15+01:00",
         "civil_twilight_end": "2026-10-28T17:47+01:00",
+        "source": "swisstopo www.swisstopo.admin.ch",
     }
 
 
@@ -57,6 +58,7 @@ async def test_read_moon_on_a_day_with_a_principal_phase(astronomy_service_fixtu
         "moon_phase_emoji": "🌗",
         "moon_phase_time": "2026-11-01T21:30+01:00",
         "illuminated_percent": 55,
+        "source": "swisstopo www.swisstopo.admin.ch",
     }
 
 

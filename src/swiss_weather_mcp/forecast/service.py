@@ -6,7 +6,13 @@ from typing import Optional, TypedDict
 
 from ..distance import is_close
 from ..errors import CannotAnswerError
-from ..formatting import PlaceFields, describe_distance_and_height, find_compass_point, format_swiss_time
+from ..formatting import (
+    PlaceFields,
+    describe_distance_and_height,
+    describe_source,
+    find_compass_point,
+    format_swiss_time,
+)
 from ..places import PlaceFinder, SwisstopoPlace
 from . import parameters
 from .source import ForecastPoint, ForecastRun, ForecastSeries, ForecastSource
@@ -16,6 +22,7 @@ logger = logging.getLogger(__name__)
 
 # MeteoSwiss publishes today and the next 8 days
 MAX_DAYS = 9
+SOURCE = describe_source(uses_meteoswiss=True, uses_slf=False, uses_swisstopo=True)
 
 HOUR = timedelta(hours=1)
 RAIN_BLOCK = timedelta(hours=3)
@@ -43,6 +50,7 @@ class DailyForecastAnswer(PlaceFields):
     """The forecast_daily answer."""
     days: list[DailyForecastRow]
     model_run: str
+    source: str
 
 
 class RainBlock(PeriodFields):
@@ -58,6 +66,7 @@ class RainAnswer(PlaceFields):
     """The forecast_rain answer."""
     blocks: list[RainBlock]
     model_run: str
+    source: str
 
 
 class TemperatureHour(PeriodFields):
@@ -71,12 +80,14 @@ class TemperatureAnswer(PlaceFields):
     """The forecast_temperature answer."""
     hours: list[TemperatureHour]
     model_run: str
+    source: str
 
 
 class SunshineAnswer(PlaceFields, PeriodFields):
     """The forecast_sunshine answer."""
     sunshine_h: float
     model_run: str
+    source: str
 
 
 class WindAnswer(PlaceFields):
@@ -88,6 +99,7 @@ class WindAnswer(PlaceFields):
     compass_point: str
     valid_at: str
     model_run: str
+    source: str
 
 
 class CloudCoverAnswer(PlaceFields):
@@ -98,6 +110,7 @@ class CloudCoverAnswer(PlaceFields):
     high_percent: float
     valid_at: str
     model_run: str
+    source: str
 
 
 class FreezingLevelAnswer(PlaceFields):
@@ -105,6 +118,7 @@ class FreezingLevelAnswer(PlaceFields):
     freezing_level_m: float
     valid_at: str
     model_run: str
+    source: str
 
 
 def _find_daily_value(series: Optional[ForecastSeries], day: date) -> Optional[float]:
@@ -305,6 +319,7 @@ class ForecastService:
             **_build_forecast_point_fields(place, point),
             "days": rows,
             "model_run": format_swiss_time(run_time),
+            "source": SOURCE,
         }
 
     async def read_rain(
@@ -385,6 +400,7 @@ class ForecastService:
             **_build_forecast_point_fields(place, point),
             "blocks": blocks,
             "model_run": format_swiss_time(median_series.run_time),
+            "source": SOURCE,
         }
 
     async def read_temperature(
@@ -443,6 +459,7 @@ class ForecastService:
             **_build_forecast_point_fields(place, point),
             "hours": hours,
             "model_run": format_swiss_time(temperature_series.run_time),
+            "source": SOURCE,
         }
 
     async def read_sunshine(
@@ -485,6 +502,7 @@ class ForecastService:
             "from": format_swiss_time(start_moment),
             "to": format_swiss_time(end_moment),
             "model_run": format_swiss_time(series.run_time),
+            "source": SOURCE,
         }
 
     async def read_wind(self, location: str, moment: datetime, nearby_location: Optional[str] = None) -> WindAnswer:
@@ -518,6 +536,7 @@ class ForecastService:
             "compass_point": compass_point,
             "valid_at": format_swiss_time(moment),
             "model_run": format_swiss_time(speed_series.run_time),
+            "source": SOURCE,
         }
 
     async def read_cloud_cover(
@@ -553,6 +572,7 @@ class ForecastService:
             "high_percent": round(high_fraction * 100, 1),
             "valid_at": format_swiss_time(moment),
             "model_run": format_swiss_time(low_series.run_time),
+            "source": SOURCE,
         }
 
     async def read_freezing_level(
@@ -574,4 +594,5 @@ class ForecastService:
             "freezing_level_m": freezing_level_m,
             "valid_at": format_swiss_time(moment),
             "model_run": format_swiss_time(series.run_time),
+            "source": SOURCE,
         }
