@@ -102,7 +102,8 @@ class PlaceFinder:
     """
 
     def __init__(self, cache_dir: Path):
-        self.place_lookup = SwisstopoPlaceLookup(SwisstopoPlaceSource(cache_dir))
+        place_source = SwisstopoPlaceSource(cache_dir)
+        self.place_lookup = SwisstopoPlaceLookup(place_source)
         self.boundary_source = SwisstopoBoundarySource(cache_dir)
 
     def _load_places(self) -> None:

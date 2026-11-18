@@ -172,10 +172,9 @@ def _list_stamps(first_stamp: datetime, last_stamp: datetime, step: timedelta) -
 
 def _describe_covered_range(series: ForecastSeries) -> str:
     """Say which times a series covers, for an error message."""
-    return (
-        f"The forecast covers {format_swiss_time(min(series.time_to_value))} to "
-        f"{format_swiss_time(max(series.time_to_value))}."
-    )
+    first_stamp = min(series.time_to_value)
+    last_stamp = max(series.time_to_value)
+    return f"The forecast covers {format_swiss_time(first_stamp)} to {format_swiss_time(last_stamp)}."
 
 
 def _find_hourly_value(series: ForecastSeries, moment: datetime, point: ForecastPoint) -> float:
@@ -370,7 +369,8 @@ class ForecastService:
             block_start = block_end - RAIN_BLOCK
             block_hour_stamps = _list_stamps(block_start + HOUR, block_end, HOUR)
             heaviest_hour_mm = max(upper_series.time_to_value[stamp] for stamp in block_hour_stamps)
-            weather, weather_emoji = _describe_pictogram(int(pictogram_series.time_to_value[block_end]))
+            pictogram_code = int(pictogram_series.time_to_value[block_end])
+            weather, weather_emoji = _describe_pictogram(pictogram_code)
             blocks.append({
                 "from": format_swiss_time(block_start),
                 "to": format_swiss_time(block_end),

@@ -170,7 +170,8 @@ def _find_station_values(
     for measurements in all_measurements:
         value = measurements.parameter_to_value[parameter]
         if value is not None:
-            station_values.append(MeteoSwissStationValue(measurements.station, value))
+            station_value = MeteoSwissStationValue(measurements.station, value)
+            station_values.append(station_value)
     return station_values
 
 

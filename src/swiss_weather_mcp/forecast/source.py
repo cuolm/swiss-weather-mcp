@@ -357,4 +357,5 @@ class ForecastSource:
         if not time_to_value:
             raise CannotAnswerError(f"MeteoSwiss publishes no '{parameter}' values for {point.display_name}.")
 
-        return ForecastSeries(run_time=_parse_stamp(run_id), time_to_value=time_to_value)
+        run_time = _parse_stamp(run_id)
+        return ForecastSeries(run_time=run_time, time_to_value=time_to_value)

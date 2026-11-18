@@ -200,7 +200,8 @@ def build_snow_answer(
             place, snow_depth_stations, MAX_SNOW_STATION_WEIGHTED_DISTANCE_M
         )
         if not close_snow_stations:
-            raise CannotAnswerError(describe_closest_snow_station(place, snow_depth_stations))
+            closest_snow_station_sentence = describe_closest_snow_station(place, snow_depth_stations)
+            raise CannotAnswerError(closest_snow_station_sentence)
         raise CannotAnswerError(
             f"There are no current snow measurements near {place.display_name}: no snow station close enough in "
             f"distance and height has a current value. The SLF observers measure the snow from November to April."

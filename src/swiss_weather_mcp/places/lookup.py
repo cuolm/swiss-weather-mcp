@@ -53,7 +53,8 @@ ENGLISH_PLACE_NAMES_FILE = "english_place_names.csv"
 def normalise_name(name: str) -> str:
     """Fold case, strip accents and drop periods, so "zurich" finds "Zürich" and "St Moritz" finds "St. Moritz"."""
     # NFKD splits "ü" into "u" and a separate accent mark, which is dropped here
-    decomposed = unicodedata.normalize("NFKD", name.casefold())
+    casefolded = name.casefold()
+    decomposed = unicodedata.normalize("NFKD", casefolded)
     without_accents = ""
     for character in decomposed:
         if not unicodedata.combining(character):
@@ -69,12 +70,14 @@ def _build_lookup_names(row: SwisstopoPlace) -> list[str]:
     canton_suffix = CANTON_SUFFIX.match(row.name)
     if canton_suffix:
         name_without_canton = canton_suffix.group(1)
-        lookup_names.append(normalise_name(name_without_canton))
+        lookup_name_without_canton = normalise_name(name_without_canton)
+        lookup_names.append(lookup_name_without_canton)
     # Only settlements: other slashes split names such as the shooting range "Küsnacht 300/50/25m"
     if "/" in row.name and row.object_types[0] in SETTLEMENT_TYPES:
         for part in row.name.split("/"):
             if part.strip():
-                lookup_names.append(normalise_name(part))
+                lookup_name_of_part = normalise_name(part)
+                lookup_names.append(lookup_name_of_part)
     # A lookup name counts once, even when two rules give it
     unique_lookup_names = list(dict.fromkeys(lookup_names))
     return unique_lookup_names
@@ -127,7 +130,8 @@ def _merge_rows(group: list[SwisstopoPlace]) -> SwisstopoPlace:
     for object_type in OBJECT_TYPE_TO_NAME:
         if object_type in types_in_group:
             object_types.append(object_type)
-    return main_row._replace(object_types=tuple(object_types))
+    ordered_object_types = tuple(object_types)
+    return main_row._replace(object_types=ordered_object_types)
 
 
 def _build_places_of_lookup_name(rows: list[SwisstopoPlace]) -> list[SwisstopoPlace]:

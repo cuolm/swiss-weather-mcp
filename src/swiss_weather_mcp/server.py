@@ -47,7 +47,8 @@ logger = logging.getLogger(__name__)
 
 # Shared, OS-standard cache location (survives across working directories the server may be launched from).
 # Override with SWISS_WEATHER_MCP_CACHE_DIR, e.g. to isolate cache location in tests or Docker.
-CACHE_DIR = Path(os.environ.get("SWISS_WEATHER_MCP_CACHE_DIR", user_cache_path("swiss-weather-mcp")))
+DEFAULT_CACHE_DIR = user_cache_path("swiss-weather-mcp")
+CACHE_DIR = Path(os.environ.get("SWISS_WEATHER_MCP_CACHE_DIR", DEFAULT_CACHE_DIR))
 
 # The optional near argument of every tool that takes a location. The example keeps a small model
 # from putting the village into location, or swapping the two, which it did without it.

@@ -137,7 +137,8 @@ def _find_meteoswiss_station_daily_measurements(
 
         all_days = meteoswiss_source.read_station_daily_measurements(station, first_day, last_day)
         if all_days:
-            newest_published_days.append(all_days[-1].measured_at.date())
+            newest_published_day = all_days[-1].measured_at.date()
+            newest_published_days.append(newest_published_day)
 
         asked_days = _find_days_between(all_days, first_day, last_day)
         has_temperature = any(

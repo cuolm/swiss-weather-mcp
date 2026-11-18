@@ -221,13 +221,15 @@ def _parse_station(station_object: dict[str, Any], is_manual_site: bool) -> SLFS
     latitude_deg = station_object["lat"]
     longitude_deg = station_object["lon"]
     canton = find_canton_name(station_object["canton_code"])
+    east_m = calculate_lv95_east_m(latitude_deg, longitude_deg)
+    north_m = calculate_lv95_north_m(latitude_deg, longitude_deg)
     return SLFStation(
         code=station_object["code"],
         name=station_object["label"],
         canton=canton,
         altitude_m=station_object["elevation"],
-        east_m=calculate_lv95_east_m(latitude_deg, longitude_deg),
-        north_m=calculate_lv95_north_m(latitude_deg, longitude_deg),
+        east_m=east_m,
+        north_m=north_m,
         is_manual_site=is_manual_site,
     )
 
@@ -243,13 +245,15 @@ def _parse_station_measurements(station: SLFStation, row: dict[str, Any]) -> SLF
     """Read the values of SLFStationMeasurements from one row of a station's measurements."""
     # Such as "2026-11-09T12:00:00Z", which fromisoformat reads as UTC
     measured_at = datetime.fromisoformat(row["measure_date"])
+    wind_speed_kmh = _convert_m_per_s_to_kmh(row[WIND_SPEED])
+    strongest_gust_kmh = _convert_m_per_s_to_kmh(row[WIND_GUSTS])
     return SLFStationMeasurements(
         station=station,
         measured_at=measured_at,
         temperature_c=row[TEMPERATURE],
         humidity_percent=row[HUMIDITY],
-        wind_speed_kmh=_convert_m_per_s_to_kmh(row[WIND_SPEED]),
-        strongest_gust_kmh=_convert_m_per_s_to_kmh(row[WIND_GUSTS]),
+        wind_speed_kmh=wind_speed_kmh,
+        strongest_gust_kmh=strongest_gust_kmh,
         wind_direction_degrees=row[WIND_DIRECTION],
         snow_depth_cm=row[SNOW_DEPTH],
         snow_surface_temperature_c=row[SNOW_SURFACE_TEMPERATURE],

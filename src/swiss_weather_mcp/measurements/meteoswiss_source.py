@@ -388,9 +388,10 @@ class MeteoSwissMeasurementSource:
         daily_measurements = []
         for day_measurements in all_days:
             parameter_to_value = day_measurements.parameter_to_value
+            day = day_measurements.measured_at.date()
             snow_measurements = SnowStationDailyMeasurements(
                 manual_site,
-                day_measurements.measured_at.date(),
+                day,
                 parameter_to_value[parameters.SNOW_DEPTH_DAY],
                 parameter_to_value[parameters.NEW_SNOW_DAY],
             )

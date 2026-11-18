@@ -239,10 +239,11 @@ def calculate_moon_day(day: date, latitude_deg: float, longitude_deg: float) -> 
         phase = INTERMEDIATE_PHASES[int(ahead_deg // DEGREES_BETWEEN_PRINCIPAL_PHASES)]
         phase_time = None
 
+    illuminated_percent = _calculate_illuminated_percent(percent_time)
     return MoonDay(
         moonrise=moonrise,
         moonset=moonset,
         phase=phase,
         phase_time=phase_time,
-        illuminated_percent=_calculate_illuminated_percent(percent_time),
+        illuminated_percent=illuminated_percent,
     )
