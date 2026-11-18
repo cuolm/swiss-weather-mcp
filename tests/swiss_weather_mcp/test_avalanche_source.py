@@ -54,7 +54,8 @@ def test_convert_html_to_text_with_line_breaks():
 # --- _parse_problem ---
 
 def test_parse_problem_on_the_whole_mountain():
-    # V4 writes the whole mountain as an empty elevation, as in 11 problems of the 2025/26 season; the comment is made up
+    # V4 writes the whole mountain as an empty elevation, as in 11 problems of the 2025/26 season; the comment is
+    # made up
     problem = _parse_problem({
         "problemType": "gliding_snow",
         "comment": "Glide-snow avalanches are possible.",
@@ -79,13 +80,17 @@ def test_read_bulletins(bulletin_source_fixture):
     assert bulletin.next_update == datetime(2026, 2, 14, 16, tzinfo=timezone.utc)
     assert bulletin.region_names == ["Southern Glarus-Grosstal", "Engelberg", "Calanda"]
     assert bulletin.danger_ratings == [DangerRating("considerable", "neutral", "all_day")]
-    assert bulletin.snowpack == "Snowpack\n- Prealps: newer snowdrift accumulations lie on a mostly favourable snowpack."
+    assert bulletin.snowpack == (
+        "Snowpack\n- Prealps: newer snowdrift accumulations lie on a mostly favourable snowpack."
+    )
     assert bulletin.outlook == "Outlook\nSunday\nThe avalanche danger will continue to decrease in the west."
     assert bulletin.weather_forecast == (
         "Weather forecast to Saturday\nOn Saturday, it will be very cloudy.\nFresh snow\n"
         "- Simplon area, western Ticino: 5 to 10 cm"
     )
-    assert bulletin.weather_review == "Weather review for Friday\nA little snow fell in the north above 1000 m during the night."
+    assert bulletin.weather_review == (
+        "Weather review for Friday\nA little snow fell in the north above 1000 m during the night."
+    )
 
 
 def test_read_bulletins_reads_the_problems(bulletin_source_fixture):

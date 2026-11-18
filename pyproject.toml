@@ -67,8 +67,7 @@ target-version = "py311"
 line-length = 120
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I"]
-ignore = ["E501"]  # long lines are allowed for now
+select = ["E", "F", "W", "I", "B"]
 
 [tool.ruff.lint.isort]
 lines-after-imports = 2  # PEP 8 asks for 2 blank lines before a top-level function, also after a comment

@@ -283,7 +283,7 @@ SLF_ROW_KEYS = (
 def build_slf_row(code: str, utc_time: str, values: tuple) -> dict:
     """Build one row of a station's measurements with the values of SLF_ROW_KEYS."""
     row = {"station_code": code, "measure_date": f"2026-09-25T{utc_time}:00Z"}
-    for key, value in zip(SLF_ROW_KEYS, values):
+    for key, value in zip(SLF_ROW_KEYS, values, strict=True):
         row[key] = value
     return row
 
@@ -438,13 +438,18 @@ AVALANCHE_BULLETINS = (
                 {"regionID": "CH-5121", "name": "Calanda"},
             ],
             "dangerRatings": [
-                {"mainValue": "considerable", "validTimePeriod": "all_day", "customData": {"CH": {"subdivision": "neutral"}}},
+                {
+                    "mainValue": "considerable", "validTimePeriod": "all_day",
+                    "customData": {"CH": {"subdivision": "neutral"}},
+                },
             ],
             "avalancheProblems": [
                 {
                     "problemType": "wind_slab",
-                    "comment": "Avalanches can be released, even by a single winter sport participant. <br/> "
-                               "Backcountry touring calls for experience in the assessment of avalanche danger and caution.",
+                    "comment": (
+                        "Avalanches can be released, even by a single winter sport participant. <br/> "
+                        "Backcountry touring calls for experience in the assessment of avalanche danger and caution."
+                    ),
                     "dangerRatingValue": "considerable",
                     "validTimePeriod": "all_day",
                     "elevation": {"lowerBound": "1800"},
@@ -457,9 +462,11 @@ AVALANCHE_BULLETINS = (
                 },
             ],
             "publicationTime": "2026-02-14T07:00:00Z",
-            "weatherForecast": {"comment": "<h1>Weather forecast to Saturday</h1><p>On Saturday, it will be very cloudy."
-                                           "</p><h2 contenteditable=\"false\">Fresh snow</h2><ul><li>Simplon area, "
-                                           "western Ticino: 5 to 10 cm</li></ul>"},
+            "weatherForecast": {"comment": (
+                "<h1>Weather forecast to Saturday</h1><p>On Saturday, it will be very cloudy."
+                "</p><h2 contenteditable=\"false\">Fresh snow</h2><ul><li>Simplon area, "
+                "western Ticino: 5 to 10 cm</li></ul>"
+            )},
             "weatherReview": {"comment": "<h1>Weather review for Friday</h1><p>A little snow fell in the north above "
                                          "1000 m during the night.</p>"},
             "snowpackStructure": {"comment": "<h1>Snowpack</h1><ul><li>Prealps: newer snowdrift accumulations lie on "

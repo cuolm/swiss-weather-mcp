@@ -34,7 +34,10 @@ def test_find_latest_run_newest(mocker, tmp_path):
 
 def test_find_latest_run_falls_back_to_yesterday(mocker, tmp_path):
     # The item for a new day exists before its first run lands, and reports no assets at all
-    responses = [FakeResponse(payload={"assets": {}}), FakeResponse(payload=build_stac_item(RUN_ID, parameters.ALL_PARAMETERS))]
+    responses = [
+        FakeResponse(payload={"assets": {}}),
+        FakeResponse(payload=build_stac_item(RUN_ID, parameters.ALL_PARAMETERS)),
+    ]
     mocker.patch("swiss_weather_mcp.forecast.source.requests.get", side_effect=responses)
 
     run_id = ForecastSource(tmp_path).find_latest_run().run_id

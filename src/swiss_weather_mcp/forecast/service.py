@@ -243,7 +243,9 @@ class ForecastService:
 
         place, point = await self._find_place_and_point(location, nearby_location)
         run = await self._find_latest_run()
-        min_series, max_series, rain_series, rain_lower_series, rain_upper_series, pictogram_series = await asyncio.gather(
+        (
+            min_series, max_series, rain_series, rain_lower_series, rain_upper_series, pictogram_series,
+        ) = await asyncio.gather(
             self._read_daily_series_if_published(parameters.TEMPERATURE_DAY_MIN, point, run),
             self._read_daily_series_if_published(parameters.TEMPERATURE_DAY_MAX, point, run),
             self._read_daily_series_if_published(parameters.PRECIPITATION_DAY, point, run),
@@ -297,7 +299,9 @@ class ForecastService:
                 run_time = series.run_time
                 break
         if not rows or run_time is None:
-            raise CannotAnswerError(f"MeteoSwiss has no daily forecast for {point.display_name} from {first_day.isoformat()}.")
+            raise CannotAnswerError(
+                f"MeteoSwiss has no daily forecast for {point.display_name} from {first_day.isoformat()}."
+            )
         return {
             **_build_forecast_point_fields(place, point),
             "days": rows,

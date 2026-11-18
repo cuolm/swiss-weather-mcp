@@ -169,7 +169,9 @@ async def test_read_temperature_one_hour(service_fixture):
     # Without an end, the one hour starting at start: 13:00 to 14:00 Swiss, the row stamped 12:00 UTC
     answer = await service_fixture.read_temperature("Zurich", build_swiss_time("2026-09-23T13:00"))
 
-    assert [(hour["from"], hour["to"]) for hour in answer["hours"]] == [("2026-09-23T13:00+02:00", "2026-09-23T14:00+02:00")]
+    assert [(hour["from"], hour["to"]) for hour in answer["hours"]] == [
+        ("2026-09-23T13:00+02:00", "2026-09-23T14:00+02:00"),
+    ]
     assert answer["hours"][0]["temperature_c"] == 12.0
 
 

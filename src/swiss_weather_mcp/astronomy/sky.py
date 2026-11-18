@@ -104,7 +104,7 @@ def calculate_trigonometric_series(
     total = 0.0
     for term in terms:
         angle_rad = 0.0
-        for multiplier, name in zip(term.multipliers, argument_names):
+        for multiplier, name in zip(term.multipliers, argument_names, strict=True):
             angle_rad += multiplier * fundamental_arguments_rad[name]
         wave = math.cos(angle_rad) if term.function == COS else math.sin(angle_rad)
         total += term.coefficient * centuries_since_1900**term.t_power * wave

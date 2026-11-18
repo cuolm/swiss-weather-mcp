@@ -75,7 +75,8 @@ def test_calculate_change_without_a_value_3_hours_ago():
 def build_last_hour(parameter: str, values: list) -> list:
     """Build the six rows of the hour up to 14:00 with the given values of one parameter."""
     all_measurements = []
-    for minute, value in zip(("13:10", "13:20", "13:30", "13:40", "13:50", "14:00"), values):
+    # A test can give fewer values, for an hour with rows missing at its end
+    for minute, value in zip(("13:10", "13:20", "13:30", "13:40", "13:50", "14:00"), values, strict=False):
         all_measurements.append(build_measurements(f"2026-09-25T{minute}", {parameter: value}))
     return all_measurements
 

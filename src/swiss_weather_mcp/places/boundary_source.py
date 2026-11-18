@@ -142,7 +142,7 @@ def _read_wkb(wkb: memoryview, offset: int) -> Tuple[List[Polygon], int]:
         offset += WKB_VALUE_BYTES * value_count
         east_values_m = values[0::values_per_point]
         north_values_m = values[1::values_per_point]
-        ring = list(zip(east_values_m, north_values_m))
+        ring = list(zip(east_values_m, north_values_m, strict=True))
         polygon.append(ring)
     return [polygon], offset
 

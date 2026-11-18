@@ -199,7 +199,10 @@ async def _run() -> None:
             try:
                 answer = await chat.process_query(query)
             except APIConnectionError:
-                logger.error(f"Could not reach the model server at {args.base_url}. Start it first (see the README), then ask again.")
+                logger.error(
+                    f"Could not reach the model server at {args.base_url}. "
+                    "Start it first (see the README), then ask again."
+                )
                 del chat.messages[messages_before:]  # the question was not answered, so it is not sent again
                 continue
             except APIError as error:

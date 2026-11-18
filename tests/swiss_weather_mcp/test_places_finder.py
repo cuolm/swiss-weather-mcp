@@ -62,7 +62,8 @@ def test_find_place_names_the_area_of_each_place(place_finder_fixture):
     error_text = str(raised.value)
     option_lines = error_text.splitlines()[1:]
     assert option_lines == [
-        '  location="Blausee", near="Lindenhof": settlement and district, 20 to 49 people, 425 m, municipality Zürich, canton Zürich',
+        '  location="Blausee", near="Lindenhof": settlement and district, 20 to 49 people, 425 m, '
+        'municipality Zürich, canton Zürich',
         '  location="Blausee", near="Oerlikon": lake, 445 m, canton Zürich',
     ]
 
@@ -96,7 +97,8 @@ def test_find_place_chooses_the_place_closest_to_near(place_finder_fixture):
 
 
 def test_find_place_refuses_a_near_far_from_every_place(place_finder_fixture):
-    with pytest.raises(CannotAnswerError, match="No 'Blausee' lies near 'Davos Dorf'. 'Blausee' is the name of 2 places"):
+    expected_start = "No 'Blausee' lies near 'Davos Dorf'. 'Blausee' is the name of 2 places"
+    with pytest.raises(CannotAnswerError, match=expected_start):
         place_finder_fixture.find_place("Blausee", nearby_location="Davos Dorf")
 
 

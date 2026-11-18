@@ -46,7 +46,8 @@ def test_find_places_named_by_each_part_of_a_settlement_name(place_lookup_fixtur
 def test_find_places_named_keeps_other_names_with_a_slash_whole(place_lookup_fixture):
     # The distances of a shooting range are no names of their own
     assert find_names(place_lookup_fixture, "25m") == []
-    assert find_names(place_lookup_fixture, "Küsnacht Im Holletsmoos 300/50/25m") == ["Küsnacht Im Holletsmoos 300/50/25m"]
+    holletsmoos = "Küsnacht Im Holletsmoos 300/50/25m"
+    assert find_names(place_lookup_fixture, holletsmoos) == [holletsmoos]
 
 
 def test_find_places_named_merges_close_rows(place_lookup_fixture):
@@ -107,7 +108,8 @@ def test_english_place_names_file():
 
 def test_find_places_named_alike_starting_with_the_name(place_lookup_fixture):
     # No row is called Davos, so the places whose name starts with it are suggested
-    assert [place.name for place in place_lookup_fixture.find_places_named_alike("Davos")] == ["Davos Dorf", "Davos Platz"]
+    davos_places = place_lookup_fixture.find_places_named_alike("Davos")
+    assert [place.name for place in davos_places] == ["Davos Dorf", "Davos Platz"]
 
 
 def test_find_places_named_alike_by_spelling(place_lookup_fixture):

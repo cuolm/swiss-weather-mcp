@@ -140,7 +140,9 @@ def _calculate_change_last_3_hours(
     return round(latest_value - earlier_value, 1)
 
 
-def _find_last_hour_values(all_measurements: List[MeteoSwissStationMeasurements], parameter: str) -> Optional[List[float]]:
+def _find_last_hour_values(
+    all_measurements: List[MeteoSwissStationMeasurements], parameter: str
+) -> Optional[List[float]]:
     """Return the six 10-minute values of the last hour, or None when one of them is missing."""
     latest_measurements = all_measurements[-1]
     period_start = latest_measurements.measured_at - LAST_HOUR

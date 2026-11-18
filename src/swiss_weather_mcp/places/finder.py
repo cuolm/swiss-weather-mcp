@@ -123,7 +123,7 @@ class PlaceFinder:
 
     def start_loading_places(self) -> List[threading.Thread]:
         """
-        Load the places and the boundaries in two background threads and return them, so the first question need not wait.
+        Load the places and boundaries in two background threads and return them, so the first question need not wait.
 
         The lists of places name the municipality and canton only once the boundaries are
         loaded. The boundaries do not wait for the places, so cached ones are ready at once.

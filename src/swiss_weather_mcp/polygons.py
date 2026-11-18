@@ -17,6 +17,7 @@ odd number of times when the position lies inside, https://en.wikipedia.org/wiki
 The line runs east from the position, and the crossings are counted for each ring alone. A position is
 inside the polygon when it is inside the outer ring and in none of its holes.
 """
+from itertools import pairwise
 from typing import List, Optional, Tuple
 
 
@@ -28,7 +29,7 @@ Polygon = List[Ring]
 
 
 def _find_crossing_east(edge_start: Corner, edge_end: Corner, horizontal_line_north: float) -> Optional[float]:
-    """Return the east coordinate where an edge crosses a horizontal line, or None when the edge stays above or below it."""
+    """Return the east coordinate where an edge crosses a horizontal line, or None when it does not cross it."""
     edge_start_east, edge_start_north = edge_start
     edge_end_east, edge_end_north = edge_end
     # The edge crosses the line only when one of its corners lies north of it and the other does not
@@ -45,7 +46,7 @@ def ring_contains(ring: Ring, position_east_m: float, position_north_m: float) -
     """Tell whether a position lies inside a closed ring: a line from it to the east crosses an odd number of edges."""
     crossings_east_of_position = 0
     # Each edge runs from one corner to the next; a closed ring ends at its first corner
-    for edge_start, edge_end in zip(ring, ring[1:]):
+    for edge_start, edge_end in pairwise(ring):
         crossing_east_m = _find_crossing_east(edge_start, edge_end, position_north_m)
         if crossing_east_m is not None and crossing_east_m > position_east_m:
             crossings_east_of_position += 1

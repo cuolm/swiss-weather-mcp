@@ -54,7 +54,8 @@ What SLF publishes:
     │  ...]                                                              │  one row per station and day
     └────────────────────────────────────────────────────────────────────┘
 
-    study-plot/station/5DF0/measurements?period_in_days=7  (measurements of the manual site Davos Flüelastr., 5 fields, 2 values read)
+    study-plot/station/5DF0/measurements?period_in_days=7  (measurements of the manual site Davos Flüelastr.,
+    5 fields, 2 values read)
     ┌────────────────────────────────────────────────────────────────────┐
     │ [{"station_code": "5DF0", "measure_date": "2026-11-10T06:00:00Z",  │  station, morning in UTC
     │   "HS": 0.0, "HN_1D": 0.0, "HNW_1D": 0.0},                         │  snow depth, new snow in cm
@@ -188,7 +189,7 @@ class SLFStation(NamedTuple):
 
 
 class SLFStationMeasurements(NamedTuple):
-    """The latest measurements of one IMIS station, over the 30 minutes up to measured_at; None where it has no value."""
+    """The latest measurements of one IMIS station over the 30 minutes up to measured_at; None where it has no value."""
     station: SLFStation
     measured_at: datetime
     temperature_c: Optional[float]

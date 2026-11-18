@@ -80,7 +80,9 @@ def test_build_bulletin_answer(bulletin_source_fixture):
                 "time_of_day": "all day",
                 "heights": "above 1800 m",
                 "aspects": ["N", "NE", "E", "SE", "W", "NW"],
-                "summary": "Danger level \"considerable\" (3=) in west to northeast to southeast facing aspects above 1800m.",
+                "summary": (
+                    "Danger level \"considerable\" (3=) in west to northeast to southeast facing aspects above 1800m."
+                ),
                 "description": (
                     "Avalanches can be released, even by a single winter sport participant.\n"
                     "Backcountry touring calls for experience in the assessment of avalanche danger and caution."

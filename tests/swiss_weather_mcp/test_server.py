@@ -130,7 +130,9 @@ async def test_measurements_current_passes_near_on(server_fixture):
 async def test_measurements_history_passes_the_days_on(server_fixture):
     server_fixture.measurement_service.read_history.return_value = {"place": "Zürich"}
 
-    await server_fixture.mcp.call_tool("measurements_history", {"location": "Zürich", "start_date": "2026-09-14", "days": 7})
+    await server_fixture.mcp.call_tool(
+        "measurements_history", {"location": "Zürich", "start_date": "2026-09-14", "days": 7}
+    )
     server_fixture.measurement_service.read_history.assert_awaited_once_with("Zürich", date(2026, 9, 14), 7, None, None)
 
 
@@ -215,10 +217,13 @@ async def test_handle_tool_call_logs_the_answer_only_at_debug(server_fixture, ca
 
 @pytest.mark.asyncio
 async def test_handle_tool_call_value_error(server_fixture, caplog):
-    server_fixture.forecast_service.read_freezing_level.side_effect = CannotAnswerError("Location 'Tessin' is not one of the places")
+    unknown_place_error = CannotAnswerError("Location 'Tessin' is not one of the places")
+    server_fixture.forecast_service.read_freezing_level.side_effect = unknown_place_error
 
     with caplog.at_level(logging.INFO), pytest.raises(ToolError, match="Location 'Tessin' is not one of") as raised:
-        await server_fixture.mcp.call_tool("forecast_freezing_level", {"location": "Tessin", "when": "2026-09-24T14:00"})
+        await server_fixture.mcp.call_tool(
+            "forecast_freezing_level", {"location": "Tessin", "when": "2026-09-24T14:00"}
+        )
 
     assert not isinstance(raised.value, UnexpectedToolError)
     for record in caplog.records:

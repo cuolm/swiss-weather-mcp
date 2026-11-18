@@ -61,7 +61,7 @@ TOLERANCE_MIN = 1
 def assert_matches_usno(latitude_deg, longitude_deg, day, *usno_times):
     sun_day = calculate_sun_day(date.fromisoformat(day), latitude_deg, longitude_deg)
     found_times = (sun_day.civil_twilight_begin, sun_day.sunrise, sun_day.sunset, sun_day.civil_twilight_end)
-    for found, usno_time in zip(found_times, usno_times):
+    for found, usno_time in zip(found_times, usno_times, strict=True):
         usno_moment = datetime.fromisoformat(f"{day}T{usno_time}").replace(tzinfo=SWISS_TZ)
         assert abs((found - usno_moment).total_seconds()) / 60 <= TOLERANCE_MIN
 
@@ -82,7 +82,9 @@ def test_calculate_sun_day_matches_usno_in_zurich(day, twilight_begin, sunrise, 
     assert_matches_usno(ZURICH_LATITUDE_DEG, ZURICH_LONGITUDE_DEG, day, twilight_begin, sunrise, sunset, twilight_end)
 
 
-@pytest.mark.parametrize("latitude_deg, longitude_deg, day, twilight_begin, sunrise, sunset, twilight_end", USNO_OTHER_DAYS)
+@pytest.mark.parametrize(
+    "latitude_deg, longitude_deg, day, twilight_begin, sunrise, sunset, twilight_end", USNO_OTHER_DAYS
+)
 def test_calculate_sun_day_matches_usno_on_other_days(
     latitude_deg, longitude_deg, day, twilight_begin, sunrise, sunset, twilight_end
 ):

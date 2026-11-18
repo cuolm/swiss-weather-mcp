@@ -521,7 +521,8 @@ class SwissWeatherMCPServer:
         @_handle_tool_call
         async def avalanche_bulletin(location: str, near: Near = None) -> BulletinAnswer:
             """
-            Get the SLF avalanche bulletin valid now for a place: the danger level, the avalanche problems and SLF's texts.
+            Get the SLF avalanche bulletin valid now for a place: the danger level, the avalanche problems
+            and SLF's texts.
 
             Use this for "how high is the avalanche danger in Davos" or "can I go ski touring near
             Engelberg". SLF, the WSL Institute for Snow and Avalanche Research, rates the danger from 1
