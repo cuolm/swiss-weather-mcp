@@ -4,9 +4,10 @@ import functools
 import logging
 import os
 import sys
+from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
 from pathlib import Path
-from typing import Annotated, Any, Awaitable, Callable, Mapping, Optional
+from typing import Annotated, Any, Optional
 
 import requests
 from mcp.server.mcpserver import MCPServer

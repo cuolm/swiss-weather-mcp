@@ -39,7 +39,7 @@ import io
 import logging
 import zipfile
 from pathlib import Path
-from typing import Dict, List, NamedTuple, Set, Tuple
+from typing import NamedTuple
 
 from ..coordinates import calculate_wgs84_latitude_deg, calculate_wgs84_longitude_deg
 from ..downloads import download_file, ensure_newest_swisstopo_edition
@@ -94,7 +94,7 @@ POPULATION_BAND_TO_NAME = {
 EXONYM = "Exonym"
 
 
-def _join_with_and(words: List[str]) -> str:
+def _join_with_and(words: list[str]) -> str:
     """Join words the way a sentence lists them, such as "peak, viewpoint and cable car station"."""
     if len(words) == 1:
         return words[0]
@@ -109,7 +109,7 @@ class SwisstopoPlace(NamedTuple):
     the district on its shore.
     """
     name: str
-    object_types: Tuple[str, ...]  # such as ("Quartier", "See"), in the order of OBJECT_TYPE_TO_NAME
+    object_types: tuple[str, ...]  # such as ("Quartier", "See"), in the order of OBJECT_TYPE_TO_NAME
     population_band: int  # 0 when the place has no people, else a value of POPULATION_CATEGORY_TO_BAND
     is_exonym: bool  # a name in another language, such as Genf for Genève
     altitude_m: float
@@ -134,7 +134,7 @@ class SwisstopoPlace(NamedTuple):
     @property
     def description(self) -> str:
         """What the place is, such as "district and lake, fewer than 20 people, 887 m"."""
-        type_names: List[str] = []
+        type_names: list[str] = []
         for object_type in self.object_types:
             type_name = OBJECT_TYPE_TO_NAME[object_type]
             if type_name not in type_names:
@@ -146,7 +146,7 @@ class SwisstopoPlace(NamedTuple):
         return ", ".join(parts)
 
 
-def _parse_row(csv_row: Dict[str, str]) -> SwisstopoPlace:
+def _parse_row(csv_row: dict[str, str]) -> SwisstopoPlace:
     """Turn one row of a swissNAMES3D file into a place of one object type."""
     population_band = POPULATION_CATEGORY_TO_BAND.get(csv_row["EINWOHNERKATEGORIE"], 0)
     return SwisstopoPlace(
@@ -160,7 +160,7 @@ def _parse_row(csv_row: Dict[str, str]) -> SwisstopoPlace:
     )
 
 
-def _read_file_rows(archive: zipfile.ZipFile, file_name: str, object_types: Set[str]) -> List[SwisstopoPlace]:
+def _read_file_rows(archive: zipfile.ZipFile, file_name: str, object_types: set[str]) -> list[SwisstopoPlace]:
     """Read the rows of the given object types from one file of the archive."""
     rows = []
     with archive.open(file_name) as binary_file:
@@ -179,7 +179,7 @@ class SwisstopoPlaceSource:
     def __init__(self, cache_dir: Path):
         self.cache_dir = cache_dir / "places"
 
-    def read_rows(self) -> List[SwisstopoPlace]:
+    def read_rows(self) -> list[SwisstopoPlace]:
         """
         Read the rows of the object types in FILE_TO_OBJECT_TYPES from the newest edition.
 

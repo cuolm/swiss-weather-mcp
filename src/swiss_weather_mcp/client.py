@@ -4,7 +4,6 @@ import asyncio
 import json
 import logging
 import sys
-from typing import List
 
 from mcp import Client, StdioServerParameters
 from mcp.types import TextContent
@@ -65,7 +64,7 @@ class ChatLoop:
         self.mcp_client = mcp_client
         self.llm_client = AsyncOpenAI(base_url=base_url, api_key="not-needed")  # local servers ignore the key
         self.model = model
-        self.messages: List[ChatCompletionMessageParam] = []
+        self.messages: list[ChatCompletionMessageParam] = []
 
         # The server sends instructions on how to use its tools when it connects;
         # the MCP types suggest giving them to the model in the system prompt
@@ -73,7 +72,7 @@ class ChatLoop:
         if instructions:
             self.messages.append({"role": "system", "content": instructions})
 
-    async def fetch_tool_definitions(self) -> List[ChatCompletionFunctionToolParam]:
+    async def fetch_tool_definitions(self) -> list[ChatCompletionFunctionToolParam]:
         """Fetch the server's tools in the format the OpenAI chat API expects."""
         tools_result = await self.mcp_client.list_tools()
         return [

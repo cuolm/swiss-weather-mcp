@@ -18,14 +18,14 @@ The line runs east from the position, and the crossings are counted for each rin
 inside the polygon when it is inside the outer ring and in none of its holes.
 """
 from itertools import pairwise
-from typing import List, Optional, Tuple
+from typing import Optional
 
 
 # A corner is (east, north) in metres, a ring a closed list of corners, and a polygon its outer ring
 # followed by its holes
-Corner = Tuple[float, float]
-Ring = List[Corner]
-Polygon = List[Ring]
+Corner = tuple[float, float]
+Ring = list[Corner]
+Polygon = list[Ring]
 
 
 def _find_crossing_east(edge_start: Corner, edge_end: Corner, horizontal_line_north: float) -> Optional[float]:
@@ -53,7 +53,7 @@ def ring_contains(ring: Ring, position_east_m: float, position_north_m: float) -
     return crossings_east_of_position % 2 == 1
 
 
-def polygons_contain(polygons: List[Polygon], position_east_m: float, position_north_m: float) -> bool:
+def polygons_contain(polygons: list[Polygon], position_east_m: float, position_north_m: float) -> bool:
     """Tell whether a position lies inside one of the polygons: inside its outer ring and in none of its holes."""
     for outer_ring, *holes in polygons:
         if not ring_contains(outer_ring, position_east_m, position_north_m):

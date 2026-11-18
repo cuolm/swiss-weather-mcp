@@ -115,7 +115,7 @@ import csv
 import logging
 from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, List, NamedTuple, Optional
+from typing import Any, NamedTuple, Optional
 
 import requests
 
@@ -216,7 +216,7 @@ class SLFMorningSnow(NamedTuple):
     new_snow_cm: Optional[float]
 
 
-def _parse_station(station_object: Dict[str, Any], is_manual_site: bool) -> SLFStation:
+def _parse_station(station_object: dict[str, Any], is_manual_site: bool) -> SLFStation:
     """Turn one object of a station list into a station on LV95."""
     latitude_deg = station_object["lat"]
     longitude_deg = station_object["lon"]
@@ -239,7 +239,7 @@ def _convert_m_per_s_to_kmh(speed_m_per_s: Optional[float]) -> Optional[float]:
     return speed_m_per_s * KMH_PER_M_PER_S
 
 
-def _parse_station_measurements(station: SLFStation, row: Dict[str, Any]) -> SLFStationMeasurements:
+def _parse_station_measurements(station: SLFStation, row: dict[str, Any]) -> SLFStationMeasurements:
     """Read the values of SLFStationMeasurements from one row of a station's measurements."""
     # Such as "2026-11-09T12:00:00Z", which fromisoformat reads as UTC
     measured_at = datetime.fromisoformat(row["measure_date"])
@@ -256,14 +256,14 @@ def _parse_station_measurements(station: SLFStation, row: Dict[str, Any]) -> SLF
     )
 
 
-def _parse_imis_daily_snow(row: Dict[str, Any]) -> SLFDailySnowMeasurements:
+def _parse_imis_daily_snow(row: dict[str, Any]) -> SLFDailySnowMeasurements:
     """Read one row of the IMIS daily snow; one stamped "2026-11-10T00:00:00" holds the values of 06:00 UTC that day."""
     day = datetime.fromisoformat(row["measure_date"]).date()
     measured_at = datetime.combine(day, DAILY_SNOW_TIME)
     return SLFDailySnowMeasurements(measured_at, row[SNOW_DEPTH], row[NEW_SNOW])
 
 
-def _parse_manual_site_daily_snow(row: Dict[str, Any]) -> SLFDailySnowMeasurements:
+def _parse_manual_site_daily_snow(row: dict[str, Any]) -> SLFDailySnowMeasurements:
     """Read one row of a manual site's daily snow, stamped such as "2026-11-10T06:00:00Z"."""
     measured_at = datetime.fromisoformat(row["measure_date"])
     return SLFDailySnowMeasurements(measured_at, row[SNOW_DEPTH], row[NEW_SNOW])
@@ -281,7 +281,7 @@ def _parse_snow_history_value(value_text: str) -> Optional[float]:
     return float(value_text)
 
 
-def _parse_snow_history_row(row: Dict[str, str]) -> SLFDailySnowMeasurements:
+def _parse_snow_history_row(row: dict[str, str]) -> SLFDailySnowMeasurements:
     """Read one row of a snow history file; its day holds the values of 06:00 UTC that day."""
     # A manual site's row is stamped 06:00, an IMIS station's 00:00
     day = datetime.fromisoformat(row["measure_date"]).date()
@@ -292,10 +292,10 @@ def _parse_snow_history_row(row: Dict[str, str]) -> SLFDailySnowMeasurements:
 
 
 def _build_snow_station_daily_measurements(
-    station: SLFStation, all_days: List[SLFDailySnowMeasurements]
-) -> List[SnowStationDailyMeasurements]:
+    station: SLFStation, all_days: list[SLFDailySnowMeasurements]
+) -> list[SnowStationDailyMeasurements]:
     """Turn the daily rows of a station into the snow of each day, the oldest first."""
-    day_to_day_measurements: Dict[date, SLFDailySnowMeasurements] = {}
+    day_to_day_measurements: dict[date, SLFDailySnowMeasurements] = {}
     for day_measurements in all_days:
         day_to_day_measurements[day_measurements.measured_at.date()] = day_measurements
 
@@ -311,7 +311,7 @@ def _build_snow_station_daily_measurements(
     return daily_measurements
 
 
-def _list_days_after(all_days: List[SLFDailySnowMeasurements], day: date) -> List[SLFDailySnowMeasurements]:
+def _list_days_after(all_days: list[SLFDailySnowMeasurements], day: date) -> list[SLFDailySnowMeasurements]:
     """List the days after day, in their order."""
     later_days = []
     for day_measurements in all_days:
@@ -320,9 +320,9 @@ def _list_days_after(all_days: List[SLFDailySnowMeasurements], day: date) -> Lis
     return later_days
 
 
-def _sum_new_snow(all_days: List[SLFDailySnowMeasurements], last_day: date) -> Optional[float]:
+def _sum_new_snow(all_days: list[SLFDailySnowMeasurements], last_day: date) -> Optional[float]:
     """Return the new snow of the NEW_SNOW_DAYS days up to last_day, or None when one of them has no value."""
-    day_to_new_snow_cm: Dict[date, Optional[float]] = {}
+    day_to_new_snow_cm: dict[date, Optional[float]] = {}
     for day_measurements in all_days:
         day_to_new_snow_cm[day_measurements.measured_at.date()] = day_measurements.new_snow_cm
 
@@ -338,7 +338,7 @@ def _sum_new_snow(all_days: List[SLFDailySnowMeasurements], last_day: date) -> O
 
 
 def _calculate_new_snow(
-    station: SLFStation, all_days: List[SLFDailySnowMeasurements], today: date
+    station: SLFStation, all_days: list[SLFDailySnowMeasurements], today: date
 ) -> Optional[LatestNewSnow]:
     """
     Calculate the new snow of the newest day, or None when it has none or is older than yesterday.
@@ -356,7 +356,7 @@ def _calculate_new_snow(
 
 
 def _find_morning(
-    all_days: List[SLFDailySnowMeasurements], measured_at: datetime
+    all_days: list[SLFDailySnowMeasurements], measured_at: datetime
 ) -> Optional[SLFDailySnowMeasurements]:
     """Find the day measured at a moment, or None when there is none."""
     for day_measurements in all_days:
@@ -370,10 +370,10 @@ class SLFMeasurementSource:
 
     def __init__(self, cache_dir: Path):
         self.cache_dir = cache_dir / "slf"
-        self._stations: List[SLFStation] = []
-        self._manual_sites: List[SLFStation] = []
+        self._stations: list[SLFStation] = []
+        self._manual_sites: list[SLFStation] = []
 
-    def _load_stations(self) -> List[SLFStation]:
+    def _load_stations(self) -> list[SLFStation]:
         """Read the IMIS station list into memory once per process."""
         if self._stations:
             return self._stations
@@ -391,7 +391,7 @@ class SLFMeasurementSource:
         logger.info(f"Loaded {len(stations)} SLF stations")
         return stations
 
-    def _load_manual_sites(self) -> List[SLFStation]:
+    def _load_manual_sites(self) -> list[SLFStation]:
         """Read the manual site list into memory once per process."""
         if self._manual_sites:
             return self._manual_sites
@@ -419,12 +419,12 @@ class SLFMeasurementSource:
             return None
         return _parse_station_measurements(station, rows[-1])
 
-    def _read_all_imis_stations_daily_snow(self) -> Dict[str, List[SLFDailySnowMeasurements]]:
+    def _read_all_imis_stations_daily_snow(self) -> dict[str, list[SLFDailySnowMeasurements]]:
         """Read the daily snow of every IMIS snow station, keyed by station code, the oldest day first."""
         imis_daily_snow_file = self.cache_dir / "imis_daily_snow.json"
         rows = read_recent_json(IMIS_DAILY_SNOW_URL, imis_daily_snow_file, IMIS_DAILY_SNOW_MAX_AGE)
 
-        station_code_to_daily_snow: Dict[str, List[SLFDailySnowMeasurements]] = {}
+        station_code_to_daily_snow: dict[str, list[SLFDailySnowMeasurements]] = {}
         for row in rows:
             day_measurements = _parse_imis_daily_snow(row)
             station_code_to_daily_snow.setdefault(row["station_code"], []).append(day_measurements)
@@ -433,7 +433,7 @@ class SLFMeasurementSource:
             all_days.sort(key=lambda day_measurements: day_measurements.measured_at)
         return station_code_to_daily_snow
 
-    def _read_manual_site_daily_snow(self, manual_site: SLFStation) -> List[SLFDailySnowMeasurements]:
+    def _read_manual_site_daily_snow(self, manual_site: SLFStation) -> list[SLFDailySnowMeasurements]:
         """Read the daily snow of a manual site, the oldest day first."""
         code = manual_site.code.lower()
         manual_site_daily_snow_url = MANUAL_SITE_DAILY_SNOW_URL.format(code=manual_site.code)
@@ -468,11 +468,11 @@ class SLFMeasurementSource:
             return None
         return LatestSnowDepth(manual_site, newest_day.measured_at, newest_day.snow_depth_cm)
 
-    def list_stations(self) -> List[SLFStation]:
+    def list_stations(self) -> list[SLFStation]:
         """List the IMIS stations of the station list."""
         return self._load_stations()
 
-    def list_snow_stations(self) -> List[SLFStation]:
+    def list_snow_stations(self) -> list[SLFStation]:
         """List the IMIS stations that have daily snow, and the manual sites."""
         station_code_to_daily_snow = self._read_all_imis_stations_daily_snow()
         snow_stations = []
@@ -483,7 +483,7 @@ class SLFMeasurementSource:
         snow_stations.extend(manual_sites)
         return snow_stations
 
-    def _read_snow_history_file(self, station: SLFStation) -> List[SLFDailySnowMeasurements]:
+    def _read_snow_history_file(self, station: SLFStation) -> list[SLFDailySnowMeasurements]:
         """Read every day of a station's snow history file, the oldest first."""
         code = station.code.lower()
         if station.is_manual_site:
@@ -504,7 +504,7 @@ class SLFMeasurementSource:
             all_days.append(day_measurements)
         return all_days
 
-    def _read_newest_daily_snow(self, station: SLFStation) -> List[SLFDailySnowMeasurements]:
+    def _read_newest_daily_snow(self, station: SLFStation) -> list[SLFDailySnowMeasurements]:
         """Read a station's daily snow of the last days, which its history lacks, or none when SLF cannot be reached."""
         try:
             if station.is_manual_site:
@@ -517,7 +517,7 @@ class SLFMeasurementSource:
             )
             return []
 
-    def read_snow_history(self, station: SLFStation, last_day: date) -> List[SnowStationDailyMeasurements]:
+    def read_snow_history(self, station: SLFStation, last_day: date) -> list[SnowStationDailyMeasurements]:
         """
         Read a station's snow on every day it measured, the oldest first, up to last_day or later.
 
@@ -562,13 +562,13 @@ class SLFMeasurementSource:
         today = datetime.now(timezone.utc).date()
         return _calculate_new_snow(station, all_days, today)
 
-    def _read_all_manual_sites_daily_snow(self) -> Dict[str, List[SLFDailySnowMeasurements]]:
+    def _read_all_manual_sites_daily_snow(self) -> dict[str, list[SLFDailySnowMeasurements]]:
         """Read the daily snow of every manual site in the last 24 hours, keyed by station code, the oldest first."""
         all_manual_sites_daily_snow_file = self.cache_dir / "manual_sites_daily_snow.json"
         rows = read_recent_json(
             ALL_MANUAL_SITES_DAILY_SNOW_URL, all_manual_sites_daily_snow_file, MANUAL_SITE_DAILY_SNOW_MAX_AGE
         )
-        station_code_to_daily_snow: Dict[str, List[SLFDailySnowMeasurements]] = {}
+        station_code_to_daily_snow: dict[str, list[SLFDailySnowMeasurements]] = {}
         for row in rows:
             day_measurements = _parse_manual_site_daily_snow(row)
             station_code_to_daily_snow.setdefault(row["station_code"], []).append(day_measurements)
@@ -576,7 +576,7 @@ class SLFMeasurementSource:
             all_days.sort(key=lambda day_measurements: day_measurements.measured_at)
         return station_code_to_daily_snow
 
-    def read_morning_snow(self) -> List[SLFMorningSnow]:
+    def read_morning_snow(self) -> list[SLFMorningSnow]:
         """
         Read the snow of every SLF snow station on the newest morning of the IMIS daily snow.
 

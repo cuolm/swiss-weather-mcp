@@ -50,7 +50,7 @@ import logging
 import math
 import threading
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
 import requests
 
@@ -73,7 +73,7 @@ OBVIOUS_PLACE_MIN_BAND = 5
 OBVIOUS_OTHER_PLACE_MAX_BAND = 3
 
 
-def _find_obvious_place(places: List[SwisstopoPlace]) -> Optional[SwisstopoPlace]:
+def _find_obvious_place(places: list[SwisstopoPlace]) -> Optional[SwisstopoPlace]:
     """
     Return the place a name of several places obviously means, or None when it is not obvious.
 
@@ -121,7 +121,7 @@ class PlaceFinder:
                 f"Could not load the swisstopo boundaries, the lists of places leave out the municipalities: {error}"
             )
 
-    def start_loading_places(self) -> List[threading.Thread]:
+    def start_loading_places(self) -> list[threading.Thread]:
         """
         Load the places and boundaries in two background threads and return them, so the first question need not wait.
 
@@ -135,7 +135,7 @@ class PlaceFinder:
         return [places_thread, boundaries_thread]
 
     def _find_place_near(
-        self, places: List[SwisstopoPlace], nearby_places: List[SwisstopoPlace]
+        self, places: list[SwisstopoPlace], nearby_places: list[SwisstopoPlace]
     ) -> Optional[SwisstopoPlace]:
         """Choose the place nearest to one of nearby_places, or None beyond MAX_NEAR_DISTANCE_M."""
         closest_place = None
@@ -151,7 +151,7 @@ class PlaceFinder:
             return None
         return closest_place
 
-    def _find_near_settlement_name(self, place: SwisstopoPlace, places: List[SwisstopoPlace]) -> str:
+    def _find_near_settlement_name(self, place: SwisstopoPlace, places: list[SwisstopoPlace]) -> str:
         """
         Name the settlement to give as near for one of several places.
 
@@ -175,9 +175,9 @@ class PlaceFinder:
     def _build_options_error(
         self,
         location: str,
-        places: List[SwisstopoPlace],
+        places: list[SwisstopoPlace],
         nearby_location: Optional[str],
-        nearby_places: List[SwisstopoPlace],
+        nearby_places: list[SwisstopoPlace],
     ) -> CannotAnswerError:
         """Build the refusal of a name of several places, listing every place with a settlement to give as near."""
         option_lines = []
@@ -230,7 +230,7 @@ class PlaceFinder:
         if len(places) == 1:
             return places[0]
 
-        nearby_places: List[SwisstopoPlace] = []
+        nearby_places: list[SwisstopoPlace] = []
         if nearby_location is not None:
             nearby_places = self.place_lookup.find_places_named(nearby_location)
             place_near = self._find_place_near(places, nearby_places)

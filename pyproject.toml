@@ -67,7 +67,7 @@ target-version = "py311"
 line-length = 120
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "B"]
+select = ["E", "F", "W", "I", "B", "UP006", "UP035"]  # UP006, UP035: list, dict, tuple and set instead of typing.List …
 
 [tool.ruff.lint.isort]
 lines-after-imports = 2  # PEP 8 asks for 2 blank lines before a top-level function, also after a comment

@@ -1,6 +1,7 @@
 """Build the measurements_snow answer: the snow depth and the new snow for a place, each from its own station."""
 import logging
-from typing import List, Optional, Sequence, TypedDict
+from collections.abc import Sequence
+from typing import Optional, TypedDict
 
 import requests
 
@@ -42,7 +43,7 @@ class SnowAnswer(TypedDict):
     new_snow: Optional[NewSnowBlock]
 
 
-def list_slf_snow_stations(slf_source: SLFMeasurementSource) -> List[SLFStation]:
+def list_slf_snow_stations(slf_source: SLFMeasurementSource) -> list[SLFStation]:
     """List the SLF snow stations, or none when SLF cannot be reached."""
     try:
         return slf_source.list_snow_stations()
@@ -68,7 +69,7 @@ def _find_snow_depth(
     meteoswiss_source: MeteoSwissMeasurementSource,
     slf_source: SLFMeasurementSource,
     place: SwisstopoPlace,
-    snow_stations: List[SnowStation],
+    snow_stations: list[SnowStation],
 ) -> Optional[LatestSnowDepth]:
     """
     Find the current snow depth for a place from the given snow stations.
@@ -96,7 +97,7 @@ def _read_new_snow(slf_source: SLFMeasurementSource, station: SLFStation) -> Opt
 
 
 def _find_new_snow(
-    slf_source: SLFMeasurementSource, place: SwisstopoPlace, slf_snow_stations: List[SLFStation]
+    slf_source: SLFMeasurementSource, place: SwisstopoPlace, slf_snow_stations: list[SLFStation]
 ) -> Optional[LatestNewSnow]:
     """
     Find the new snow for a place from the given SLF snow stations, the only ones that have it.
@@ -190,7 +191,7 @@ def build_snow_answer(
     meteoswiss_snow_stations = meteoswiss_source.list_snow_stations()
     slf_snow_stations = list_slf_snow_stations(slf_source)
     # Both sources measure the snow depth, only SLF the new snow
-    snow_depth_stations: List[SnowStation] = [*meteoswiss_snow_stations, *slf_snow_stations]
+    snow_depth_stations: list[SnowStation] = [*meteoswiss_snow_stations, *slf_snow_stations]
     snow_depth = _find_snow_depth(meteoswiss_source, slf_source, place, snow_depth_stations)
     new_snow = _find_new_snow(slf_source, place, slf_snow_stations)
     if snow_depth is None and new_snow is None:

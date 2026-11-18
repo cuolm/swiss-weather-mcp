@@ -8,8 +8,9 @@ Sources, linked in the package docstring:
 - Hour angle and altitude: USNO, "Computing Altitude and Azimuth"
 """
 import math
+from collections.abc import Sequence
 from datetime import date, datetime, time, timedelta, timezone
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Optional
 
 from ..formatting import SWISS_TZ
 from .series import COS, Term
@@ -62,7 +63,7 @@ def _find_moment_within_minute(
     return moment + share * MINUTE
 
 
-def calculate_fundamental_arguments_rad(moment: datetime) -> Dict[str, float]:
+def calculate_fundamental_arguments_rad(moment: datetime) -> dict[str, float]:
     """Calculate the fundamental arguments of section III at a moment, in radians, by their names."""
     days = (moment - J2000) / DAY
     fundamental_arguments_rad = {}
@@ -82,7 +83,7 @@ def calculate_centuries_since_1900(moment: datetime) -> float:
 def calculate_trigonometric_series(
     terms: Sequence[Term],
     argument_names: Sequence[str],
-    fundamental_arguments_rad: Dict[str, float],
+    fundamental_arguments_rad: dict[str, float],
     centuries_since_1900: float,
 ) -> float:
     """
@@ -143,7 +144,7 @@ def calculate_altitude_deg(
     return math.degrees(math.asin(sin_altitude))
 
 
-def list_minutes_of_day(day: date) -> List[datetime]:
+def list_minutes_of_day(day: date) -> list[datetime]:
     """List every minute of a Swiss calendar day in UTC, from its 00:00 to the next day's 00:00 included."""
     moment = datetime.combine(day, time(0), SWISS_TZ).astimezone(timezone.utc)
     day_end = datetime.combine(day + DAY, time(0), SWISS_TZ).astimezone(timezone.utc)
@@ -158,7 +159,7 @@ def list_minutes_of_day(day: date) -> List[datetime]:
 
 def find_crossings(
     minute_moments: Sequence[datetime], angles_deg: Sequence[float], target_deg: float
-) -> Tuple[Optional[datetime], Optional[datetime]]:
+) -> tuple[Optional[datetime], Optional[datetime]]:
     """
     Find the first moment an angle rises past target_deg and the first moment it falls past it.
 

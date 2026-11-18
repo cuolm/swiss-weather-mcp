@@ -1,6 +1,7 @@
 """Measure how well a station's position suits a place, on LV95, the Swiss grid in metres."""
 import math
-from typing import Iterable, List, Optional, Protocol, TypeVar
+from collections.abc import Iterable
+from typing import Optional, Protocol, TypeVar
 
 
 # Weather changes more with height than with distance: 1 m of height gap counts like 20 m farther away
@@ -56,7 +57,7 @@ def is_close(place: GridPosition, position: GridPosition) -> bool:
 
 def rank_by_weighted_distance(
     place: GridPosition, positions: Iterable[PositionT], max_weighted_distance_m: Optional[float] = None
-) -> List[PositionT]:
+) -> list[PositionT]:
     """
     Rank positions by their weighted distance to a place, the closest first.
 

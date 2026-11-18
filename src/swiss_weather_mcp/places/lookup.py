@@ -30,7 +30,6 @@ import threading
 import unicodedata
 from collections import defaultdict
 from importlib import resources
-from typing import Dict, List, Tuple
 
 from ..cantons import SWISS_CANTON_ABBREVIATIONS
 from ..distance import calculate_distance_m
@@ -64,7 +63,7 @@ def normalise_name(name: str) -> str:
     return " ".join(words)
 
 
-def _build_lookup_names(row: SwisstopoPlace) -> List[str]:
+def _build_lookup_names(row: SwisstopoPlace) -> list[str]:
     """Build every lookup name of a row, such as "wil sg" and "wil" for "Wil SG"."""
     lookup_names = [normalise_name(row.name)]
     canton_suffix = CANTON_SUFFIX.match(row.name)
@@ -81,9 +80,9 @@ def _build_lookup_names(row: SwisstopoPlace) -> List[str]:
     return unique_lookup_names
 
 
-def _group_close_rows(rows: List[SwisstopoPlace]) -> List[List[SwisstopoPlace]]:
+def _group_close_rows(rows: list[SwisstopoPlace]) -> list[list[SwisstopoPlace]]:
     """Group rows of the same lookup name: a row joins every group with a member within SAME_PLACE_RADIUS_M."""
-    groups: List[List[SwisstopoPlace]] = []
+    groups: list[list[SwisstopoPlace]] = []
     for row in rows:
         touching_groups = []
         for group in groups:
@@ -99,7 +98,7 @@ def _group_close_rows(rows: List[SwisstopoPlace]) -> List[List[SwisstopoPlace]]:
     return groups
 
 
-def _calculate_group_size(group: List[SwisstopoPlace]) -> Tuple[int, int]:
+def _calculate_group_size(group: list[SwisstopoPlace]) -> tuple[int, int]:
     """Return how big a group of rows is, to sort by: the band of its biggest settlement, then its number of rows."""
     population_band = 0
     for row in group:
@@ -107,7 +106,7 @@ def _calculate_group_size(group: List[SwisstopoPlace]) -> Tuple[int, int]:
     return population_band, len(group)
 
 
-def _merge_rows(group: List[SwisstopoPlace]) -> SwisstopoPlace:
+def _merge_rows(group: list[SwisstopoPlace]) -> SwisstopoPlace:
     """
     Merge a group of rows into one place.
 
@@ -131,7 +130,7 @@ def _merge_rows(group: List[SwisstopoPlace]) -> SwisstopoPlace:
     return main_row._replace(object_types=tuple(object_types))
 
 
-def _build_places_of_lookup_name(rows: List[SwisstopoPlace]) -> List[SwisstopoPlace]:
+def _build_places_of_lookup_name(rows: list[SwisstopoPlace]) -> list[SwisstopoPlace]:
     """Turn the rows of one lookup name into its places, biggest first: most people, then most rows."""
     groups = _group_close_rows(rows)
     groups.sort(key=_calculate_group_size, reverse=True)
@@ -142,7 +141,7 @@ def _build_places_of_lookup_name(rows: List[SwisstopoPlace]) -> List[SwisstopoPl
     return places
 
 
-def _read_english_place_names() -> Dict[str, str]:
+def _read_english_place_names() -> dict[str, str]:
     """Map each English name of the shipped file to the name swissNAMES3D gives its place."""
     names_file = resources.files("swiss_weather_mcp.places").joinpath(ENGLISH_PLACE_NAMES_FILE)
     text = names_file.read_text(encoding="utf-8")
@@ -154,7 +153,7 @@ def _read_english_place_names() -> Dict[str, str]:
     return english_name_to_swissnames3d_name
 
 
-def _add_english_names(lookup_name_to_places: Dict[str, List[SwisstopoPlace]]) -> None:
+def _add_english_names(lookup_name_to_places: dict[str, list[SwisstopoPlace]]) -> None:
     """File the places of each English name under its lookup name too, unless a row of swissNAMES3D has it."""
     english_name_to_swissnames3d_name = _read_english_place_names()
     for english_name, swissnames3d_name in english_name_to_swissnames3d_name.items():
@@ -168,7 +167,7 @@ def _add_english_names(lookup_name_to_places: Dict[str, List[SwisstopoPlace]]) -
         lookup_name_to_places[english_lookup_name] = lookup_name_to_places[swissnames3d_lookup_name]
 
 
-def _find_near_settlements(lookup_name_to_places: Dict[str, List[SwisstopoPlace]]) -> List[SwisstopoPlace]:
+def _find_near_settlements(lookup_name_to_places: dict[str, list[SwisstopoPlace]]) -> list[SwisstopoPlace]:
     """Find the settlements of 100 or more people whose official name belongs to no other place."""
     near_settlements = []
     for lookup_name, places in lookup_name_to_places.items():
@@ -188,8 +187,8 @@ class SwisstopoPlaceLookup:
 
     def __init__(self, place_source: SwisstopoPlaceSource):
         self.place_source = place_source
-        self._lookup_name_to_places: Dict[str, List[SwisstopoPlace]] = {}
-        self._near_settlements: List[SwisstopoPlace] = []
+        self._lookup_name_to_places: dict[str, list[SwisstopoPlace]] = {}
+        self._near_settlements: list[SwisstopoPlace] = []
         # The load at server start and a request may come at the same time, and only one may download
         self._loading_lock = threading.Lock()
 
@@ -199,7 +198,7 @@ class SwisstopoPlaceLookup:
             if self._lookup_name_to_places:
                 return
 
-            lookup_name_to_rows: Dict[str, List[SwisstopoPlace]] = defaultdict(list)
+            lookup_name_to_rows: dict[str, list[SwisstopoPlace]] = defaultdict(list)
             for row in self.place_source.read_rows():
                 for lookup_name in _build_lookup_names(row):
                     lookup_name_to_rows[lookup_name].append(row)
@@ -215,12 +214,12 @@ class SwisstopoPlaceLookup:
             logger.info(f"Built the places of {len(lookup_name_to_places)} lookup names")
 
     @property
-    def near_settlements(self) -> List[SwisstopoPlace]:
+    def near_settlements(self) -> list[SwisstopoPlace]:
         """The settlements of 100 or more people with a unique official name, to name as near."""
         self.load_places()
         return self._near_settlements
 
-    def find_places_named(self, location: str) -> List[SwisstopoPlace]:
+    def find_places_named(self, location: str) -> list[SwisstopoPlace]:
         """Find the places a user means by a name, biggest first; none for a name no lookup name matches."""
         self.load_places()
         lookup_name = normalise_name(location)
@@ -228,7 +227,7 @@ class SwisstopoPlaceLookup:
         # A copy, so a caller cannot change the stored list
         return list(places)
 
-    def find_places_named_alike(self, location: str) -> List[SwisstopoPlace]:
+    def find_places_named_alike(self, location: str) -> list[SwisstopoPlace]:
         """Find the places to suggest for a name no lookup name matches, see suggestions.py."""
         self.load_places()
         query = normalise_name(location)

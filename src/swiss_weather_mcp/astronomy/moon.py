@@ -15,7 +15,7 @@ Like USNO, the times are for a level horizon at sea level.
 """
 import math
 from datetime import date, datetime, time
-from typing import List, NamedTuple, Optional, Tuple
+from typing import NamedTuple, Optional
 
 from ..formatting import SWISS_TZ
 from .series import MOON_ARGUMENTS, MOON_BETA, MOON_PLON, MOON_U, MOON_V, MOON_W, SUN_ARGUMENTS, SUN_PLON, SUN_RP
@@ -144,7 +144,7 @@ def _calculate_moon_ahead_of_sun_deg(moment: datetime) -> float:
     return (moon_longitude_deg - sun_longitude_deg) % 360
 
 
-def _find_principal_phase(minute_moments: List[datetime]) -> Optional[Tuple[str, datetime]]:
+def _find_principal_phase(minute_moments: list[datetime]) -> Optional[tuple[str, datetime]]:
     """Find the principal phase during the minutes of one day, and when it happens."""
     ahead_at_start_deg = _calculate_moon_ahead_of_sun_deg(minute_moments[0])
     aheads_deg = []

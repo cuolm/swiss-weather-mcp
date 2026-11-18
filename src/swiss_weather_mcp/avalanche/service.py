@@ -1,7 +1,7 @@
 """Answer the avalanche_bulletin tool: the SLF avalanche bulletin valid now for a place."""
 import asyncio
 import logging
-from typing import List, NotRequired, Optional, TypedDict
+from typing import NotRequired, Optional, TypedDict
 
 from ..errors import CannotAnswerError
 from ..formatting import format_swiss_time
@@ -28,7 +28,7 @@ class ProblemBlock(TypedDict):
     danger_level: str
     time_of_day: str
     heights: Optional[str]
-    aspects: List[str]
+    aspects: list[str]
     summary: Optional[str]
     description: str
 
@@ -43,12 +43,12 @@ class BulletinAnswer(DangerLevelFields):
     """The avalanche_bulletin answer."""
     place: str
     place_altitude_m: int
-    regions: List[str]
+    regions: list[str]
     published_at: str
     valid_from: str
     valid_until: str
     next_update: Optional[str]
-    avalanche_problems: List[ProblemBlock]
+    avalanche_problems: list[ProblemBlock]
     snowpack: str
     outlook: str
     weather_forecast: Optional[str]
@@ -67,7 +67,7 @@ def _format_danger_level(danger_rating: DangerRating) -> str:
     return f"{level_name} ({level_number}{sign})"
 
 
-def _build_danger_level_fields(danger_ratings: List[DangerRating]) -> DangerLevelFields:
+def _build_danger_level_fields(danger_ratings: list[DangerRating]) -> DangerLevelFields:
     """Build the danger level of the whole day, and the one later in the day when SLF gives it."""
     danger_level_fields: DangerLevelFields = {}
     for danger_rating in danger_ratings:

@@ -56,7 +56,7 @@ import logging
 from datetime import datetime, timedelta
 from html.parser import HTMLParser
 from pathlib import Path
-from typing import Any, Dict, List, NamedTuple, Optional, Tuple
+from typing import Any, NamedTuple, Optional
 
 from ..coordinates import calculate_lv95_east_m, calculate_lv95_north_m
 from ..downloads import read_recent_json
@@ -85,8 +85,8 @@ class _TextCollector(HTMLParser):
 
     def __init__(self) -> None:
         super().__init__()
-        self.lines: List[str] = []
-        self._line_parts: List[str] = []
+        self.lines: list[str] = []
+        self._line_parts: list[str] = []
 
     def _end_line(self) -> None:
         """Add the text collected since the last line as a line of its own, with its spaces tidied."""
@@ -97,7 +97,7 @@ class _TextCollector(HTMLParser):
             self.lines.append(line)
         self._line_parts = []
 
-    def handle_starttag(self, tag: str, attrs: List[Tuple[str, Optional[str]]]) -> None:
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, Optional[str]]]) -> None:
         if tag in LINE_TAGS:
             self._end_line()
         if tag == "li":
@@ -133,7 +133,7 @@ class AvalancheProblem(NamedTuple):
     problem_type: str  # such as "wind_slab", "persistent_weak_layers" or "wet_snow"
     danger_rating: DangerRating
     elevation: Optional[Elevation]  # None when SLF gives no heights
-    aspects: List[str]  # the directions the slopes face, such as ["N", "NE"]; empty when SLF gives none
+    aspects: list[str]  # the directions the slopes face, such as ["N", "NE"]; empty when SLF gives none
     summary: Optional[str]  # SLF's sentence with the danger level, aspects and heights
     description: str
 
@@ -144,28 +144,28 @@ class AvalancheBulletin(NamedTuple):
     valid_from: datetime
     valid_until: datetime
     next_update: Optional[datetime]
-    region_names: List[str]
-    danger_ratings: List[DangerRating]  # the one for the whole day first
-    problems: List[AvalancheProblem]
+    region_names: list[str]
+    danger_ratings: list[DangerRating]  # the one for the whole day first
+    problems: list[AvalancheProblem]
     snowpack: str
     outlook: str
     weather_forecast: Optional[str]
     weather_review: Optional[str]
-    outline: List[Polygon]  # the parts of the outline on LV95
+    outline: list[Polygon]  # the parts of the outline on LV95
 
     def covers(self, place: SwisstopoPlace) -> bool:
         """Tell whether a place lies inside the outline of the bulletin."""
         return polygons_contain(self.outline, place.east_m, place.north_m)
 
 
-def _parse_swiss_data(json_object: Dict[str, Any]) -> Dict[str, Any]:
+def _parse_swiss_data(json_object: dict[str, Any]) -> dict[str, Any]:
     """Return the values SLF adds to the CAAML standard for Switzerland, or an empty dict when there are none."""
     custom_data = json_object.get("customData", {})
-    swiss_data: Dict[str, Any] = custom_data.get("CH", {})
+    swiss_data: dict[str, Any] = custom_data.get("CH", {})
     return swiss_data
 
 
-def _parse_danger_rating(rating_object: Dict[str, Any], level_key: str) -> DangerRating:
+def _parse_danger_rating(rating_object: dict[str, Any], level_key: str) -> DangerRating:
     """Read a danger level, whose value a bulletin keeps under "mainValue" and a problem under "dangerRatingValue"."""
     swiss_data = _parse_swiss_data(rating_object)
     subdivision = swiss_data.get("subdivision")
@@ -176,7 +176,7 @@ def _parse_danger_rating(rating_object: Dict[str, Any], level_key: str) -> Dange
     )
 
 
-def _parse_elevation(problem_object: Dict[str, Any]) -> Optional[Elevation]:
+def _parse_elevation(problem_object: dict[str, Any]) -> Optional[Elevation]:
     """Read the heights of an avalanche problem, or None when SLF gives none."""
     if "elevation" not in problem_object:
         return None
@@ -199,7 +199,7 @@ def _convert_html_to_text(html_text: str) -> str:
     return "\n".join(collector.lines)
 
 
-def _parse_problem(problem_object: Dict[str, Any]) -> AvalancheProblem:
+def _parse_problem(problem_object: dict[str, Any]) -> AvalancheProblem:
     """Read one avalanche problem of a bulletin."""
     danger_rating = _parse_danger_rating(problem_object, "dangerRatingValue")
     elevation = _parse_elevation(problem_object)
@@ -217,14 +217,14 @@ def _parse_problem(problem_object: Dict[str, Any]) -> AvalancheProblem:
     )
 
 
-def _parse_optional_text(properties: Dict[str, Any], text_name: str) -> Optional[str]:
+def _parse_optional_text(properties: dict[str, Any], text_name: str) -> Optional[str]:
     """Read one of the texts some bulletins do not have, as plain text, or None when it is missing."""
     if text_name not in properties:
         return None
     return _convert_html_to_text(properties[text_name]["comment"])
 
 
-def _parse_ring(ring_points: List[List[float]]) -> Ring:
+def _parse_ring(ring_points: list[list[float]]) -> Ring:
     """Turn a ring of GeoJSON [longitude, latitude] points into (east, north) points on LV95."""
     ring = []
     for point in ring_points:
@@ -236,7 +236,7 @@ def _parse_ring(ring_points: List[List[float]]) -> Ring:
     return ring
 
 
-def _parse_outline(geometry: Dict[str, Any]) -> List[Polygon]:
+def _parse_outline(geometry: dict[str, Any]) -> list[Polygon]:
     """Read the parts of a bulletin's outline on LV95, from a Polygon of one part or a MultiPolygon of several."""
     if geometry["type"] == "Polygon":
         geojson_polygons = [geometry["coordinates"]]
@@ -252,7 +252,7 @@ def _parse_outline(geometry: Dict[str, Any]) -> List[Polygon]:
     return polygons
 
 
-def _parse_bulletin(feature: Dict[str, Any]) -> AvalancheBulletin:
+def _parse_bulletin(feature: dict[str, Any]) -> AvalancheBulletin:
     """Read one feature of the GeoJSON as a bulletin."""
     properties = feature["properties"]
     # Such as "2026-02-14T07:00:00Z", which fromisoformat reads as UTC
@@ -307,7 +307,7 @@ class SLFBulletinSource:
     def __init__(self, cache_dir: Path):
         self.cache_dir = cache_dir / "slf"
 
-    def read_bulletins(self) -> List[AvalancheBulletin]:
+    def read_bulletins(self) -> list[AvalancheBulletin]:
         """Read the bulletins valid now, one for each area of regions with the same danger; none when SLF has none."""
         bulletin_file = self.cache_dir / "avalanche_bulletin.json"
         feature_collection = read_recent_json(BULLETIN_URL, bulletin_file, BULLETIN_MAX_AGE)

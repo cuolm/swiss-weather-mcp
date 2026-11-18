@@ -77,7 +77,7 @@ import shutil
 import threading
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
-from typing import Dict, List, NamedTuple, Optional
+from typing import NamedTuple, Optional
 
 import requests
 
@@ -124,16 +124,16 @@ class ForecastPoint(NamedTuple):
 class ForecastSeries(NamedTuple):
     """One parameter over the whole forecast window at one point, with the run it came from."""
     run_time: datetime
-    time_to_value: Dict[datetime, float]
+    time_to_value: dict[datetime, float]
 
 
 class ForecastRun(NamedTuple):
     """A published forecast run: its ID, YYYYMMDDHHMM in UTC, and the URL of each parameter's file."""
     run_id: str
-    parameter_to_file_url: Dict[str, str]
+    parameter_to_file_url: dict[str, str]
 
 
-def _find_newest_complete_run_id(run_to_csv_file_urls: Dict[str, Dict[str, str]]) -> Optional[str]:
+def _find_newest_complete_run_id(run_to_csv_file_urls: dict[str, dict[str, str]]) -> Optional[str]:
     """Find the newest run with a file for every parameter, or None when no run is complete."""
     complete_run_ids = []
     for run_id, parameter_to_file_url in run_to_csv_file_urls.items():
@@ -162,13 +162,13 @@ class ForecastSource:
         self.cache_dir = cache_dir / "forecast"
         self.cache_all_forecast_points = cache_all_forecast_points
         self._run_id: Optional[str] = None
-        self._parameter_to_file_url: Dict[str, str] = {}
+        self._parameter_to_file_url: dict[str, str] = {}
         self._run_checked_at: Optional[datetime] = None
         # A tool reads its files in parallel, and all of them must come from the same run
         self._run_lookup_lock = threading.Lock()
-        self._points: List[ForecastPoint] = []
+        self._points: list[ForecastPoint] = []
 
-    def _load_points(self) -> List[ForecastPoint]:
+    def _load_points(self) -> list[ForecastPoint]:
         """
         Load the point table once per process, downloading it when it is missing or old.
 
@@ -216,7 +216,7 @@ class ForecastSource:
         ranked_close_points = rank_by_weighted_distance(place, close_points)
         return ranked_close_points[0]
 
-    def _fetch_run_to_csv_file_urls(self, day: date) -> Dict[str, Dict[str, str]]:
+    def _fetch_run_to_csv_file_urls(self, day: date) -> dict[str, dict[str, str]]:
         """
         Fetch the STAC item of one UTC day and group its CSV file URLs by run and parameter.
 
@@ -245,7 +245,7 @@ class ForecastSource:
 
         stac_item = response.json()
         assets = stac_item.get("assets", {})
-        run_to_csv_file_urls: Dict[str, Dict[str, str]] = {}
+        run_to_csv_file_urls: dict[str, dict[str, str]] = {}
         for asset_name, asset in assets.items():
             # Asset names look like vnut12.lssw.<run>.<parameter>.csv
             name_parts = asset_name.split(".")
@@ -321,10 +321,10 @@ class ForecastSource:
         self._delete_old_cached_runs(run_id)
         return downloaded_file
 
-    def _read_point_values(self, parameter_file: Path, point: ForecastPoint) -> Dict[datetime, float]:
+    def _read_point_values(self, parameter_file: Path, point: ForecastPoint) -> dict[datetime, float]:
         """Read one point's values from a cached file, keyed by UTC timestamp."""
         row_prefix = _build_row_prefix(point)
-        time_to_value: Dict[datetime, float] = {}
+        time_to_value: dict[datetime, float] = {}
 
         with open(parameter_file, "rb") as file:
             for line in file:

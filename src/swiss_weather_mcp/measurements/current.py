@@ -1,7 +1,7 @@
 """Build the measurements_current answer: the latest measurements of the station for a place."""
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import List, NotRequired, Optional, TypedDict
+from typing import NotRequired, Optional, TypedDict
 
 import requests
 
@@ -74,7 +74,7 @@ class CurrentAnswer(PlaceFields, SLFStationField):
 
 def _find_meteoswiss_station_measurements(
     meteoswiss_source: MeteoSwissMeasurementSource, place: SwisstopoPlace
-) -> List[MeteoSwissStationMeasurements]:
+) -> list[MeteoSwissStationMeasurements]:
     """
     Find the measurements of the MeteoSwiss station for a place, the oldest first.
 
@@ -116,7 +116,7 @@ def _describe_meteoswiss_station(
     )
 
 
-def _find_measurements_at(all_measurements: List[MeteoSwissStationMeasurements],
+def _find_measurements_at(all_measurements: list[MeteoSwissStationMeasurements],
                           measured_at: datetime) -> Optional[MeteoSwissStationMeasurements]:
     """Find the measurements of a time, or None when the station published none for it."""
     for measurements in all_measurements:
@@ -126,7 +126,7 @@ def _find_measurements_at(all_measurements: List[MeteoSwissStationMeasurements],
 
 
 def _calculate_change_last_3_hours(
-    all_measurements: List[MeteoSwissStationMeasurements], parameter: str
+    all_measurements: list[MeteoSwissStationMeasurements], parameter: str
 ) -> Optional[float]:
     """Return how much a value changed over the last 3 hours, or None when either value is missing."""
     latest_measurements = all_measurements[-1]
@@ -141,13 +141,13 @@ def _calculate_change_last_3_hours(
 
 
 def _find_last_hour_values(
-    all_measurements: List[MeteoSwissStationMeasurements], parameter: str
-) -> Optional[List[float]]:
+    all_measurements: list[MeteoSwissStationMeasurements], parameter: str
+) -> Optional[list[float]]:
     """Return the six 10-minute values of the last hour, or None when one of them is missing."""
     latest_measurements = all_measurements[-1]
     period_start = latest_measurements.measured_at - LAST_HOUR
 
-    values: List[float] = []
+    values: list[float] = []
     for measurements in all_measurements:
         if measurements.measured_at > period_start:
             value = measurements.parameter_to_value[parameter]
@@ -160,7 +160,7 @@ def _find_last_hour_values(
     return values
 
 
-def _sum_last_hour(all_measurements: List[MeteoSwissStationMeasurements], parameter: str) -> Optional[float]:
+def _sum_last_hour(all_measurements: list[MeteoSwissStationMeasurements], parameter: str) -> Optional[float]:
     """Return the total of a 10-minute value over the last hour, such as the rain, or None when one is missing."""
     values = _find_last_hour_values(all_measurements, parameter)
     if values is None:
@@ -169,7 +169,7 @@ def _sum_last_hour(all_measurements: List[MeteoSwissStationMeasurements], parame
     return round(sum(values), 1)
 
 
-def _find_highest_last_hour(all_measurements: List[MeteoSwissStationMeasurements], parameter: str) -> Optional[float]:
+def _find_highest_last_hour(all_measurements: list[MeteoSwissStationMeasurements], parameter: str) -> Optional[float]:
     """Return the highest 10-minute value of the last hour, such as the strongest gust, or None when one is missing."""
     values = _find_last_hour_values(all_measurements, parameter)
     if values is None:
@@ -178,7 +178,7 @@ def _find_highest_last_hour(all_measurements: List[MeteoSwissStationMeasurements
 
 
 def _find_recent_slf_station_measurements(
-    slf_source: SLFMeasurementSource, ranked_slf_stations: List[SLFStation]
+    slf_source: SLFMeasurementSource, ranked_slf_stations: list[SLFStation]
 ) -> Optional[SLFStationMeasurements]:
     """Find the latest measurements of the first of the first MAX_STATIONS_TRIED stations with a recent temperature."""
     now = datetime.now(timezone.utc)

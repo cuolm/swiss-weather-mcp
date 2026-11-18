@@ -100,9 +100,10 @@ How we use it to compare all stations:
     └── ogd-nime_dav_d_historical.csv  (earlier days per manual site, downloaded again after 30 days)
 """
 import logging
+from collections.abc import Sequence
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
-from typing import Dict, List, NamedTuple, Optional, Sequence, Set
+from typing import NamedTuple, Optional
 
 from ..cantons import find_canton_name
 from ..downloads import read_recent_csv_rows
@@ -161,7 +162,7 @@ class MeteoSwissStationMeasurements(NamedTuple):
     """The measurements of one station at one time, keyed by parameter; None where it has no value."""
     station: MeteoSwissStation
     measured_at: datetime
-    parameter_to_value: Dict[str, Optional[float]]
+    parameter_to_value: dict[str, Optional[float]]
 
 
 def _parse_data_since(date_text: str) -> date:
@@ -169,7 +170,7 @@ def _parse_data_since(date_text: str) -> date:
     return datetime.strptime(date_text, "%d.%m.%Y").date()
 
 
-def _parse_station(row: Dict[str, str], is_manual_site: bool) -> MeteoSwissStation:
+def _parse_station(row: dict[str, str], is_manual_site: bool) -> MeteoSwissStation:
     """Turn one row of a station table into a station."""
     data_since = _parse_data_since(row["station_data_since"])
     canton = find_canton_name(row["station_canton"])
@@ -197,15 +198,15 @@ def _parse_value(value_text: str) -> Optional[float]:
     return float(value_text)
 
 
-def _parse_values(row: Dict[str, str], parameter_names: Sequence[str]) -> Dict[str, Optional[float]]:
+def _parse_values(row: dict[str, str], parameter_names: Sequence[str]) -> dict[str, Optional[float]]:
     """Read the value of each of the parameters from one row, None where the station has none."""
-    parameter_to_value: Dict[str, Optional[float]] = {}
+    parameter_to_value: dict[str, Optional[float]] = {}
     for parameter in parameter_names:
         parameter_to_value[parameter] = _parse_value(row[parameter])
     return parameter_to_value
 
 
-def _list_periods(first_day: date, last_day: date, today: date) -> List[str]:
+def _list_periods(first_day: date, last_day: date, today: date) -> list[str]:
     """List the daily files that hold the days, the older one first: historical before this year, recent in it."""
     this_year_start = date(today.year, 1, 1)
     periods = []
@@ -230,12 +231,12 @@ class MeteoSwissMeasurementSource:
 
     def __init__(self, cache_dir: Path):
         self.cache_dir = cache_dir / "measurements"
-        self._abbreviation_to_station: Dict[str, MeteoSwissStation] = {}
-        self._snow_station_abbreviations: Set[str] = set()
-        self._abbreviation_to_manual_site: Dict[str, MeteoSwissStation] = {}
-        self._abbreviation_to_first_snow_day: Dict[str, date] = {}
+        self._abbreviation_to_station: dict[str, MeteoSwissStation] = {}
+        self._snow_station_abbreviations: set[str] = set()
+        self._abbreviation_to_manual_site: dict[str, MeteoSwissStation] = {}
+        self._abbreviation_to_first_snow_day: dict[str, date] = {}
 
-    def _load_stations(self) -> Dict[str, MeteoSwissStation]:
+    def _load_stations(self) -> dict[str, MeteoSwissStation]:
         """Read the station table into memory once per process, keyed by station abbreviation."""
         if self._abbreviation_to_station:
             return self._abbreviation_to_station
@@ -244,7 +245,7 @@ class MeteoSwissMeasurementSource:
         station_table_rows = read_recent_csv_rows(
             STATION_TABLE_URL, station_table_file, STATION_TABLE_MAX_AGE, serve_stale_on_error=True
         )
-        abbreviation_to_station: Dict[str, MeteoSwissStation] = {}
+        abbreviation_to_station: dict[str, MeteoSwissStation] = {}
         for row in station_table_rows:
             station = _parse_station(row, is_manual_site=False)
             abbreviation_to_station[station.abbreviation] = station
@@ -253,7 +254,7 @@ class MeteoSwissMeasurementSource:
         logger.info(f"Loaded {len(abbreviation_to_station)} weather stations")
         return abbreviation_to_station
 
-    def _load_snow_station_abbreviations(self) -> Set[str]:
+    def _load_snow_station_abbreviations(self) -> set[str]:
         """Read once per process which stations measure the snow depth now, from the data inventory."""
         if self._snow_station_abbreviations:
             return self._snow_station_abbreviations
@@ -262,7 +263,7 @@ class MeteoSwissMeasurementSource:
         data_inventory_rows = read_recent_csv_rows(
             DATA_INVENTORY_URL, data_inventory_file, DATA_INVENTORY_MAX_AGE, serve_stale_on_error=True
         )
-        snow_station_abbreviations: Set[str] = set()
+        snow_station_abbreviations: set[str] = set()
         for row in data_inventory_rows:
             # A parameter with an end day is no longer measured
             if row["parameter_shortname"] == parameters.SNOW_DEPTH and not row["data_till"]:
@@ -271,7 +272,7 @@ class MeteoSwissMeasurementSource:
         logger.info(f"Loaded {len(snow_station_abbreviations)} stations that measure the snow depth")
         return snow_station_abbreviations
 
-    def _load_manual_sites(self) -> Dict[str, MeteoSwissStation]:
+    def _load_manual_sites(self) -> dict[str, MeteoSwissStation]:
         """Read the manual site table into memory once per process, keyed by station abbreviation."""
         if self._abbreviation_to_manual_site:
             return self._abbreviation_to_manual_site
@@ -280,7 +281,7 @@ class MeteoSwissMeasurementSource:
         manual_site_table_rows = read_recent_csv_rows(
             MANUAL_SITE_TABLE_URL, manual_site_table_file, MANUAL_SITE_TABLE_MAX_AGE, serve_stale_on_error=True
         )
-        abbreviation_to_manual_site: Dict[str, MeteoSwissStation] = {}
+        abbreviation_to_manual_site: dict[str, MeteoSwissStation] = {}
         for row in manual_site_table_rows:
             manual_site = _parse_station(row, is_manual_site=True)
             abbreviation_to_manual_site[manual_site.abbreviation] = manual_site
@@ -289,7 +290,7 @@ class MeteoSwissMeasurementSource:
         logger.info(f"Loaded {len(abbreviation_to_manual_site)} manual sites")
         return abbreviation_to_manual_site
 
-    def _load_manual_site_first_snow_days(self) -> Dict[str, date]:
+    def _load_manual_site_first_snow_days(self) -> dict[str, date]:
         """Read once per process the first day each manual site measured the snow depth, from its data inventory."""
         if self._abbreviation_to_first_snow_day:
             return self._abbreviation_to_first_snow_day
@@ -301,7 +302,7 @@ class MeteoSwissMeasurementSource:
             MANUAL_SITE_INVENTORY_MAX_AGE,
             serve_stale_on_error=True,
         )
-        abbreviation_to_first_snow_day: Dict[str, date] = {}
+        abbreviation_to_first_snow_day: dict[str, date] = {}
         for row in manual_site_inventory_rows:
             if row["parameter_shortname"] == parameters.SNOW_DEPTH_DAY:
                 # Such as "01.01.1931 00:00". A site has one row per data owner, and its earliest day counts.
@@ -312,7 +313,7 @@ class MeteoSwissMeasurementSource:
         logger.info(f"Loaded the first snow depth day of {len(abbreviation_to_first_snow_day)} manual sites")
         return abbreviation_to_first_snow_day
 
-    def read_station_measurements(self, station: MeteoSwissStation) -> List[MeteoSwissStationMeasurements]:
+    def read_station_measurements(self, station: MeteoSwissStation) -> list[MeteoSwissStationMeasurements]:
         """Read every row of a station's now file, the oldest first."""
         abbreviation = station.abbreviation.lower()
         station_now_values_url = STATION_NOW_VALUES_URL.format(abbreviation=abbreviation)
@@ -329,7 +330,7 @@ class MeteoSwissMeasurementSource:
             all_measurements.append(measurements)
         return all_measurements
 
-    def _read_station_daily_file(self, station: MeteoSwissStation, period: str) -> List[MeteoSwissStationMeasurements]:
+    def _read_station_daily_file(self, station: MeteoSwissStation, period: str) -> list[MeteoSwissStationMeasurements]:
         """
         Read every row of one of a station's daily files, RECENT_DAYS or HISTORICAL_DAYS, the oldest first.
 
@@ -358,14 +359,14 @@ class MeteoSwissMeasurementSource:
             all_days.append(day_measurements)
         return all_days
 
-    def list_stations(self) -> List[MeteoSwissStation]:
+    def list_stations(self) -> list[MeteoSwissStation]:
         """List the stations of the station table."""
         abbreviation_to_station = self._load_stations()
         return list(abbreviation_to_station.values())
 
     def read_station_daily_measurements(
         self, station: MeteoSwissStation, first_day: date, last_day: date
-    ) -> List[MeteoSwissStationMeasurements]:
+    ) -> list[MeteoSwissStationMeasurements]:
         """
         Read the rows of a station's daily files that hold the days from first_day to last_day, the oldest first.
 
@@ -381,7 +382,7 @@ class MeteoSwissMeasurementSource:
 
     def read_snow_history(
         self, manual_site: MeteoSwissStation, first_day: date, last_day: date
-    ) -> List[SnowStationDailyMeasurements]:
+    ) -> list[SnowStationDailyMeasurements]:
         """Read a manual site's snow on the days of its daily files for first_day to last_day, the oldest first."""
         all_days = self.read_station_daily_measurements(manual_site, first_day, last_day)
         daily_measurements = []
@@ -396,7 +397,7 @@ class MeteoSwissMeasurementSource:
             daily_measurements.append(snow_measurements)
         return daily_measurements
 
-    def list_snow_stations(self) -> List[MeteoSwissStation]:
+    def list_snow_stations(self) -> list[MeteoSwissStation]:
         """List the stations that measure the snow depth now."""
         abbreviation_to_station = self._load_stations()
         snow_station_abbreviations = self._load_snow_station_abbreviations()
@@ -418,7 +419,7 @@ class MeteoSwissMeasurementSource:
             return None
         return LatestSnowDepth(station, latest_measurements.measured_at, snow_depth_cm)
 
-    def list_manual_sites(self, last_day: date) -> List[MeteoSwissStation]:
+    def list_manual_sites(self, last_day: date) -> list[MeteoSwissStation]:
         """List the manual sites that started measuring the snow depth by last_day."""
         abbreviation_to_manual_site = self._load_manual_sites()
         abbreviation_to_first_snow_day = self._load_manual_site_first_snow_days()
@@ -432,7 +433,7 @@ class MeteoSwissMeasurementSource:
                 manual_sites.append(manual_site)
         return manual_sites
 
-    def read_all_stations_latest_measurements(self) -> List[MeteoSwissStationMeasurements]:
+    def read_all_stations_latest_measurements(self) -> list[MeteoSwissStationMeasurements]:
         """Read the latest measurements of every station in the station table from the all stations file."""
         abbreviation_to_station = self._load_stations()
         all_stations_latest_values_file = self.cache_dir / "VQHA80.csv"

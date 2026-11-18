@@ -2,8 +2,9 @@
 import asyncio
 import json
 import sys
+from collections.abc import Awaitable
 from datetime import datetime, timedelta, timezone
-from typing import Any, Awaitable, Dict
+from typing import Any
 
 from swiss_weather_mcp.errors import CannotAnswerError
 from swiss_weather_mcp.measurements.extremes import EXTREME_NAME_TO_EXTREME
@@ -17,7 +18,7 @@ from swiss_weather_mcp.server import CACHE_DIR
 DEFAULT_LOCATION = "Zürich"
 
 
-async def print_answer(tool_call: str, reading: Awaitable[Dict[str, Any]]) -> None:
+async def print_answer(tool_call: str, reading: Awaitable[dict[str, Any]]) -> None:
     """Print one tool call and its answer as indented JSON, or the message of a tool that cannot answer."""
     print(f"=== {tool_call}")
     try:

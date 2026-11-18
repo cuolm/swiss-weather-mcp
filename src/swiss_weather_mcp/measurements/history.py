@@ -1,7 +1,7 @@
 """Build the measurements_history answer: the daily weather and snow measurements of the stations for a place."""
 import logging
 from datetime import date, datetime, timedelta, timezone
-from typing import Dict, List, Literal, NotRequired, Optional, TypedDict
+from typing import Literal, NotRequired, Optional, TypedDict
 
 import requests
 
@@ -52,7 +52,7 @@ class WeatherDayRow(RainField):
 
 class WeatherBlock(DataFromField):
     """The weather block of the measurements_history answer."""
-    days: List[WeatherDayRow]
+    days: list[WeatherDayRow]
 
 
 class SnowDayRow(TypedDict):
@@ -64,7 +64,7 @@ class SnowDayRow(TypedDict):
 
 class SnowBlock(DataFromField):
     """The snow block of the measurements_history answer."""
-    days: List[SnowDayRow]
+    days: list[SnowDayRow]
 
 
 class HistoryAnswer(TypedDict):
@@ -103,8 +103,8 @@ def _describe_days(first_day: date, last_day: date) -> str:
 
 
 def _find_days_between(
-    all_days: List[MeteoSwissStationMeasurements], first_day: date, last_day: date
-) -> List[MeteoSwissStationMeasurements]:
+    all_days: list[MeteoSwissStationMeasurements], first_day: date, last_day: date
+) -> list[MeteoSwissStationMeasurements]:
     """Find the daily rows from first_day to last_day."""
     days_between = []
     for day_measurements in all_days:
@@ -115,7 +115,7 @@ def _find_days_between(
 
 def _find_meteoswiss_station_daily_measurements(
     meteoswiss_source: MeteoSwissMeasurementSource, place: SwisstopoPlace, first_day: date, last_day: date
-) -> List[MeteoSwissStationMeasurements]:
+) -> list[MeteoSwissStationMeasurements]:
     """
     Find the daily measurements of the MeteoSwiss station for a place from first_day to last_day, the oldest first.
 
@@ -169,7 +169,7 @@ def _describe_meteoswiss_station(place: SwisstopoPlace, station: MeteoSwissStati
     )
 
 
-def _build_rain_field(parameter_to_value: Dict[str, Optional[float]]) -> RainField:
+def _build_rain_field(parameter_to_value: dict[str, Optional[float]]) -> RainField:
     """Build the rain of a day: of the UTC day, or from 06:00 to 06:00 UTC when only that was measured."""
     rain_mm = parameter_to_value[parameters.PRECIPITATION_DAY]
     rain_06_to_06_utc_mm = parameter_to_value[parameters.PRECIPITATION_DAY_6_TO_6_UTC]
@@ -220,11 +220,11 @@ def _build_weather_block(
     return {**data_from_field, "days": day_rows}
 
 
-def _list_snow_stations_to_try(ranked_snow_stations: List[SnowStation]) -> List[SnowStation]:
+def _list_snow_stations_to_try(ranked_snow_stations: list[SnowStation]) -> list[SnowStation]:
     """List the first MAX_STATIONS_TRIED stations of each source, MeteoSwiss and SLF, in their order."""
     meteoswiss_count = 0
     slf_count = 0
-    snow_stations_to_try: List[SnowStation] = []
+    snow_stations_to_try: list[SnowStation] = []
     for station in ranked_snow_stations:
         if isinstance(station, MeteoSwissStation):
             meteoswiss_count += 1
@@ -243,7 +243,7 @@ def _read_snow_history(
     station: SnowStation,
     first_day: date,
     last_day: date,
-) -> List[SnowStationDailyMeasurements]:
+) -> list[SnowStationDailyMeasurements]:
     """Read a station's snow from its source, or none when its SLF history cannot be downloaded."""
     if isinstance(station, MeteoSwissStation):
         return meteoswiss_source.read_snow_history(station, first_day, last_day)
@@ -265,7 +265,7 @@ def _find_snow_station_daily_measurements(
     place: SwisstopoPlace,
     first_day: date,
     last_day: date,
-) -> List[SnowStationDailyMeasurements]:
+) -> list[SnowStationDailyMeasurements]:
     """
     Find the daily measurements of the snow station for a place from first_day to last_day, the oldest first.
 
@@ -278,7 +278,7 @@ def _find_snow_station_daily_measurements(
     described_days = _describe_days(first_day, last_day)
     meteoswiss_manual_sites = meteoswiss_source.list_manual_sites(last_day)
     slf_snow_stations = list_slf_snow_stations(slf_source)
-    snow_stations: List[SnowStation] = [*meteoswiss_manual_sites, *slf_snow_stations]
+    snow_stations: list[SnowStation] = [*meteoswiss_manual_sites, *slf_snow_stations]
     if not snow_stations:
         raise CannotAnswerError(f"No snow station measured the snow depth on {described_days}.")
     ranked_snow_stations = rank_by_weighted_distance(place, snow_stations, MAX_SNOW_STATION_WEIGHTED_DISTANCE_M)

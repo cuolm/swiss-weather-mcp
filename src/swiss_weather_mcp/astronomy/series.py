@@ -10,7 +10,7 @@ What each series gives:
 - MOON_BETA: the Moon's ecliptic latitude, and SUN_RP: the Sun's distance
 - MOON_V, MOON_U and MOON_W: the Moon's position and distance, by equation (17)
 """
-from typing import NamedTuple, Tuple
+from typing import NamedTuple
 
 
 SIN = "sin"
@@ -23,7 +23,7 @@ class Term(NamedTuple):
     t_power: int  # the T column: 1 when the term is multiplied by T, else 0
     function: str  # SIN or COS
     # The integers under TRIGONOMETRIC ARGUMENTS, in the order of MOON_ARGUMENTS or SUN_ARGUMENTS
-    multipliers: Tuple[int, ...]
+    multipliers: tuple[int, ...]
 
 
 # The arguments of the Moon series, by their number in the paper: G_M (2), F_M (3), D (4), Ω_M (5),

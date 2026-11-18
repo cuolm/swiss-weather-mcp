@@ -11,9 +11,10 @@ import logging
 import threading
 import uuid
 import weakref
+from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, BinaryIO, Callable, Dict, List, Optional
+from typing import Any, BinaryIO, Optional
 
 import requests
 
@@ -123,7 +124,7 @@ def ensure_file(file_url: str, target_file: Path, only_rows_starting_with: Optio
 
 def read_recent_csv_rows(
     file_url: str, target_file: Path, max_age: timedelta, serve_stale_on_error: bool = False
-) -> List[Dict[str, str]]:
+) -> list[dict[str, str]]:
     """Return the rows of a cached MeteoSwiss CSV file, downloaded again when missing or older than max_age."""
     recent_file = ensure_recent_file(file_url, target_file, max_age, serve_stale_on_error)
     # MeteoSwiss writes its files in Latin-1, with ";" between the columns

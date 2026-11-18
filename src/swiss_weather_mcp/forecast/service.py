@@ -2,7 +2,7 @@
 import asyncio
 import logging
 from datetime import date, datetime, timedelta, timezone
-from typing import List, Optional, Tuple, TypedDict
+from typing import Optional, TypedDict
 
 from ..distance import is_close
 from ..errors import CannotAnswerError
@@ -41,7 +41,7 @@ class DailyForecastRow(TypedDict):
 
 class DailyForecastAnswer(PlaceFields):
     """The forecast_daily answer."""
-    days: List[DailyForecastRow]
+    days: list[DailyForecastRow]
     model_run: str
 
 
@@ -56,7 +56,7 @@ class RainBlock(PeriodFields):
 
 class RainAnswer(PlaceFields):
     """The forecast_rain answer."""
-    blocks: List[RainBlock]
+    blocks: list[RainBlock]
     model_run: str
 
 
@@ -69,7 +69,7 @@ class TemperatureHour(PeriodFields):
 
 class TemperatureAnswer(PlaceFields):
     """The forecast_temperature answer."""
-    hours: List[TemperatureHour]
+    hours: list[TemperatureHour]
     model_run: str
 
 
@@ -116,7 +116,7 @@ def _find_daily_value(series: Optional[ForecastSeries], day: date) -> Optional[f
     return series.time_to_value.get(day_stamp)
 
 
-def _describe_pictogram(pictogram_code: int) -> Tuple[str, Optional[str]]:
+def _describe_pictogram(pictogram_code: int) -> tuple[str, Optional[str]]:
     """Turn a MeteoSwiss pictogram code into the sentence it stands for and its emoji."""
     pictogram = parameters.PICTOGRAM_CODE_TO_WEATHER.get(pictogram_code)
     if pictogram is None:
@@ -162,7 +162,7 @@ def _check_period_order(start_moment: datetime, end_moment: datetime) -> None:
         )
 
 
-def _list_stamps(first_stamp: datetime, last_stamp: datetime, step: timedelta) -> List[datetime]:
+def _list_stamps(first_stamp: datetime, last_stamp: datetime, step: timedelta) -> list[datetime]:
     """Return stamps one step apart, from the first until one reaches the last."""
     stamps = [first_stamp]
     while stamps[-1] < last_stamp:
@@ -204,7 +204,7 @@ class ForecastService:
 
     async def _find_place_and_point(
         self, location: str, nearby_location: Optional[str]
-    ) -> Tuple[SwisstopoPlace, ForecastPoint]:
+    ) -> tuple[SwisstopoPlace, ForecastPoint]:
         """Find the place and its forecast point in a worker thread, so a download does not block other requests."""
         place = await asyncio.to_thread(self.place_finder.find_place, location, nearby_location)
         point = await asyncio.to_thread(self.forecast_source.find_forecast_point, place)
@@ -254,7 +254,7 @@ class ForecastService:
             self._read_daily_series_if_published(parameters.WEATHER_PICTOGRAM_DAY, point, run),
         )
 
-        rows: List[DailyForecastRow] = []
+        rows: list[DailyForecastRow] = []
         for offset in range(days):
             day = first_day + timedelta(days=offset)
             temperature_min_c = _find_daily_value(min_series, day)
@@ -365,7 +365,7 @@ class ForecastService:
                     f"by the forecast for {point.display_name}. {_describe_covered_range(median_series)}"
                 )
 
-        blocks: List[RainBlock] = []
+        blocks: list[RainBlock] = []
         for block_end in block_ends:
             block_start = block_end - RAIN_BLOCK
             block_hour_stamps = _list_stamps(block_start + HOUR, block_end, HOUR)
@@ -429,7 +429,7 @@ class ForecastService:
                     f"{_describe_covered_range(temperature_series)}"
                 )
 
-        hours: List[TemperatureHour] = []
+        hours: list[TemperatureHour] = []
         for stamp in hour_stamps:
             hours.append({
                 "from": format_swiss_time(stamp - HOUR),

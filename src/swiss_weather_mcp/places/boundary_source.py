@@ -40,7 +40,7 @@ import struct
 import uuid
 import zipfile
 from pathlib import Path
-from typing import List, NamedTuple, Optional, Tuple
+from typing import NamedTuple, Optional
 
 from ..downloads import download_file, ensure_newest_swisstopo_edition
 from ..polygons import Polygon, polygons_contain
@@ -110,7 +110,7 @@ class Area(NamedTuple):
         return f"{location}, canton {self.canton}"
 
 
-def _read_wkb(wkb: memoryview, offset: int) -> Tuple[List[Polygon], int]:
+def _read_wkb(wkb: memoryview, offset: int) -> tuple[list[Polygon], int]:
     """Read the polygons of the WKB shape at offset, and return them with the offset after it."""
     byte_order = "<" if wkb[offset] == WKB_LITTLE_ENDIAN else ">"
     (wkb_type,) = struct.unpack_from(byte_order + "I", wkb, offset + 1)
@@ -147,7 +147,7 @@ def _read_wkb(wkb: memoryview, offset: int) -> Tuple[List[Polygon], int]:
     return [polygon], offset
 
 
-def _read_polygons(geometry: bytes) -> List[Polygon]:
+def _read_polygons(geometry: bytes) -> list[Polygon]:
     """Read the polygons of a GeoPackage geometry, a polygon or a multipolygon."""
     flags = geometry[GEOPACKAGE_FLAGS_BYTE]
     envelope_indicator = (flags >> 1) & 0b111
