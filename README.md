@@ -17,7 +17,8 @@ places across Switzerland:
 
 Not an official product of MeteoSwiss, SLF or swisstopo. See [Data Sources](#data-sources).
 
-Answers pass through an AI model and can be wrong. Before going into the mountains, check the official
+Answers pass through an AI model and can be wrong; use them at your own risk, without liability.
+Before going into the mountains, check the official
 [avalanche bulletin](https://www.slf.ch/en/avalanche-bulletin-and-snow-situation/) and the
 [MeteoSwiss forecast](https://www.meteoswiss.admin.ch).
 
