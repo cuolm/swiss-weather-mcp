@@ -48,6 +48,29 @@ jobs:
       - name: Run Mypy
         run: uv run mypy
 
+  package-test:
+    name: Package Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0  # hatch-vcs reads the version from the git tags
+      - name: Install uv and Set up Python
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.11"  # the lowest supported version
+          enable-cache: true
+      - name: Build sdist and wheel
+        run: uv build  # builds the wheel from the sdist, so a file missing from the sdist fails here
+      # Only the built wheel is installed, in an environment of its own, as a user gets it
+      - name: Start the installed server
+        run: uv run --isolated --no-project --with dist/*.whl swiss-weather-mcp --help
+      - name: Read the data file of the installed package
+        run: >-
+          uv run --isolated --no-project --with dist/*.whl python -c
+          "from importlib import resources;
+          resources.files('swiss_weather_mcp.places').joinpath('english_place_names.csv').read_text(encoding='utf-8')"
+
   docker-build-test:
     name: Docker Build Test
     runs-on: ubuntu-latest
