@@ -25,7 +25,6 @@ A name no lookup name matches gets suggestions, see suggestions.py.
 """
 import csv
 import logging
-import math
 import re
 import threading
 import unicodedata
@@ -34,6 +33,7 @@ from importlib import resources
 from typing import Dict, List, Tuple
 
 from ..cantons import SWISS_CANTON_ABBREVIATIONS
+from ..distance import calculate_distance_m
 from .place_source import OBJECT_TYPE_TO_NAME, SETTLEMENT_TYPES, SwisstopoPlace, SwisstopoPlaceSource
 from .suggestions import find_similar_places
 
@@ -78,12 +78,6 @@ def _build_lookup_names(row: SwisstopoPlace) -> List[str]:
     # A lookup name counts once, even when two rules give it
     unique_lookup_names = list(dict.fromkeys(lookup_names))
     return unique_lookup_names
-
-
-def calculate_distance_m(first: SwisstopoPlace, second: SwisstopoPlace) -> float:
-    """Return the distance in metres between two places."""
-    # LV95 is a flat grid in metres, so Pythagoras is exact enough within Switzerland
-    return math.hypot(first.east_m - second.east_m, first.north_m - second.north_m)
 
 
 def _group_close_rows(rows: List[SwisstopoPlace]) -> List[List[SwisstopoPlace]]:

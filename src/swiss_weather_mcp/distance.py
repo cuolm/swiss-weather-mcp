@@ -2,8 +2,6 @@
 import math
 from typing import Iterable, List, Optional, Protocol, TypeVar
 
-from .places import SwisstopoPlace
-
 # Weather changes more with height than with distance: 1 m of height gap counts like 20 m farther away
 METRES_PER_HEIGHT_METRE = 20
 METRES_PER_KILOMETRE = 1000
@@ -16,7 +14,7 @@ MAX_STATIONS_TRIED = 3
 
 
 class GridPosition(Protocol):
-    """A position with an altitude on LV95, such as a station."""
+    """A position with an altitude on LV95, such as a place or a station."""
 
     @property
     def altitude_m(self) -> float:
@@ -35,19 +33,19 @@ class GridPosition(Protocol):
 PositionT = TypeVar("PositionT", bound=GridPosition)
 
 
-def calculate_distance_m(place: SwisstopoPlace, position: GridPosition) -> float:
+def calculate_distance_m(place: GridPosition, position: GridPosition) -> float:
     """Return the distance in metres between a place and a position."""
     # LV95 is a flat grid in metres, so Pythagoras is exact enough within Switzerland
     return math.hypot(place.east_m - position.east_m, place.north_m - position.north_m)
 
 
-def calculate_weighted_distance_m(place: SwisstopoPlace, position: GridPosition) -> float:
+def calculate_weighted_distance_m(place: GridPosition, position: GridPosition) -> float:
     """Return the distance to a position plus METRES_PER_HEIGHT_METRE times the height gap."""
     height_gap_m = abs(position.altitude_m - place.altitude_m)
     return calculate_distance_m(place, position) + METRES_PER_HEIGHT_METRE * height_gap_m
 
 
-def is_close(place: SwisstopoPlace, position: GridPosition) -> bool:
+def is_close(place: GridPosition, position: GridPosition) -> bool:
     """Tell whether a position is within CLOSE_MAX_DISTANCE_KM and CLOSE_MAX_HEIGHT_DIFFERENCE_M of a place."""
     # Rounded as the answers show them, to 0.1 km and 1 m
     distance_km = round(calculate_distance_m(place, position) / METRES_PER_KILOMETRE, 1)
@@ -56,7 +54,7 @@ def is_close(place: SwisstopoPlace, position: GridPosition) -> bool:
 
 
 def rank_by_weighted_distance(
-    place: SwisstopoPlace, positions: Iterable[PositionT], max_weighted_distance_m: Optional[float] = None
+    place: GridPosition, positions: Iterable[PositionT], max_weighted_distance_m: Optional[float] = None
 ) -> List[PositionT]:
     """
     Rank positions by their weighted distance to a place, the closest first.

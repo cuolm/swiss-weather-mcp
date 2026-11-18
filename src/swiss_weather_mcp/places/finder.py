@@ -54,9 +54,10 @@ from typing import List, Optional
 
 import requests
 
+from ..distance import calculate_distance_m
 from ..errors import CannotAnswerError
 from .boundary_source import SwisstopoBoundarySource
-from .lookup import SwisstopoPlaceLookup, calculate_distance_m
+from .lookup import SwisstopoPlaceLookup
 from .place_source import SwisstopoPlace, SwisstopoPlaceSource
 
 logger = logging.getLogger(__name__)
