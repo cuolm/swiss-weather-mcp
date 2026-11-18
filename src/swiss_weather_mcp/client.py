@@ -173,10 +173,9 @@ async def _run() -> None:
 
         chat = ChatLoop(mcp_client, args.model, args.base_url)
         logger.info("MCP Client started!")
-        loop = asyncio.get_running_loop()
         while True:
             try:
-                query = await loop.run_in_executor(None, input, "\nType your question (or '/bye' to quit): ")
+                query = await asyncio.to_thread(input, "\nType your question (or '/bye' to quit): ")
             except EOFError:  # Ctrl+D, or the end of piped input
                 query = "/bye"
             query = query.strip()
