@@ -1,4 +1,4 @@
-"""Set up logging for the server and client entry points."""
+"""Set up logging to stderr."""
 import logging
 import logging.config
 from typing import Literal, get_args

@@ -1,5 +1,5 @@
 """
-The parameters the server reads from the MeteoSwiss local forecast collection.
+The parameters read from the MeteoSwiss local forecast collection.
 
 Everything here changes only when MeteoSwiss changes what it publishes. The comment on each code
 is the MeteoSwiss description of that parameter, from ogd-local-forecasting_meta_parameters.csv.

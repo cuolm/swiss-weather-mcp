@@ -1,8 +1,4 @@
-"""
-Measure how well a station's position suits a place, on LV95, the Swiss grid in metres.
-
-Shared by the MeteoSwiss and the SLF stations, so both networks are compared by one formula.
-"""
+"""Measure how well a station's position suits a place, on LV95, the Swiss grid in metres."""
 import math
 from typing import Iterable, List, Optional, Protocol, TypeVar
 
@@ -23,13 +19,16 @@ class GridPosition(Protocol):
     """A position with an altitude on LV95, such as a station."""
 
     @property
-    def altitude_m(self) -> float: ...
+    def altitude_m(self) -> float:
+        """The altitude in metres above sea level."""
 
     @property
-    def east_m(self) -> float: ...
+    def east_m(self) -> float:
+        """The LV95 east coordinate in metres."""
 
     @property
-    def north_m(self) -> float: ...
+    def north_m(self) -> float:
+        """The LV95 north coordinate in metres."""
 
 
 # Any kind of position, so ranking SLF stations returns SLF stations

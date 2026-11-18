@@ -1,9 +1,9 @@
 """
-Download files and cache them on disk: from data.geo.admin.ch, the Swiss open data portal that
-publishes the MeteoSwiss and the swisstopo data, and from the SLF measurement and bulletin APIs. Read
-the cached MeteoSwiss CSV files and SLF JSON answers. Keep the newest edition of a swisstopo dataset.
+Download files and cache them on disk.
 
-Shared by the forecast, the measurement and the places code.
+Sources: data.geo.admin.ch, the Swiss open data portal that publishes the MeteoSwiss and the
+swisstopo data, and the SLF measurement and bulletin APIs. Read the cached MeteoSwiss CSV files and
+SLF JSON answers, and keep the newest edition of a swisstopo dataset.
 """
 import csv
 import json
@@ -55,9 +55,7 @@ def _write_rows_starting_with(response: requests.Response, row_prefix: bytes, fi
 
 
 def download_file(file_url: str, target_file: Path, only_rows_starting_with: Optional[bytes] = None) -> None:
-    """
-    Stream a file to disk. With only_rows_starting_with, keep only the rows that start with it.
-    """
+    """Stream a file to disk; with only_rows_starting_with, keep only the rows starting with it."""
     target_file.parent.mkdir(parents=True, exist_ok=True)
     # A unique name, moved into place only when complete, so an interrupted download is never
     # taken for a cached file, and two requests for the same file do not write into each other
@@ -165,7 +163,9 @@ def ensure_newest_swisstopo_edition(
 
     Look for a newer edition first when no file is cached, or when the last look is more than
     SWISSTOPO_EDITION_CHECK_INTERVAL ago. The cached file is named after the archive, with
-    archive_suffix replaced by cached_suffix; download(archive_url, cached_file) writes it.
+    archive_suffix replaced by cached_suffix; download(archive_url, cached_file) writes it. A look
+    that finds the cached edition still newest touches its file; the files of older editions are
+    deleted.
     """
     # Usually one file is cached. Two are left when the process stopped after downloading a new edition
     # but before deleting the old one. File names end in their date, so the newest is the last.

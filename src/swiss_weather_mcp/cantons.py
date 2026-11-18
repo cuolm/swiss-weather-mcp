@@ -1,4 +1,4 @@
-"""The Swiss cantons by their abbreviation, as the station tables, the place names and the answers use them."""
+"""The Swiss cantons by their abbreviation, with their names in the local language."""
 
 # The station tables of MeteoSwiss and SLF name a canton by its abbreviation, and list Liechtenstein like a
 # canton

@@ -1,6 +1,5 @@
 """
-The Sun and the Moon over a place: when they rise and set, the civil twilight, and the Moon's
-phase and how much of it is lit.
+The Sun and the Moon over a place: rise and set, civil twilight, and the Moon's phase and lit part.
 
 How the answers are calculated:
 

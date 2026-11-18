@@ -1,3 +1,4 @@
+"""Answer the measurement tools: what the MeteoSwiss and SLF stations measure near a place."""
 import asyncio
 from datetime import date
 from typing import Optional
@@ -29,7 +30,8 @@ class MeasurementService:
         Read the latest measurements of the station chosen for the location.
 
         Add the slf_station block when an SLF station suits the location better than the MeteoSwiss station.
-        Raise CannotAnswerError for an unknown location or when no station publishes a temperature.
+        Raise CannotAnswerError for an unknown or unclear location, and when none of the MAX_STATIONS_TRIED
+        closest stations published a temperature in the last hour.
         """
         place = await asyncio.to_thread(self.place_finder.find_place, location, nearby_location)
         return await asyncio.to_thread(build_current_answer, self.meteoswiss_source, self.slf_source, place)
@@ -43,10 +45,10 @@ class MeasurementService:
         nearby_location: Optional[str] = None,
     ) -> HistoryAnswer:
         """
-        Read the daily weather and snow of the stations chosen for the location, for 1 to MAX_HISTORY_DAYS UTC days from first_day.
+        Read the daily weather and snow near the location for 1 to MAX_HISTORY_DAYS UTC days from first_day.
 
-        Raise CannotAnswerError when days is out of range, for an unknown location, for a first day today or
-        later, and when no station has the values asked for.
+        Raise CannotAnswerError when days is out of range, for an unknown or unclear location, for a first day
+        today or later, and when no station has the values asked for.
         """
         check_day_count(days)
         place = await asyncio.to_thread(self.place_finder.find_place, location, nearby_location)
@@ -59,7 +61,7 @@ class MeasurementService:
         Read the current snow depth and the new snow for the location, each from its own best station.
 
         snow_depth or new_snow is None when no station close enough has a current value. Raise
-        CannotAnswerError for an unknown location and when neither has one.
+        CannotAnswerError for an unknown or unclear location, and when neither has one.
         """
         place = await asyncio.to_thread(self.place_finder.find_place, location, nearby_location)
         return await asyncio.to_thread(build_snow_answer, self.meteoswiss_source, self.slf_source, place)

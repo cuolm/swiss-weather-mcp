@@ -1,4 +1,4 @@
-"""The latest and the past snow values both measurement sources return, so their stations are treated alike."""
+"""The snow values the measurement sources return, so the stations of both are treated alike."""
 from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, NamedTuple, Optional, Union
 
@@ -32,7 +32,11 @@ class LatestNewSnow(NamedTuple):
 
 
 class SnowStationDailyMeasurements(NamedTuple):
-    """The snow of a station on one past day: the depth at 06:00 UTC and the new snow of the 24 hours from then."""
+    """
+    The snow of a station on one past day: the depth at 06:00 UTC and the new snow of the 24 hours from then.
+
+    For an IMIS station's history, the depth is the median of the 24 hours up to 06:00 UTC.
+    """
     station: SnowStation
     day: date
     snow_depth_cm: Optional[float]

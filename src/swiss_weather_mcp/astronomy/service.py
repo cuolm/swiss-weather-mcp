@@ -1,3 +1,4 @@
+"""Answer the astronomy_sun and astronomy_moon tools: the Sun and the Moon over a place."""
 import asyncio
 from datetime import date, datetime, timedelta
 from typing import NotRequired, Optional, TypedDict
@@ -66,7 +67,7 @@ class AstronomyService:
         """
         Read when civil twilight begins, the Sun rises and sets, and civil twilight ends on a Swiss calendar day.
 
-        Raise CannotAnswerError for an unknown location.
+        Raise CannotAnswerError for an unknown or unclear location.
         """
         place = await asyncio.to_thread(self.place_finder.find_place, location, nearby_location)
         # In a worker thread, so the calculation does not hold up other requests
@@ -84,7 +85,7 @@ class AstronomyService:
         """
         Read the moonrise, moonset and phase on a Swiss calendar day, and how much of the Moon is lit at 12:00.
 
-        Raise CannotAnswerError for an unknown location.
+        Raise CannotAnswerError for an unknown or unclear location.
         """
         place = await asyncio.to_thread(self.place_finder.find_place, location, nearby_location)
         # In a worker thread, so the calculation does not hold up other requests

@@ -1,3 +1,4 @@
+"""A test client that lets a local model answer questions with the server's tools, over stdio."""
 import argparse
 import asyncio
 import json
@@ -38,6 +39,7 @@ SERVER_LOG_LEVEL = "WARNING"
 
 
 def _parse_args() -> argparse.Namespace:
+    """Read the command line options of the test client."""
     parser = argparse.ArgumentParser(description="Run MCP Client")
     parser.add_argument("--model", type=str, required=True,
                         help="Model name as the server reports it")
@@ -90,6 +92,7 @@ class MCPClient:
         logger.info(f"Connected to server with tools: {tool_names}")
 
     def _require_session(self) -> ClientSession:
+        """Return the session; raise RuntimeError before connect_to_server."""
         if self.session is None:
             raise RuntimeError("Call connect_to_server() before using the client")
         return self.session
@@ -177,6 +180,7 @@ class MCPClient:
 
 
 async def _run():
+    """Ask the model each question typed in, until /bye."""
     args = _parse_args()
     setup_logging(args.log_level)
     client = MCPClient(args.model, args.base_url)

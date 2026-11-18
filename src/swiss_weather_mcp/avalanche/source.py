@@ -1,5 +1,7 @@
 """
-Read the avalanche bulletin valid now from the SLF bulletin API, https://aws.slf.ch/api/bulletin/caaml
+Read the avalanche bulletins valid now from the SLF bulletin API.
+
+The API is at https://aws.slf.ch/api/bulletin/caaml
 
 What SLF publishes:
 - In winter a bulletin every day at 17:00, valid until 17:00 the next day, and an update at
@@ -21,7 +23,7 @@ What SLF publishes:
 - Four texts are the same in all bulletins of a day: the snowpack, the outlook, and the weather
   forecast and review, which some bulletins do not have. The texts are HTML with only h1, h2,
   p, ul, li and br.
-- The API has two versions; this server reads V4, where heights are strings, the whole mountain
+- The API has two versions; this module reads V4, where heights are strings, the whole mountain
   is an empty elevation, and empty values are left out. When no bulletin is valid, the feature
   list is empty.
 
@@ -38,7 +40,7 @@ What SLF publishes:
     │   ...]}                                                                    │
     └────────────────────────────────────────────────────────────────────────────┘
 
-How we use it, while the service finds the bulletin of a place:
+How we use it:
 1. Read the bulletins on each question; the file is downloaded again when it is older than
    10 minutes, so a new bulletin is used soon after SLF publishes it.
 2. Keep the values the answer gives, and turn the HTML texts into plain text, a line for each

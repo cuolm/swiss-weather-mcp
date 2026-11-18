@@ -42,7 +42,7 @@ class SnowAnswer(TypedDict):
 
 
 def list_slf_snow_stations(slf_source: SLFMeasurementSource) -> List[SLFStation]:
-    """List the SLF snow stations, or none when SLF cannot be reached; the MeteoSwiss stations then answer alone."""
+    """List the SLF snow stations, or none when SLF cannot be reached."""
     try:
         return slf_source.list_snow_stations()
     except requests.RequestException as error:

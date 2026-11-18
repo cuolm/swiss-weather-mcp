@@ -1,3 +1,4 @@
+"""The MCP server: the weather tools, and the command line that starts it."""
 import argparse
 import functools
 import logging
@@ -58,6 +59,7 @@ Tool = Callable[..., Awaitable[Mapping[str, Any]]]
 
 
 def _parse_args() -> argparse.Namespace:
+    """Read the command line options of the server."""
     parser = argparse.ArgumentParser(description="Run MCP Server")
     parser.add_argument(
         "--transport",
@@ -85,13 +87,14 @@ def _parse_args() -> argparse.Namespace:
 
 def _handle_tool_call(tool: Tool) -> Tool:
     """
-    Log each tool call, and turn the failures the model can act on into a ToolError.
+    Log each tool call that answers, and turn the failures the model can act on into a ToolError.
 
     mcp shows a ToolError's message to the model. Any other error stays a crash:
     mcp hides it from the model and logs its traceback.
     """
     @functools.wraps(tool)
     async def run_tool(**arguments: Any) -> Mapping[str, Any]:
+        """Run the tool; log the call when it answers, and the message when it fails in a way the model can act on."""
         try:
             answer = await tool(**arguments)
         except CannotAnswerError as error:
@@ -158,6 +161,7 @@ class SwissWeatherMCPServer:
         self._register_tools()
 
     def _register_tools(self) -> None:
+        """Register the weather tools with the MCP server."""
         @self.mcp.tool(annotations=READS_OPEN_DATA, structured_output=False)
         @_handle_tool_call
         async def forecast_daily(
@@ -614,7 +618,11 @@ class SwissWeatherMCPServer:
 
 
 def _build_server(args: argparse.Namespace) -> SwissWeatherMCPServer:
-    """Build the sources and services from the command line options, and the server that uses them."""
+    """
+    Build the sources and services from the command line options, and the server that uses them.
+
+    Also start loading the places and boundaries in the background.
+    """
     place_finder = PlaceFinder(CACHE_DIR)
     place_finder.start_loading_places()
     forecast_source = ForecastSource(CACHE_DIR, cache_all_forecast_points=args.cache_all_forecast_points)

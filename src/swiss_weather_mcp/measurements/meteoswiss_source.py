@@ -23,15 +23,16 @@ What MeteoSwiss publishes:
 - The manual precipitation stations, here called manual sites, where an observer measures once
   a day, each morning. 262 of the 270 have measured the snow depth, 247 still do, half of them since
   1971 or earlier. The data inventory lists a parameter once per data owner, so a site whose
-  measurements passed to SLF, such as Davos in 2006, has two rows for it. Their station table, ogd-nime_meta_stations.csv, data inventory and daily files,
-  such as ogd-nime_dav_d_recent.csv, are built like those of SwissMetNet. A daily row holds the
+  measurements passed to SLF, such as Davos in 2006, has two rows for it. Their station table,
+  ogd-nime_meta_stations.csv, data inventory and daily files, such as ogd-nime_dav_d_recent.csv,
+  are built like those of SwissMetNet. A daily row holds the
   snow depth measured at 06:00 UTC on its day and the new snow of the 24 hours from then, so a
   day's new snow shows in the snow depth of the next morning. Some SwissMetNet stations, such as
   Davos, are manual sites too, under the same abbreviation.
 - All files use ";" between columns. A station abbreviation, such as SMA, links the
   station table to the station's now file and to its row in the all stations file.
 
-    ogd-smn_sma_t_now.csv  (now file of Zürich / Fluntern, 34 columns, the server reads 9 parameters)
+    ogd-smn_sma_t_now.csv  (now file of Zürich / Fluntern, 34 columns, 10 parameters read)
     ┌───────────────────────────────────────────────────────────┐
     │ station_abbr;reference_timestamp;tre200s0;...;rre150z0;... │  station, time, temperature, ..., rainfall
     │ SMA;30.09.2026 00:00;17;...;0;...                         │  17.0 °C, 0.0 mm
@@ -39,7 +40,7 @@ What MeteoSwiss publishes:
     │ ...                                                       │  one row every 10 minutes
     └───────────────────────────────────────────────────────────┘
 
-    VQHA80.csv  (all stations, 22 columns, the server reads 9 parameters)
+    VQHA80.csv  (all stations, 22 columns, 9 parameters read)
     ┌──────────────────────────────────────────────────────┐
     │ Station/Location;Date;tre200s0;rre150z0;sre000z0;... │  station, time, temperature, rainfall, sunshine
     │ ARO;202609281020;19.10;-;10.00;...                   │  Arosa: 19.1 °C, no rainfall value, 10 min of sun
@@ -47,7 +48,7 @@ What MeteoSwiss publishes:
     │ ...                                                  │  about 160 rows
     └──────────────────────────────────────────────────────┘
 
-    ogd-nime_dav_d_historical.csv  (daily file of the manual site Davos, 5 columns, the server reads 2 parameters)
+    ogd-nime_dav_d_historical.csv  (daily file of the manual site Davos, 5 columns, 2 parameters read)
     ┌──────────────────────────────────────────────────────────────┐
     │ station_abbr;reference_timestamp;rre150d0;hns000d0;hto000d0  │  station, day, rain, new snow, snow depth
     │ DAV;02.01.2025 00:00;2.4;5;37                                │  37 cm at 06:00 UTC, then 5 cm new snow
@@ -63,7 +64,7 @@ What MeteoSwiss publishes:
     │ ...                                                            │  about 160 rows
     └────────────────────────────────────────────────────────────────┘
 
-How we use it, while the tools in current.py, history.py and snow.py choose the station:
+How we use it:
 1. Read the station table on the first question and keep it in memory for as long as
    the process runs; the file is downloaded first when it is missing or older than 7 days.
 2. For the weather now, read a station's now file; the file is downloaded again when it is
@@ -331,7 +332,7 @@ class MeteoSwissMeasurementSource:
         """
         Read every row of one of a station's daily files, RECENT_DAYS or HISTORICAL_DAYS, the oldest first.
 
-        A manual site's files hold only its snow.
+        Only the snow is read from a manual site's files.
         """
         abbr = station.abbr.lower()
         daily_parameters: Sequence[str]

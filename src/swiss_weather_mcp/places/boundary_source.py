@@ -1,6 +1,8 @@
 """
-Find the municipality and canton of a position with swissBOUNDARIES3D, the swisstopo boundaries of the
-administrative units of Switzerland and Liechtenstein.
+Find the municipality and canton of a position with swissBOUNDARIES3D.
+
+swissBOUNDARIES3D holds the swisstopo boundaries of the administrative units of Switzerland and
+Liechtenstein.
 
 What swisstopo publishes:
 - Editions of swissBOUNDARIES3D, each in several formats. The GeoPackage of an edition is a zip archive
@@ -14,7 +16,7 @@ What swisstopo publishes:
   "Genève" or "Graubünden", and their canton numbers.
 - Each table has a spatial index, an R-tree of the box around each area.
 
-    tlm_hoheitsgebiet  (2136 areas, the server reads 5 of 25 columns)
+    tlm_hoheitsgebiet  (2136 areas, 5 of 25 columns read)
     ┌─────────────────────────────────────────────────────────────────────────────────────┐
     │ id    name       objektart       kantonsnummer  geom                                │  columns
     │ …     Vals       Gemeindegebiet  18             (the area as a GeoPackage geometry) │  a municipality

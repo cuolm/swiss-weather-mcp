@@ -1,3 +1,4 @@
+"""Answer the forecast tools: the MeteoSwiss local forecast for a place."""
 import asyncio
 import logging
 from datetime import date, datetime, timedelta, timezone
@@ -232,8 +233,9 @@ class ForecastService:
         """
         Read the whole-day forecast for 1 to MAX_DAYS Swiss calendar days in a row from first_day.
 
-        A value MeteoSwiss does not publish for the forecast point is None. Raise CannotAnswerError
-        when days is out of range or no day has a forecast.
+        A value MeteoSwiss does not publish for the forecast point is None, and a day without any value
+        is left out. Raise CannotAnswerError when days is out of range, for an unknown or unclear
+        location, and when no day has a forecast.
         """
         if not 1 <= days <= MAX_DAYS:
             raise CannotAnswerError(f"days must be between 1 and {MAX_DAYS}, not {days}.")
@@ -307,9 +309,9 @@ class ForecastService:
         """
         Read when and how much it may rain, and the weather in words, in 3-hour blocks from start to end.
 
-        Times are timezone aware full hours. Raise CannotAnswerError when they are not, or when
-        the forecast does not cover them. A last block that runs past the end of the forecast is
-        left out.
+        Times are timezone aware full hours. Raise CannotAnswerError when they are not, when the end
+        is not after the start, for an unknown or unclear location, or when the forecast does not
+        cover them. A last block that runs past the end of the forecast is left out.
         """
         _check_full_hour(start_moment)
         _check_full_hour(end_moment)
@@ -387,8 +389,9 @@ class ForecastService:
         """
         Read the temperature hour by hour from start to end, or for the one hour from start when end is None.
 
-        Times are timezone aware full hours. Raise CannotAnswerError when they are not, or when the
-        forecast does not cover them.
+        Times are timezone aware full hours. Raise CannotAnswerError when they are not, when the end
+        is not after the start, for an unknown or unclear location, or when the forecast does not
+        cover them.
         """
         _check_full_hour(start_moment)
         # A row covers the hour before its stamp, so the first hour is the row stamped one hour after start.
@@ -441,7 +444,12 @@ class ForecastService:
         self, location: str, start_moment: datetime, end_moment: Optional[datetime] = None,
         nearby_location: Optional[str] = None,
     ) -> SunshineAnswer:
-        """Add up the sunshine over a period in hours, or over the one hour from start when end is None."""
+        """
+        Add up the sunshine over a period in hours, or over the one hour from start when end is None.
+
+        Raise CannotAnswerError when a time is not a full hour, when the end is not after the start,
+        for an unknown or unclear location, or when the forecast does not cover the period.
+        """
         _check_full_hour(start_moment)
         if end_moment is None:
             end_moment = start_moment.astimezone(timezone.utc) + HOUR
@@ -475,7 +483,12 @@ class ForecastService:
         }
 
     async def read_wind(self, location: str, moment: datetime, nearby_location: Optional[str] = None) -> WindAnswer:
-        """Read the wind for the hour up to a moment: mean speed, gusts and direction."""
+        """
+        Read the wind for the hour up to a moment: mean speed, gusts and direction.
+
+        Raise CannotAnswerError when the moment is not a full hour, for an unknown or unclear location,
+        or when the forecast does not cover the moment.
+        """
         _check_full_hour(moment)
         place, point = await self._find_place_and_point(location, nearby_location)
         run = await self._find_latest_run()
@@ -505,7 +518,12 @@ class ForecastService:
     async def read_cloud_cover(
         self, location: str, moment: datetime, nearby_location: Optional[str] = None
     ) -> CloudCoverAnswer:
-        """Estimate the total cloud cover at a moment from the three overlapping layers."""
+        """
+        Estimate the total cloud cover at a moment from the three overlapping layers.
+
+        Raise CannotAnswerError when the moment is not a full hour, for an unknown or unclear location,
+        or when the forecast does not cover the moment.
+        """
         _check_full_hour(moment)
         place, point = await self._find_place_and_point(location, nearby_location)
         run = await self._find_latest_run()
@@ -535,7 +553,12 @@ class ForecastService:
     async def read_freezing_level(
         self, location: str, moment: datetime, nearby_location: Optional[str] = None
     ) -> FreezingLevelAnswer:
-        """Read the height of the 0 °C line at a moment."""
+        """
+        Read the height of the 0 °C line at a moment.
+
+        Raise CannotAnswerError when the moment is not a full hour, for an unknown or unclear location,
+        or when the forecast does not cover the moment.
+        """
         _check_full_hour(moment)
         place, point = await self._find_place_and_point(location, nearby_location)
         run = await self._find_latest_run()

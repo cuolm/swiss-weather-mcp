@@ -54,7 +54,7 @@ How we use it:
 2. Read today's STAC item (yesterday's just after midnight UTC) and pick the newest run
    that has all parameters we need. MeteoSwiss uploads a run file by file, so the
    newest run can be incomplete.
-3. Download a parameter's file only when a tool asks for it. By default, keep only the
+3. Download a parameter's file only when it is asked for. By default, keep only the
    rows of the requested point; with cache_all_forecast_points, keep the whole file.
 4. Cache the files per run, and delete older runs except the one just before.
 
@@ -258,10 +258,9 @@ class ForecastSource:
 
     def find_latest_run(self) -> ForecastRun:
         """
-        Find the newest published run and the parameter files it holds.
+        Find the newest run with a file for every parameter, in today's or yesterday's item.
 
-        The answer is reused for RUN_LOOKUP_MAX_AGE. A tool finds the run once and reads all its values
-        from it, so they never come from two runs.
+        The result is reused for RUN_LOOKUP_MAX_AGE. Raise RuntimeError when neither day has a complete run.
         """
         with self._run_lookup_lock:
             now = datetime.now(timezone.utc)
@@ -300,7 +299,11 @@ class ForecastSource:
             shutil.rmtree(folder, ignore_errors=True)
 
     def _ensure_parameter_file(self, parameter: str, point: MeteoSwissPoint, run_id: str, file_url: str) -> Path:
-        """Return the cached file with this parameter for this point and run, downloading it if missing."""
+        """
+        Return the cached file with this parameter for this point and run, downloading it if missing.
+
+        After a download, delete the cached runs older than this one, except the run just before it.
+        """
         run_dir = self.cache_dir / "runs" / run_id
         full_file = run_dir / f"{parameter}.csv"
         point_file = run_dir / f"{parameter}_{point.point_id}_{point.point_type_id}.csv"

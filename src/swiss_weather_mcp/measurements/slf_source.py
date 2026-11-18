@@ -1,8 +1,9 @@
 """
-Read the measurements of the SLF stations: the latest ones from the SLF measurement API, and the
-snow of past days from SLF's data server. The stations are the automatic IMIS weather stations, and
-the manual measuring sites, which the API calls study plots, where an observer measures the snow by
-hand.
+Read the measurements of the SLF stations: the latest ones and the snow of past days.
+
+The latest come from the SLF measurement API, and the snow of past days from SLF's data server. The
+stations are the automatic IMIS weather stations, and the manual measuring sites, which the API
+calls study plots, where an observer measures the snow by hand.
 
 What SLF publishes:
 - The measurements of an IMIS station, such as imis/station/DAV2/measurements, with
@@ -36,7 +37,7 @@ What SLF publishes:
 - All answers are JSON. A station code, such as DAV2, links a station list to the
   station's measurements.
 
-    imis/station/DAV2/measurements?period_in_days=1  (measurements of Bärentälli, 15 fields, the server reads 7 values)
+    imis/station/DAV2/measurements?period_in_days=1  (measurements of Bärentälli, 15 fields, 7 values read)
     ┌────────────────────────────────────────────────────────────────────┐
     │ [{"station_code": "DAV2", "measure_date": "2026-11-09T12:00:00Z",  │  station, time in UTC
     │   "TA_30MIN_MEAN": -0.338, "RH_30MIN_MEAN": 79.5,                  │  -0.3 °C, 79.5 %
@@ -53,14 +54,14 @@ What SLF publishes:
     │  ...]                                                              │  one row per station and day
     └────────────────────────────────────────────────────────────────────┘
 
-    study-plot/station/5DF0/measurements?period_in_days=7  (measurements of the manual site Davos Flüelastr., 5 fields, the server reads 2 values)
+    study-plot/station/5DF0/measurements?period_in_days=7  (measurements of the manual site Davos Flüelastr., 5 fields, 2 values read)
     ┌────────────────────────────────────────────────────────────────────┐
     │ [{"station_code": "5DF0", "measure_date": "2026-11-10T06:00:00Z",  │  station, morning in UTC
     │   "HS": 0.0, "HN_1D": 0.0, "HNW_1D": 0.0},                         │  snow depth, new snow in cm
     │  ...]                                                              │  one row per day
     └────────────────────────────────────────────────────────────────────┘
 
-    study-plot/data/by_station/5DF0.csv  (snow history of the manual site Davos Flüelastr., the server reads 2 values)
+    study-plot/data/by_station/5DF0.csv  (snow history of the manual site Davos Flüelastr., 2 values read)
     ┌────────────────────────────────────────────────────────────────────┐
     │ station_code,measure_date,hyear,HS,HN_1D,HNW_1D                    │  header
     │ 5DF0,2026-11-14 06:00:00+00:00,2027,0.0,0.0,0.0                    │  morning in UTC, snow depth,
@@ -74,16 +75,16 @@ What SLF publishes:
     │  ...]                                                                  │  about 200 stations
     └────────────────────────────────────────────────────────────────────────┘
 
-How we use it, while the tools in current.py and snow.py choose the station:
+How we use it:
 1. Read the station list on the first question and keep it in memory for as long as
    the process runs; the file is downloaded first when it is missing or older than 7 days.
    Each WGS84 position is turned into LV95 with swisstopo's approximate formulas.
 2. For the weather now, read a station's measurements; the file is downloaded again when
    it is older than 5 minutes. Its last row holds the latest measurements. The wind speeds
    are turned from m/s into km/h, the unit MeteoSwiss uses.
-3. For the snow, list the IMIS stations that have daily snow, and the manual sites; both
-   lists are kept as the station list. The daily snow file is downloaded again when it is
-   older than 1 hour.
+3. For the snow, list the IMIS stations in the daily snow file, and the manual sites; the
+   manual site list is kept in memory like the station list. The daily snow file is downloaded
+   again when it is older than 1 hour.
 4. The snow depth of an IMIS station is the one of its last 30-minute row, when it is at
    most 210 minutes old, as on SLF's map of measured values. The snow depth of a manual site
    is the one of its newest day, when it is from today or yesterday; today's arrives only
@@ -237,7 +238,7 @@ def _convert_m_per_s_to_kmh(speed_m_per_s: Optional[float]) -> Optional[float]:
 
 
 def _parse_station_measurements(station: SLFStation, row: Dict[str, Any]) -> SLFStationMeasurements:
-    """Read the values the server uses from one row of a station's measurements."""
+    """Read the values of SLFStationMeasurements from one row of a station's measurements."""
     # Such as "2026-11-09T12:00:00Z", which fromisoformat reads as UTC
     measured_at = datetime.fromisoformat(row["measure_date"])
     return SLFStationMeasurements(

@@ -1,6 +1,5 @@
 """
-Turn the location string a tool gets, such as "Zürich", "Wil", "Davos" or "Blausee", into the
-swisstopo place the user means.
+Turn a location string, such as "Zürich", "Wil", "Davos" or "Blausee", into the swisstopo place meant.
 
 The location is looked up among the places of swissNAMES3D, see lookup.py:
 - One place has the name: that place.
@@ -152,8 +151,8 @@ class PlaceFinder:
         """
         Name the settlement to give as near for one of several places.
 
-        It is the nearest settlement that leads back to this place, so a model that copies it gets
-        this place.
+        It is the nearest of the MAX_NEAR_SETTLEMENTS_TRIED nearest settlements that leads back to this
+        place, so a model that copies it gets this place; when none does, the nearest settlement.
         """
         nearest_settlements = heapq.nsmallest(
             MAX_NEAR_SETTLEMENTS_TRIED,

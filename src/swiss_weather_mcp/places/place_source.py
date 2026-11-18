@@ -14,7 +14,7 @@ What swisstopo publishes:
   forests and slopes. The same field name is used all over the country.
 - A settlement is in the points file and again in the areas file.
 
-    swissNAMES3D_PKT.csv  (names of points, 15 columns, the server reads 7)
+    swissNAMES3D_PKT.csv  (names of points, 15 columns, 7 read)
     ┌──────────────────────────────────────────────────────────────────────────────┐
     │ UUID;NAME;...;NAMEN_TYP;...;OBJEKTART;...;EINWOHNERKATEGORIE;E;N;Z           │  header
     │ {...};Zürich;...;Endonym;...;Ort;...;> 100'000;2683500;1247184;418           │  a city
@@ -179,9 +179,9 @@ class SwisstopoPlaceSource:
 
     def read_rows(self) -> List[SwisstopoPlace]:
         """
-        Read the rows of the object types in FILE_TO_OBJECT_TYPES from the archive.
+        Read the rows of the object types in FILE_TO_OBJECT_TYPES from the newest edition.
 
-        The lookup reads them once and keeps only the places it builds from them.
+        Download the newest edition first when none is cached or the last look is more than 30 days ago.
         """
         archive_file = ensure_newest_swisstopo_edition(
             EDITIONS_URL, ARCHIVE_SUFFIX, self.cache_dir, ARCHIVE_SUFFIX, download_file

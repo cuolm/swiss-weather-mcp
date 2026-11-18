@@ -64,7 +64,11 @@ class SnowBlock(DataFromField):
 
 
 class HistoryAnswer(TypedDict):
-    """The measurements_history answer; snow is None when it was not asked alone and no station has it."""
+    """
+    The measurements_history answer.
+
+    snow is None when it was not asked alone and no station has it, or its data cannot be downloaded.
+    """
     place: str
     weather: NotRequired[WeatherBlock]
     snow: NotRequired[Optional[SnowBlock]]

@@ -172,9 +172,7 @@ def _rank_places_containing_some_query_words(
 def find_similar_places(
     name_to_places: Dict[str, List[SwisstopoPlace]], query: str
 ) -> List[SwisstopoPlace]:
-    """
-    Find the places to suggest for a query that is no lookup name, at most MAX_SIMILAR_NAMES.
-    """
+    """Find the places to suggest for a query that is no lookup name, at most MAX_SIMILAR_NAMES."""
     names_starting_with_query = _find_names_starting_with_query(name_to_places, query)
     biggest_places_starting_with_query = _list_biggest_places(name_to_places, names_starting_with_query)
 

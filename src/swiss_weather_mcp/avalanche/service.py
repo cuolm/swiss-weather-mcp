@@ -173,8 +173,8 @@ class AvalancheService:
         """
         Read the SLF avalanche bulletin valid now for the location.
 
-        Raise CannotAnswerError for an unknown location, when SLF has no bulletin valid now, and when none of
-        them covers the location.
+        Raise CannotAnswerError for an unknown or unclear location, when SLF has no bulletin valid now, and
+        when none of them covers the location.
         """
         place = await asyncio.to_thread(self.place_finder.find_place, location, nearby_location)
         return await asyncio.to_thread(build_bulletin_answer, self.bulletin_source, place)

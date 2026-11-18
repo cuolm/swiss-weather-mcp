@@ -1,10 +1,11 @@
 """
-The parameters the server reads from the SwissMetNet measurements and the manual precipitation stations.
+The parameters read from the SwissMetNet measurements and the manual precipitation stations.
 
 The comment on each code is the MeteoSwiss description of that parameter, from
-ogd-smn_meta_parameters.csv and ogd-nime_meta_parameters.csv. Times are UTC. A "current value" is measured at its timestamp, and a
-"ten minutes" value covers the 10 minutes up to its timestamp. A daily value covers the UTC day
-that starts at its timestamp.
+ogd-smn_meta_parameters.csv and ogd-nime_meta_parameters.csv. Times are UTC. A "current value"
+is measured at its timestamp, and a "ten minutes" value covers the 10 minutes up to its
+timestamp. A daily value belongs to the UTC day that starts at its timestamp; most cover that
+day, and the others say in their comment which 24 hours or which moment they hold.
 """
 
 TEMPERATURE = "tre200s0"         # Air temperature 2 m above ground; current value [°C]
