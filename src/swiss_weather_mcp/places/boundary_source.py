@@ -37,13 +37,10 @@ import sqlite3
 import struct
 import uuid
 import zipfile
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import List, NamedTuple, Optional, Tuple
 
-import requests
-
-from ..downloads import REQUEST_TIMEOUT_SECONDS, download_file
+from ..downloads import download_file, ensure_newest_swisstopo_edition
 from ..polygons import Polygon, polygons_contain
 
 logger = logging.getLogger(__name__)
@@ -52,7 +49,6 @@ EDITIONS_URL = "https://data.geo.admin.ch/api/stac/v1/collections/ch.swisstopo.s
 # Each edition is published in several formats; this one holds the GeoPackage in LV95
 ARCHIVE_SUFFIX = "_2056_5728.gpkg.zip"
 GEOPACKAGE_SUFFIX = ".gpkg"
-EDITION_CHECK_INTERVAL = timedelta(days=30)
 
 # The kinds of area, in the column objektart
 MUNICIPALITY_KIND = "Gemeindegebiet"
@@ -166,19 +162,6 @@ class SwisstopoBoundarySource:
         self.cache_dir = cache_dir / "boundaries"
         self._geopackage_file: Optional[Path] = None
 
-    def _fetch_newest_archive_url(self) -> str:
-        """Ask the catalogue for the GeoPackage archive of the newest edition."""
-        response = requests.get(EDITIONS_URL, timeout=REQUEST_TIMEOUT_SECONDS)
-        response.raise_for_status()
-        editions = response.json()["features"]
-        # Edition IDs end in their year and month, such as swissboundaries3d_2026-01, so the newest one
-        # is the largest string
-        newest_edition = max(editions, key=lambda edition: edition["id"])
-        for asset_name, asset in newest_edition["assets"].items():
-            if asset_name.endswith(ARCHIVE_SUFFIX):
-                return asset["href"]
-        raise RuntimeError(f"The swissBOUNDARIES3D edition {newest_edition['id']} holds no GeoPackage")
-
     def _download_geopackage(self, archive_url: str, geopackage_file: Path) -> None:
         """Download the archive of an edition, unpack its GeoPackage to geopackage_file and delete the archive."""
         archive_name = archive_url.rsplit("/", 1)[-1]
@@ -187,7 +170,6 @@ class SwisstopoBoundarySource:
         # cached file, as in download_file
         partial_name = f"{geopackage_file.name}.{uuid.uuid4().hex}.tmp"
         partial_file = geopackage_file.with_name(partial_name)
-        logger.info(f"Downloading {archive_url}")
 
         try:
             download_file(archive_url, archive_file)
@@ -200,44 +182,11 @@ class SwisstopoBoundarySource:
             archive_file.unlink(missing_ok=True)
             partial_file.unlink(missing_ok=True)
 
-    def _ensure_geopackage(self) -> Path:
-        """
-        Return the cached GeoPackage.
-
-        Look for a newer edition first when none is cached, or when the last look is more than
-        EDITION_CHECK_INTERVAL ago.
-        """
-        # Usually one GeoPackage is cached. Two are left when the process stopped after downloading a new
-        # edition but before deleting the old one. GeoPackage names end in their year and month, so the
-        # newest is the last.
-        found_files = self.cache_dir.glob(f"*{GEOPACKAGE_SUFFIX}")
-        cached_files = sorted(found_files)
-        if cached_files:
-            newest_cached_file = cached_files[-1]
-            modified_at_seconds = newest_cached_file.stat().st_mtime
-            checked_at = datetime.fromtimestamp(modified_at_seconds, timezone.utc)
-            if datetime.now(timezone.utc) - checked_at < EDITION_CHECK_INTERVAL:
-                return newest_cached_file
-
-        archive_url = self._fetch_newest_archive_url()
-        archive_name = archive_url.rsplit("/", 1)[-1]
-        edition_name = archive_name.removesuffix(ARCHIVE_SUFFIX)
-        geopackage_file = self.cache_dir / f"{edition_name}{GEOPACKAGE_SUFFIX}"
-        if geopackage_file.exists():
-            # Still the newest edition; its file time records this look
-            geopackage_file.touch()
-        else:
-            self._download_geopackage(archive_url, geopackage_file)
-
-        for cached_file in cached_files:
-            if cached_file != geopackage_file:
-                logger.info(f"Deleting the old swissBOUNDARIES3D edition {cached_file.name}")
-                cached_file.unlink(missing_ok=True)
-        return geopackage_file
-
     def load_geopackage(self) -> None:
         """Make sure the newest GeoPackage is cached, so find_area can use it."""
-        self._geopackage_file = self._ensure_geopackage()
+        self._geopackage_file = ensure_newest_swisstopo_edition(
+            EDITIONS_URL, ARCHIVE_SUFFIX, self.cache_dir, GEOPACKAGE_SUFFIX, self._download_geopackage
+        )
         logger.info(f"Loaded the swissBOUNDARIES3D edition {self._geopackage_file.name}")
 
     def find_area(self, east_m: float, north_m: float) -> Optional[Area]:

@@ -38,21 +38,17 @@ import csv
 import io
 import logging
 import zipfile
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Dict, List, NamedTuple, Set, Tuple
 
-import requests
-
 from ..coordinates import calculate_wgs84_latitude_deg, calculate_wgs84_longitude_deg
-from ..downloads import REQUEST_TIMEOUT_SECONDS, download_file
+from ..downloads import download_file, ensure_newest_swisstopo_edition
 
 logger = logging.getLogger(__name__)
 
 EDITIONS_URL = "https://data.geo.admin.ch/api/stac/v1/collections/ch.swisstopo.swissnames3d/items"
 # Each edition is published in several formats; this one holds the CSV files in LV95
 ARCHIVE_SUFFIX = "_2056.csv.zip"
-EDITION_CHECK_INTERVAL = timedelta(days=30)
 
 # The object types the server reads, by the file it reads them from
 FILE_TO_OBJECT_TYPES = {
@@ -181,57 +177,15 @@ class SwisstopoPlaceSource:
     def __init__(self, cache_dir: Path):
         self.cache_dir = cache_dir / "places"
 
-    def _fetch_newest_archive_url(self) -> str:
-        """Ask the catalogue for the CSV archive of the newest edition."""
-        response = requests.get(EDITIONS_URL, timeout=REQUEST_TIMEOUT_SECONDS)
-        response.raise_for_status()
-        editions = response.json()["features"]
-        # Edition IDs end in their year, such as swissnames3d_2026, so the newest one is the largest string
-        newest_edition = max(editions, key=lambda edition: edition["id"])
-        for asset_name, asset in newest_edition["assets"].items():
-            if asset_name.endswith(ARCHIVE_SUFFIX):
-                return asset["href"]
-        raise RuntimeError(f"The swissNAMES3D edition {newest_edition['id']} holds no CSV archive")
-
-    def _ensure_archive(self) -> Path:
-        """
-        Return the cached archive.
-
-        Look for a newer edition first when no archive is cached, or when the last look is more than
-        EDITION_CHECK_INTERVAL ago.
-        """
-        # Usually one archive is cached. Two are left when the process stopped after downloading a new
-        # edition but before deleting the old one. Archive names end in their year, so the newest is the last.
-        cached_archives = sorted(self.cache_dir.glob(f"*{ARCHIVE_SUFFIX}"))
-        if cached_archives:
-            newest_cached_archive = cached_archives[-1]
-            modified_seconds = newest_cached_archive.stat().st_mtime
-            checked_at = datetime.fromtimestamp(modified_seconds, timezone.utc)
-            if datetime.now(timezone.utc) - checked_at < EDITION_CHECK_INTERVAL:
-                return newest_cached_archive
-
-        archive_url = self._fetch_newest_archive_url()
-        archive = self.cache_dir / archive_url.rsplit("/", 1)[-1]
-        if archive.exists():
-            # Still the newest edition; its file time records this look
-            archive.touch()
-        else:
-            logger.info(f"Downloading {archive_url}")
-            download_file(archive_url, archive)
-
-        for cached_archive in cached_archives:
-            if cached_archive != archive:
-                logger.info(f"Deleting the old swissNAMES3D edition {cached_archive.name}")
-                cached_archive.unlink(missing_ok=True)
-        return archive
-
     def read_rows(self) -> List[SwisstopoPlace]:
         """
         Read the rows of the object types in FILE_TO_OBJECT_TYPES from the archive.
 
         The lookup reads them once and keeps only the places it builds from them.
         """
-        archive_file = self._ensure_archive()
+        archive_file = ensure_newest_swisstopo_edition(
+            EDITIONS_URL, ARCHIVE_SUFFIX, self.cache_dir, ARCHIVE_SUFFIX, download_file
+        )
         rows = []
         with zipfile.ZipFile(archive_file) as archive:
             for file_name, object_types in FILE_TO_OBJECT_TYPES.items():

@@ -1,7 +1,7 @@
 """
 Download files and cache them on disk: from data.geo.admin.ch, the Swiss open data portal that
 publishes the MeteoSwiss and the swisstopo data, and from the SLF measurement and bulletin APIs. Read
-the cached MeteoSwiss CSV files and SLF JSON answers.
+the cached MeteoSwiss CSV files and SLF JSON answers. Keep the newest edition of a swisstopo dataset.
 
 Shared by the forecast, the measurement and the places code.
 """
@@ -13,7 +13,7 @@ import uuid
 import weakref
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, BinaryIO, Dict, List, Optional
+from typing import Any, BinaryIO, Callable, Dict, List, Optional
 
 import requests
 
@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 REQUEST_TIMEOUT_SECONDS = 60
 DOWNLOAD_CHUNK_SIZE_BYTES = 1024 * 1024
+SWISSTOPO_EDITION_CHECK_INTERVAL = timedelta(days=30)
 
 
 # One lock per file being downloaded, so parallel requests download a missing file only once. The locks
@@ -136,3 +137,56 @@ def read_recent_json(file_url: str, target_file: Path, max_age: timedelta, serve
     recent_file = ensure_recent_file(file_url, target_file, max_age, serve_stale_on_error)
     with open(recent_file, encoding="utf-8") as file:
         return json.load(file)
+
+
+def _fetch_newest_swisstopo_archive_url(editions_url: str, archive_suffix: str) -> str:
+    """Ask a swisstopo catalogue for the archive of the newest edition, the one whose name ends in archive_suffix."""
+    response = requests.get(editions_url, timeout=REQUEST_TIMEOUT_SECONDS)
+    response.raise_for_status()
+    editions = response.json()["features"]
+    # Edition IDs end in their date, such as swissnames3d_2026 or swissboundaries3d_2026-01, so the newest
+    # one is the largest string
+    newest_edition = max(editions, key=lambda edition: edition["id"])
+    for asset_name, asset in newest_edition["assets"].items():
+        if asset_name.endswith(archive_suffix):
+            return asset["href"]
+    raise RuntimeError(f"The edition {newest_edition['id']} holds no file ending in {archive_suffix}")
+
+
+def ensure_newest_swisstopo_edition(
+    editions_url: str,
+    archive_suffix: str,
+    cache_dir: Path,
+    cached_suffix: str,
+    download: Callable[[str, Path], None],
+) -> Path:
+    """
+    Return the cached file of the newest edition of a swisstopo dataset.
+
+    Look for a newer edition first when no file is cached, or when the last look is more than
+    SWISSTOPO_EDITION_CHECK_INTERVAL ago. The cached file is named after the archive, with
+    archive_suffix replaced by cached_suffix; download(archive_url, cached_file) writes it.
+    """
+    # Usually one file is cached. Two are left when the process stopped after downloading a new edition
+    # but before deleting the old one. File names end in their date, so the newest is the last.
+    found_files = cache_dir.glob(f"*{cached_suffix}")
+    cached_files = sorted(found_files)
+    if cached_files and _is_recent(cached_files[-1], SWISSTOPO_EDITION_CHECK_INTERVAL):
+        return cached_files[-1]
+
+    archive_url = _fetch_newest_swisstopo_archive_url(editions_url, archive_suffix)
+    archive_name = archive_url.rsplit("/", 1)[-1]
+    edition_name = archive_name.removesuffix(archive_suffix)
+    cached_file = cache_dir / f"{edition_name}{cached_suffix}"
+    if cached_file.exists():
+        # Still the newest edition; its file time records this look
+        cached_file.touch()
+    else:
+        logger.info(f"Downloading {archive_url}")
+        download(archive_url, cached_file)
+
+    for old_file in cached_files:
+        if old_file != cached_file:
+            logger.info(f"Deleting the old edition {old_file.name}")
+            old_file.unlink(missing_ok=True)
+    return cached_file
