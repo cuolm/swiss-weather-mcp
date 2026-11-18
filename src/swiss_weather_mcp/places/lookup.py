@@ -99,7 +99,7 @@ def _group_close_rows(rows: List[SwisstopoPlace]) -> List[List[SwisstopoPlace]]:
     return groups
 
 
-def _measure_group_size(group: List[SwisstopoPlace]) -> Tuple[int, int]:
+def _calculate_group_size(group: List[SwisstopoPlace]) -> Tuple[int, int]:
     """Return how big a group of rows is, to sort by: the band of its biggest settlement, then its number of rows."""
     population_band = 0
     for row in group:
@@ -134,7 +134,7 @@ def _merge_rows(group: List[SwisstopoPlace]) -> SwisstopoPlace:
 def _build_places_of_lookup_name(rows: List[SwisstopoPlace]) -> List[SwisstopoPlace]:
     """Turn the rows of one lookup name into its places, biggest first: most people, then most rows."""
     groups = _group_close_rows(rows)
-    groups.sort(key=_measure_group_size, reverse=True)
+    groups.sort(key=_calculate_group_size, reverse=True)
     places = []
     for group in groups:
         place = _merge_rows(group)

@@ -11,13 +11,13 @@ from .slf_source import SLFMeasurementSource, SLFMorningSnow, SLFStation
 class MeteoSwissExtreme(NamedTuple):
     """The value of MeteoSwiss's file of all stations an extreme ranks the stations by."""
     parameter: str
-    field: str  # the field the value fills in the answer
+    answer_key: str  # the key the value fills in a station row
     highest_first: bool
 
 
 class SLFExtreme(NamedTuple):
     """The morning snow value an extreme ranks the SLF stations by."""
-    field: str  # the field the value fills in the answer
+    answer_key: str  # the key the value fills in a station row
     is_new_snow: bool  # the new snow of the 24 hours up to the morning; otherwise the snow depth
 
 
@@ -34,7 +34,7 @@ EXTREME_NAME_TO_EXTREME: Dict[ExtremeName, Union[MeteoSwissExtreme, SLFExtreme]]
     "most_new_snow": SLFExtreme("new_snow_24_hours_cm", is_new_snow=True),
 }
 # How many stations a ranking lists
-STATION_COUNT = 5
+RANKED_STATION_COUNT = 5
 # The smallest rain MeteoSwiss publishes, as the 10-minute rain has one decimal
 RAINY_MIN_RAIN_MM = 0.1
 
@@ -42,7 +42,7 @@ RAINY_MIN_RAIN_MM = 0.1
 class SunshineClass(NamedTuple):
     """One class of MeteoSwiss's sunshine terms."""
     name: str
-    min_sunshine_min: int  # the least sun in the last 10 minutes for the class
+    min_sunshine_minutes: int  # the least sun in the last 10 minutes for the class
 
 
 # MeteoSwiss's sunshine terms by the share of sun, 80-100 %, 50-80 %, 20-50 %, 5-20 % and 0-5 %,
@@ -124,18 +124,18 @@ def _describe_station_kind(station: SLFStation, slf_extreme: SLFExtreme) -> str:
 def _build_slf_station_rows(
     snowy_values: List[SLFStationValue], slf_extreme: SLFExtreme
 ) -> List[Dict[str, Any]]:
-    """Build the answer rows of the first STATION_COUNT stations, the most snow first."""
+    """Build the answer rows of the first RANKED_STATION_COUNT stations, the most snow first."""
     ranked_values = sorted(snowy_values, key=lambda slf_station_value: (
         -slf_station_value.value, slf_station_value.station.name
     ))
     rows = []
-    for slf_station_value in ranked_values[:STATION_COUNT]:
+    for slf_station_value in ranked_values[:RANKED_STATION_COUNT]:
         kind = _describe_station_kind(slf_station_value.station, slf_extreme)
         rows.append({
             "station": slf_station_value.station.display_name,
             "canton": slf_station_value.station.canton,
             "kind": kind,
-            slf_extreme.field: slf_station_value.value,
+            slf_extreme.answer_key: slf_station_value.value,
         })
     return rows
 
@@ -174,10 +174,10 @@ def _find_station_values(
     return station_values
 
 
-def _find_sunshine_class(sunshine_min: float) -> str:
+def _find_sunshine_class(sunshine_minutes: float) -> str:
     """Find the class of MeteoSwiss's sunshine terms for the sun of the last 10 minutes."""
     for sunshine_class in SUNSHINE_CLASSES[:-1]:
-        if sunshine_min >= sunshine_class.min_sunshine_min:
+        if sunshine_minutes >= sunshine_class.min_sunshine_minutes:
             return sunshine_class.name
     # The last class takes the rest, down to 0 minutes
     return SUNSHINE_CLASSES[-1].name
@@ -206,19 +206,19 @@ def _build_sunshine_canton_rows(station_values: List[MeteoSwissStationValue]) ->
         canton_to_station_values.setdefault(canton, []).append(station_value)
 
     rows: List[Dict[str, Any]] = []
-    canton_to_average_sunshine_min: Dict[str, float] = {}
+    canton_to_average_sunshine_minutes: Dict[str, float] = {}
     for canton, canton_values in canton_to_station_values.items():
         rows.append({
             "canton": canton,
             "measuring_stations": len(canton_values),
             **_count_stations_by_sunshine_class(canton_values),
         })
-        total_sunshine_min = sum(station_value.value for station_value in canton_values)
-        canton_to_average_sunshine_min[canton] = total_sunshine_min / len(canton_values)
+        total_sunshine_minutes = sum(station_value.value for station_value in canton_values)
+        canton_to_average_sunshine_minutes[canton] = total_sunshine_minutes / len(canton_values)
 
     # Among equal averages the canton with more stations comes first, because its average is better supported
     rows.sort(key=lambda row: (
-        -canton_to_average_sunshine_min[row["canton"]], -row["measuring_stations"], row["canton"]
+        -canton_to_average_sunshine_minutes[row["canton"]], -row["measuring_stations"], row["canton"]
     ))
     return rows
 
@@ -252,11 +252,11 @@ def _build_canton_rows(
     Each row says how many of its measuring stations match, such as the rainy ones. The canton with
     the highest share comes first.
     """
-    measuring_counts = _count_stations_by_canton(station_values)
-    matching_counts = _count_stations_by_canton(matching_values)
+    canton_to_measuring_count = _count_stations_by_canton(station_values)
+    canton_to_matching_count = _count_stations_by_canton(matching_values)
     rows: List[Dict[str, Any]] = []
-    for canton, measuring_count in measuring_counts.items():
-        matching_count = matching_counts.get(canton, 0)
+    for canton, measuring_count in canton_to_measuring_count.items():
+        matching_count = canton_to_matching_count.get(canton, 0)
         rows.append({
             "canton": canton,
             f"{label}_stations": matching_count,
@@ -271,16 +271,16 @@ def _build_canton_rows(
 def _build_station_rows(
     station_values: List[MeteoSwissStationValue], extreme: MeteoSwissExtreme
 ) -> List[Dict[str, Any]]:
-    """Build the answer rows of the first STATION_COUNT stations in the order of an extreme."""
+    """Build the answer rows of the first RANKED_STATION_COUNT stations in the order of an extreme."""
     ranked_values = sorted(
         station_values, key=lambda station_value: station_value.value, reverse=extreme.highest_first
     )
     rows = []
-    for station_value in ranked_values[:STATION_COUNT]:
+    for station_value in ranked_values[:RANKED_STATION_COUNT]:
         rows.append({
             "station": station_value.station.display_name,
             "canton": station_value.station.canton,
-            extreme.field: station_value.value,
+            extreme.answer_key: station_value.value,
         })
     return rows
 

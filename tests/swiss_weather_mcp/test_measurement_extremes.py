@@ -37,7 +37,7 @@ def test_build_canton_rows_puts_the_canton_with_more_stations_first():
 
 # --- _find_sunshine_class ---
 
-@pytest.mark.parametrize("sunshine_min, sunshine_class_name", (
+@pytest.mark.parametrize("sunshine_minutes, sunshine_class_name", (
     (10, "mostly_sunny"),
     (8, "mostly_sunny"),
     (7, "rather_sunny"),
@@ -47,8 +47,8 @@ def test_build_canton_rows_puts_the_canton_with_more_stations_first():
     (1, "only_a_little_sunshine"),
     (0, "hardly_any_sunshine"),
 ))
-def test_find_sunshine_class(sunshine_min, sunshine_class_name):
-    assert _find_sunshine_class(sunshine_min) == sunshine_class_name
+def test_find_sunshine_class(sunshine_minutes, sunshine_class_name):
+    assert _find_sunshine_class(sunshine_minutes) == sunshine_class_name
 
 
 # --- _build_sunshine_canton_rows ---

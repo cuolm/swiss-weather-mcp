@@ -136,8 +136,8 @@ class ForecastRun(NamedTuple):
 def _find_newest_complete_run_id(run_to_csv_file_urls: Dict[str, Dict[str, str]]) -> Optional[str]:
     """Find the newest run with a file for every parameter, or None when no run is complete."""
     complete_run_ids = []
-    for run_id, file_urls in run_to_csv_file_urls.items():
-        if parameters.ALL_PARAMETERS.issubset(file_urls):
+    for run_id, parameter_to_file_url in run_to_csv_file_urls.items():
+        if parameters.ALL_PARAMETERS.issubset(parameter_to_file_url):
             complete_run_ids.append(run_id)
     if not complete_run_ids:
         return None
@@ -243,8 +243,8 @@ class ForecastSource:
             return {}
         response.raise_for_status()
 
-        item = response.json()
-        assets = item.get("assets", {})
+        stac_item = response.json()
+        assets = stac_item.get("assets", {})
         run_to_csv_file_urls: Dict[str, Dict[str, str]] = {}
         for asset_name, asset in assets.items():
             # Asset names look like vnut12.lssw.<run>.<parameter>.csv
@@ -348,11 +348,11 @@ class ForecastSource:
         when the run has no values for the parameter at this point.
         """
         run_id = run.run_id
-        file_urls = run.parameter_to_file_url
-        if parameter not in file_urls:
+        parameter_to_file_url = run.parameter_to_file_url
+        if parameter not in parameter_to_file_url:
             raise CannotAnswerError(f"MeteoSwiss's newest forecast does not include '{parameter}'.")
 
-        parameter_file = self._ensure_parameter_file(parameter, point, run_id, file_urls[parameter])
+        parameter_file = self._ensure_parameter_file(parameter, point, run_id, parameter_to_file_url[parameter])
         time_to_value = self._read_point_values(parameter_file, point)
         if not time_to_value:
             raise CannotAnswerError(f"MeteoSwiss publishes no '{parameter}' values for {point.display_name}.")

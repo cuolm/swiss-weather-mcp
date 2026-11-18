@@ -216,9 +216,9 @@ def _list_periods(first_day: date, last_day: date, today: date) -> List[str]:
     return periods
 
 
-def _parse_all_stations_timestamp(stamp_text: str) -> datetime:
+def _parse_all_stations_timestamp(timestamp_text: str) -> datetime:
     """Read an all stations file timestamp such as "202609281020", which is always UTC."""
-    return datetime.strptime(stamp_text, "%Y%m%d%H%M").replace(tzinfo=timezone.utc)
+    return datetime.strptime(timestamp_text, "%Y%m%d%H%M").replace(tzinfo=timezone.utc)
 
 
 class MeteoSwissMeasurementSource:

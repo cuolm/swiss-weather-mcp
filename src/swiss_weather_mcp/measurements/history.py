@@ -190,7 +190,7 @@ def _build_weather_day_row(day_measurements: MeteoSwissStationMeasurements) -> W
     day = day_measurements.measured_at.date()
     parameter_to_value = day_measurements.parameter_to_value
     rain_field = _build_rain_field(parameter_to_value)
-    sunshine_min = parameter_to_value[parameters.SUNSHINE_DAY]
+    sunshine_minutes = parameter_to_value[parameters.SUNSHINE_DAY]
     return {
         "date": day.isoformat(),
         "weekday": f"{day:%A}",
@@ -198,7 +198,7 @@ def _build_weather_day_row(day_measurements: MeteoSwissStationMeasurements) -> W
         "temperature_min_c": parameter_to_value[parameters.TEMPERATURE_DAY_MIN],
         "temperature_max_c": parameter_to_value[parameters.TEMPERATURE_DAY_MAX],
         **rain_field,
-        "sunshine_h": _convert_minutes_to_hours(sunshine_min),
+        "sunshine_h": _convert_minutes_to_hours(sunshine_minutes),
         "strongest_gust_kmh": parameter_to_value[parameters.WIND_GUSTS_DAY],
     }
 

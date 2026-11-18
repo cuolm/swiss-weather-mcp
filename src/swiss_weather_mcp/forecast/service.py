@@ -107,7 +107,7 @@ class FreezingLevelAnswer(PlaceFields):
     model_run: str
 
 
-def _get_daily_value(series: Optional[ForecastSeries], day: date) -> Optional[float]:
+def _find_daily_value(series: Optional[ForecastSeries], day: date) -> Optional[float]:
     """Return the value of a daily series for one day, or None when the series or the day is missing."""
     if series is None:
         return None
@@ -162,7 +162,7 @@ def _check_period_order(start_moment: datetime, end_moment: datetime) -> None:
         )
 
 
-def _create_stamps(first_stamp: datetime, last_stamp: datetime, step: timedelta) -> List[datetime]:
+def _list_stamps(first_stamp: datetime, last_stamp: datetime, step: timedelta) -> List[datetime]:
     """Return stamps one step apart, from the first until one reaches the last."""
     stamps = [first_stamp]
     while stamps[-1] < last_stamp:
@@ -178,7 +178,7 @@ def _describe_covered_range(series: ForecastSeries) -> str:
     )
 
 
-def _get_hourly_value(series: ForecastSeries, moment: datetime, point: ForecastPoint) -> float:
+def _find_hourly_value(series: ForecastSeries, moment: datetime, point: ForecastPoint) -> float:
     """
     Return the value of an hourly series at a full hour.
 
@@ -257,12 +257,12 @@ class ForecastService:
         rows: List[DailyForecastRow] = []
         for offset in range(days):
             day = first_day + timedelta(days=offset)
-            temperature_min_c = _get_daily_value(min_series, day)
-            temperature_max_c = _get_daily_value(max_series, day)
-            rain_median_mm = _get_daily_value(rain_series, day)
-            rain_lower_mm = _get_daily_value(rain_lower_series, day)
-            rain_upper_mm = _get_daily_value(rain_upper_series, day)
-            pictogram_value = _get_daily_value(pictogram_series, day)
+            temperature_min_c = _find_daily_value(min_series, day)
+            temperature_max_c = _find_daily_value(max_series, day)
+            rain_median_mm = _find_daily_value(rain_series, day)
+            rain_lower_mm = _find_daily_value(rain_lower_series, day)
+            rain_upper_mm = _find_daily_value(rain_upper_series, day)
+            pictogram_value = _find_daily_value(pictogram_series, day)
             day_values = (
                 temperature_min_c, temperature_max_c, rain_median_mm, rain_lower_mm, rain_upper_mm,
                 pictogram_value,
@@ -336,11 +336,11 @@ class ForecastService:
         last_stamp = end_moment.astimezone(timezone.utc)
         # The 3-hour values sit on the end of each block; the last block may end after the period,
         # as MeteoSwiss gives rain totals only per 3 hours
-        block_ends = _create_stamps(first_stamp + RAIN_BLOCK, last_stamp, RAIN_BLOCK)
+        block_ends = _list_stamps(first_stamp + RAIN_BLOCK, last_stamp, RAIN_BLOCK)
         # A period up to the end of the forecast is answered up to its last full block, as a last
         # block that runs past the period can also run past the forecast
         last_block_end = block_ends[-1]
-        last_block_hours = _create_stamps(last_block_end - RAIN_BLOCK + HOUR, last_block_end, HOUR)
+        last_block_hours = _list_stamps(last_block_end - RAIN_BLOCK + HOUR, last_block_end, HOUR)
         last_block_is_published = (
             last_block_end in chance_series.time_to_value
             and last_block_end in median_series.time_to_value
@@ -350,7 +350,7 @@ class ForecastService:
         if len(block_ends) > 1 and last_block_end > last_stamp and not last_block_is_published:
             block_ends.pop()
         # The heaviest hour needs the hourly values of every hour in the blocks
-        hour_stamps = _create_stamps(first_stamp + HOUR, block_ends[-1], HOUR)
+        hour_stamps = _list_stamps(first_stamp + HOUR, block_ends[-1], HOUR)
 
         for series, stamps in (
             (chance_series, block_ends),
@@ -368,7 +368,7 @@ class ForecastService:
         blocks: List[RainBlock] = []
         for block_end in block_ends:
             block_start = block_end - RAIN_BLOCK
-            block_hour_stamps = _create_stamps(block_start + HOUR, block_end, HOUR)
+            block_hour_stamps = _list_stamps(block_start + HOUR, block_end, HOUR)
             heaviest_hour_mm = max(upper_series.time_to_value[stamp] for stamp in block_hour_stamps)
             weather, weather_emoji = _describe_pictogram(int(pictogram_series.time_to_value[block_end]))
             blocks.append({
@@ -420,7 +420,7 @@ class ForecastService:
             self._read_series(parameters.TEMPERATURE_Q90, point, run),
         )
 
-        hour_stamps = _create_stamps(first_stamp, last_stamp, HOUR)
+        hour_stamps = _list_stamps(first_stamp, last_stamp, HOUR)
         for series in (temperature_series, lower_series, upper_series):
             period_is_covered = all(stamp in series.time_to_value for stamp in hour_stamps)
             if not period_is_covered:
@@ -464,7 +464,7 @@ class ForecastService:
         # UTC, because adding hours in Swiss time goes wrong when the clocks change.
         first_stamp = start_moment.astimezone(timezone.utc) + HOUR
         last_stamp = end_moment.astimezone(timezone.utc)
-        hour_stamps = _create_stamps(first_stamp, last_stamp, HOUR)
+        hour_stamps = _list_stamps(first_stamp, last_stamp, HOUR)
 
         place, point = await self._find_place_and_point(location, nearby_location)
         run = await self._find_latest_run()
@@ -504,10 +504,10 @@ class ForecastService:
             self._read_series(parameters.WIND_DIRECTION, point, run),
         )
 
-        speed_kmh = _get_hourly_value(speed_series, moment, point)
-        gusts_kmh = _get_hourly_value(gust_series, moment, point)
-        upper_gusts_kmh = _get_hourly_value(upper_gust_series, moment, point)
-        direction_degrees = _get_hourly_value(direction_series, moment, point)
+        speed_kmh = _find_hourly_value(speed_series, moment, point)
+        gusts_kmh = _find_hourly_value(gust_series, moment, point)
+        upper_gusts_kmh = _find_hourly_value(upper_gust_series, moment, point)
+        direction_degrees = _find_hourly_value(direction_series, moment, point)
         compass_point = find_compass_point(direction_degrees)
         return {
             **_build_forecast_point_fields(place, point),
@@ -538,9 +538,9 @@ class ForecastService:
             self._read_series(parameters.CLOUD_COVER_HIGH, point, run),
         )
 
-        low_fraction = _get_hourly_value(low_series, moment, point)
-        medium_fraction = _get_hourly_value(medium_series, moment, point)
-        high_fraction = _get_hourly_value(high_series, moment, point)
+        low_fraction = _find_hourly_value(low_series, moment, point)
+        medium_fraction = _find_hourly_value(medium_series, moment, point)
+        high_fraction = _find_hourly_value(high_series, moment, point)
 
         # The layers overlap, so they cannot simply be added. Assuming they are independent, the sky
         # is clear only where all three are clear, which is the standard random overlap estimate.
@@ -568,7 +568,7 @@ class ForecastService:
         place, point = await self._find_place_and_point(location, nearby_location)
         run = await self._find_latest_run()
         series = await self._read_series(parameters.FREEZING_LEVEL, point, run)
-        freezing_level_m = _get_hourly_value(series, moment, point)
+        freezing_level_m = _find_hourly_value(series, moment, point)
         return {
             **_build_forecast_point_fields(place, point),
             "freezing_level_m": freezing_level_m,

@@ -134,7 +134,7 @@ class PlaceFinder:
         boundaries_thread.start()
         return [places_thread, boundaries_thread]
 
-    def _choose_place_near(self, places: List[SwisstopoPlace], nearby_location: str) -> Optional[SwisstopoPlace]:
+    def _find_place_near(self, places: List[SwisstopoPlace], nearby_location: str) -> Optional[SwisstopoPlace]:
         """Choose the place nearest to one called nearby_location, or None beyond MAX_NEAR_DISTANCE_M."""
         closest_place = None
         closest_distance_m = math.inf
@@ -162,7 +162,7 @@ class PlaceFinder:
             key=lambda settlement: calculate_distance_m(settlement, place),
         )
         for settlement in nearest_settlements:
-            if self._choose_place_near(places, settlement.name) == place:
+            if self._find_place_near(places, settlement.name) == place:
                 return settlement.name
         # Two places of the name lie so close that each settlement leads to the other one;
         # they have nearly the same weather
@@ -224,7 +224,7 @@ class PlaceFinder:
             return places[0]
 
         if nearby_location is not None:
-            place_near = self._choose_place_near(places, nearby_location)
+            place_near = self._find_place_near(places, nearby_location)
             if place_near is not None:
                 return place_near
         else:
