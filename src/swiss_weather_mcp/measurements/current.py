@@ -1,7 +1,7 @@
 """Build the measurements_current answer: the latest measurements of the station for a place."""
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import List, NotRequired, Optional
+from typing import List, NotRequired, Optional, TypedDict
 
 import requests
 
@@ -41,7 +41,12 @@ class SLFStationBlock(DataFromField):
     snow_surface_temperature_c: Optional[float]
 
 
-class CurrentAnswer(PlaceFields):
+class SLFStationField(TypedDict):
+    """The slf_station field of the answer, when an SLF station suits the place better than the MeteoSwiss station."""
+    slf_station: NotRequired[SLFStationBlock]
+
+
+class CurrentAnswer(PlaceFields, SLFStationField):
     """The measurements_current answer."""
     measured_at: str
     temperature_c: Optional[float]
@@ -59,7 +64,6 @@ class CurrentAnswer(PlaceFields):
     sunshine_last_hour_minutes: Optional[float]
     rain_last_hour_mm: Optional[float]
     strongest_gust_last_hour_kmh: Optional[float]
-    slf_station: NotRequired[SLFStationBlock]
 
 
 def _find_meteoswiss_station_measurements(
@@ -273,8 +277,19 @@ def build_current_answer(
         compass_point = find_compass_point(wind_direction_degrees)
     temperature_change_c = _calculate_change_last_3_hours(all_measurements, parameters.TEMPERATURE)
     pressure_change_hpa = _calculate_change_last_3_hours(all_measurements, parameters.PRESSURE_SEA_LEVEL)
+    sunshine_last_hour_minutes = _sum_last_hour(all_measurements, parameters.SUNSHINE)
+    rain_last_hour_mm = _sum_last_hour(all_measurements, parameters.PRECIPITATION)
+    strongest_gust_last_hour_kmh = _find_highest_last_hour(all_measurements, parameters.WIND_GUSTS)
 
-    answer: CurrentAnswer = {
+    meteoswiss_station_weighted_distance_m = calculate_weighted_distance_m(place, latest_measurements.station)
+    slf_station_measurements = _find_closer_slf_station_measurements(
+        slf_source, place, meteoswiss_station_weighted_distance_m
+    )
+    slf_station_field: SLFStationField = {}
+    if slf_station_measurements is not None:
+        slf_station_field = {"slf_station": _build_slf_station_block(place, slf_station_measurements)}
+
+    return {
         **place_fields,
         "measured_at": format_swiss_time(latest_measurements.measured_at),
         "temperature_c": parameter_to_value[parameters.TEMPERATURE],
@@ -289,15 +304,8 @@ def build_current_answer(
         "compass_point": compass_point,
         "temperature_change_last_3_hours_c": temperature_change_c,
         "pressure_change_last_3_hours_hpa": pressure_change_hpa,
-        "sunshine_last_hour_minutes": _sum_last_hour(all_measurements, parameters.SUNSHINE),
-        "rain_last_hour_mm": _sum_last_hour(all_measurements, parameters.PRECIPITATION),
-        "strongest_gust_last_hour_kmh": _find_highest_last_hour(all_measurements, parameters.WIND_GUSTS),
+        "sunshine_last_hour_minutes": sunshine_last_hour_minutes,
+        "rain_last_hour_mm": rain_last_hour_mm,
+        "strongest_gust_last_hour_kmh": strongest_gust_last_hour_kmh,
+        **slf_station_field,
     }
-
-    meteoswiss_station_weighted_distance_m = calculate_weighted_distance_m(place, latest_measurements.station)
-    slf_station_measurements = _find_closer_slf_station_measurements(
-        slf_source, place, meteoswiss_station_weighted_distance_m
-    )
-    if slf_station_measurements is not None:
-        answer["slf_station"] = _build_slf_station_block(place, slf_station_measurements)
-    return answer

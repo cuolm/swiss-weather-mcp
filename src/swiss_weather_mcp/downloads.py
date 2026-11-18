@@ -147,7 +147,8 @@ def _fetch_newest_swisstopo_archive_url(editions_url: str, archive_suffix: str) 
     newest_edition = max(editions, key=lambda edition: edition["id"])
     for asset_name, asset in newest_edition["assets"].items():
         if asset_name.endswith(archive_suffix):
-            return asset["href"]
+            archive_url: str = asset["href"]
+            return archive_url
     raise RuntimeError(f"The edition {newest_edition['id']} holds no file ending in {archive_suffix}")
 
 

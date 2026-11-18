@@ -60,6 +60,7 @@ asyncio_mode = "strict"
 [tool.mypy]
 files = ["src"]
 python_version = "3.11"
+strict = true
 
 [tool.ruff]
 target-version = "py311"

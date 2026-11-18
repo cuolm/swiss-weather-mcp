@@ -174,12 +174,12 @@ class MCPClient:
                     "content": tool_result_text,
                 })
 
-    async def close(self):
+    async def close(self) -> None:
         """Close the session and stop the server."""
         await self.exit_stack.aclose()
 
 
-async def _run():
+async def _run() -> None:
     """Ask the model each question typed in, until /bye."""
     args = _parse_args()
     setup_logging(args.log_level)
@@ -220,7 +220,7 @@ async def _run():
         await client.close()
 
 
-def main():
+def main() -> None:
     """Start the test client from the command line."""
     try:
         asyncio.run(_run())

@@ -160,7 +160,8 @@ class AvalancheBulletin(NamedTuple):
 def _parse_swiss_data(json_object: Dict[str, Any]) -> Dict[str, Any]:
     """Return the values SLF adds to the CAAML standard for Switzerland, or an empty dict when there are none."""
     custom_data = json_object.get("customData", {})
-    return custom_data.get("CH", {})
+    swiss_data: Dict[str, Any] = custom_data.get("CH", {})
+    return swiss_data
 
 
 def _parse_danger_rating(rating_object: Dict[str, Any], level_key: str) -> DangerRating:

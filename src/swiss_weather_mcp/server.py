@@ -638,7 +638,7 @@ def _build_server(args: argparse.Namespace) -> SwissWeatherMCPServer:
     )
 
 
-def main():
+def main() -> None:
     """Start the MCP server from the command line."""
     try:
         args = _parse_args()
