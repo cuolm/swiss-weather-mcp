@@ -9,7 +9,7 @@ from fakes import RUN_ID, build_swiss_time
 from swiss_weather_mcp.errors import CannotAnswerError
 from swiss_weather_mcp.forecast.parameters import PICTOGRAM_CODE_TO_WEATHER
 from swiss_weather_mcp.forecast.service import _build_forecast_point_fields, _describe_pictogram
-from swiss_weather_mcp.forecast.source import MeteoSwissPoint
+from swiss_weather_mcp.forecast.source import ForecastPoint
 from swiss_weather_mcp.places import SwisstopoPlace
 
 
@@ -465,8 +465,8 @@ def _build_place(altitude_m: float) -> SwisstopoPlace:
     return SwisstopoPlace("Lindenhof", ("Quartierteil",), 5, False, altitude_m, 2683200.0, 1247500.0)
 
 
-def _build_point(altitude_m: float, east_m: float) -> MeteoSwissPoint:
-    return MeteoSwissPoint("800100", "2", "Zürich", "8001", altitude_m, east_m, 1247500.0)
+def _build_point(altitude_m: float, east_m: float) -> ForecastPoint:
+    return ForecastPoint("800100", "2", "Zürich", "8001", altitude_m, east_m, 1247500.0)
 
 
 def test_build_forecast_point_fields_leaves_out_the_point_up_to_the_limits():

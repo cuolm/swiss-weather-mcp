@@ -89,11 +89,11 @@ def _find_meteoswiss_station_measurements(
         # Some stations measure only a few values, such as wind on a tower, and would answer
         # with almost every value None; a temperature marks a station that measures the usual set
         if not all_measurements or all_measurements[-1].parameter_to_value[parameters.TEMPERATURE] is None:
-            logger.info(f"Station {station.abbr} has no current temperature, trying the next station")
+            logger.info(f"Station {station.abbreviation} has no current temperature, trying the next station")
             continue
         latest_measurements = all_measurements[-1]
         if now - latest_measurements.measured_at > LATEST_MEASUREMENTS_MAX_AGE:
-            logger.info(f"Station {station.abbr} has no measurements in the last hour, trying the next station")
+            logger.info(f"Station {station.abbreviation} has no measurements in the last hour, trying the next station")
             continue
         return all_measurements
 

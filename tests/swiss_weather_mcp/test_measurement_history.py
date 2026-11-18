@@ -64,7 +64,7 @@ def test_find_meteoswiss_station_daily_measurements_of_this_year(source_fixture,
         meteoswiss_source_fixture, ZURICH, date(2026, 9, 23), date(2026, 9, 24)
     )
     assert [day.measured_at.date() for day in zurich_days] == [date(2026, 9, 23), date(2026, 9, 24)]
-    assert zurich_days[0].station.abbr == "SMA"
+    assert zurich_days[0].station.abbreviation == "SMA"
     # Days of this year need only the small recent file
     assert count_downloads(source_fixture, "_d_historical.csv") == 0
 
@@ -84,7 +84,7 @@ def test_find_meteoswiss_station_daily_measurements_skips_a_station_without_temp
     uetliberg_days = _find_meteoswiss_station_daily_measurements(
         meteoswiss_source_fixture, UETLIBERG, date(2026, 9, 24), date(2026, 9, 24)
     )
-    assert uetliberg_days[0].station.abbr == "SMA"
+    assert uetliberg_days[0].station.abbreviation == "SMA"
 
 
 def test_find_meteoswiss_station_daily_measurements_skips_a_station_that_started_later(
@@ -94,7 +94,7 @@ def test_find_meteoswiss_station_daily_measurements_skips_a_station_that_started
     uetliberg_days = _find_meteoswiss_station_daily_measurements(
         meteoswiss_source_fixture, UETLIBERG, date(1975, 7, 1), date(1975, 7, 1)
     )
-    assert uetliberg_days[0].station.abbr == "SMA"
+    assert uetliberg_days[0].station.abbreviation == "SMA"
     assert count_downloads(source_fixture, "ogd-smn_ueb_d_historical.csv") == 0
 
 
@@ -160,7 +160,7 @@ def test_find_snow_station_daily_measurements_skips_a_manual_site_without_snow(
     uetliberg_days = _find_snow_station_daily_measurements(
         meteoswiss_source_fixture, slf_source_fixture, UETLIBERG, date(2026, 9, 23), date(2026, 9, 24)
     )
-    assert uetliberg_days[0].station.abbr == "SMA"
+    assert uetliberg_days[0].station.abbreviation == "SMA"
     assert uetliberg_days[0].station.is_manual_site
 
 
@@ -171,7 +171,7 @@ def test_find_snow_station_daily_measurements_skips_a_site_that_measured_later(
     uetliberg_days = _find_snow_station_daily_measurements(
         meteoswiss_source_fixture, slf_source_fixture, UETLIBERG, date(1975, 7, 1), date(1975, 7, 1)
     )
-    assert uetliberg_days[0].station.abbr == "SMA"
+    assert uetliberg_days[0].station.abbreviation == "SMA"
     assert count_downloads(source_fixture, "ogd-nime_sko_d_historical.csv") == 0
 
 
@@ -225,12 +225,12 @@ def test_find_snow_station_daily_measurements_takes_a_closer_meteoswiss_site(
 ):
     # At the MeteoSwiss site Davos its own observer suits best
     manual_sites = meteoswiss_source_fixture.list_manual_sites(date(2025, 1, 2))
-    davos_site = next(site for site in manual_sites if site.abbr == "DAV")
+    davos_site = next(site for site in manual_sites if site.abbreviation == "DAV")
     place = find_station_place(davos_site, "Davos Platz")
     davos_days = _find_snow_station_daily_measurements(
         meteoswiss_source_fixture, slf_source_fixture, place, date(2025, 1, 2), date(2025, 1, 2)
     )
-    assert davos_days[0].station.abbr == "DAV"
+    assert davos_days[0].station.abbreviation == "DAV"
     assert (davos_days[0].snow_depth_cm, davos_days[0].new_snow_cm) == (37.0, 5.0)
 
 
@@ -258,7 +258,7 @@ def test_find_snow_station_daily_measurements_without_the_slf_stations(
     davos_days = _find_snow_station_daily_measurements(
         meteoswiss_source_fixture, slf_source_fixture, place, date(2025, 1, 2), date(2025, 1, 2)
     )
-    assert davos_days[0].station.abbr == "DAV"
+    assert davos_days[0].station.abbreviation == "DAV"
 
 
 def test_find_snow_station_daily_measurements_skips_an_slf_station_without_a_history_file(
@@ -275,10 +275,10 @@ def test_find_snow_station_daily_measurements_skips_an_slf_station_without_a_his
 
 # --- _list_snow_stations_to_try ---
 
-def build_meteoswiss_site(abbr: str) -> MeteoSwissStation:
+def build_meteoswiss_site(abbreviation: str) -> MeteoSwissStation:
     return MeteoSwissStation(
-        abbr=abbr, name=abbr, canton="Graubünden", altitude_m=1500.0, east_m=2780000.0, north_m=1190000.0,
-        data_since=date(1931, 1, 1), is_manual_site=True,
+        abbreviation=abbreviation, name=abbreviation, canton="Graubünden", altitude_m=1500.0, east_m=2780000.0,
+        north_m=1190000.0, data_since=date(1931, 1, 1), is_manual_site=True,
     )
 
 
@@ -293,7 +293,7 @@ def test_list_snow_stations_to_try_gives_each_source_its_own_tries():
     # Four SLF stations suit a place better than the first MeteoSwiss site, which is still tried: for a day
     # before they started, or in summer, the SLF stations have no values
     slf_stations = [build_slf_station(code) for code in ("AAA2", "BBB2", "CCC2", "DDD2")]
-    meteoswiss_sites = [build_meteoswiss_site(abbr) for abbr in ("AAA", "BBB", "CCC", "DDD")]
+    meteoswiss_sites = [build_meteoswiss_site(abbreviation) for abbreviation in ("AAA", "BBB", "CCC", "DDD")]
     ranked_snow_stations = [*slf_stations, *meteoswiss_sites]
 
     snow_stations_to_try = _list_snow_stations_to_try(ranked_snow_stations)

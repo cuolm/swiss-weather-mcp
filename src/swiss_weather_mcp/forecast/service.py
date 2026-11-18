@@ -9,7 +9,7 @@ from ..errors import CannotAnswerError
 from ..formatting import PlaceFields, describe_distance_and_height, find_compass_point, format_swiss_time
 from ..places import PlaceFinder, SwisstopoPlace
 from . import parameters
-from .source import ForecastRun, ForecastSeries, ForecastSource, MeteoSwissPoint
+from .source import ForecastPoint, ForecastRun, ForecastSeries, ForecastSource
 
 
 logger = logging.getLogger(__name__)
@@ -124,7 +124,7 @@ def _describe_pictogram(pictogram_code: int) -> Tuple[str, Optional[str]]:
     return pictogram
 
 
-def _build_forecast_point_fields(place: SwisstopoPlace, point: MeteoSwissPoint) -> PlaceFields:
+def _build_forecast_point_fields(place: SwisstopoPlace, point: ForecastPoint) -> PlaceFields:
     """
     Build the answer fields that name the place, and the forecast point when it is not next to it.
 
@@ -178,7 +178,7 @@ def _describe_covered_range(series: ForecastSeries) -> str:
     )
 
 
-def _get_hourly_value(series: ForecastSeries, moment: datetime, point: MeteoSwissPoint) -> float:
+def _get_hourly_value(series: ForecastSeries, moment: datetime, point: ForecastPoint) -> float:
     """
     Return the value of an hourly series at a full hour.
 
@@ -204,7 +204,7 @@ class ForecastService:
 
     async def _find_place_and_point(
         self, location: str, nearby_location: Optional[str]
-    ) -> Tuple[SwisstopoPlace, MeteoSwissPoint]:
+    ) -> Tuple[SwisstopoPlace, ForecastPoint]:
         """Find the place and its forecast point in a worker thread, so a download does not block other requests."""
         place = await asyncio.to_thread(self.place_finder.find_place, location, nearby_location)
         point = await asyncio.to_thread(self.forecast_source.find_forecast_point, place)
@@ -214,12 +214,12 @@ class ForecastService:
         """Find the newest forecast run in a worker thread, so a download does not block other requests."""
         return await asyncio.to_thread(self.forecast_source.find_latest_run)
 
-    async def _read_series(self, parameter: str, point: MeteoSwissPoint, run: ForecastRun) -> ForecastSeries:
+    async def _read_series(self, parameter: str, point: ForecastPoint, run: ForecastRun) -> ForecastSeries:
         """Read one parameter for one point in a worker thread, so a download does not block other requests."""
         return await asyncio.to_thread(self.forecast_source.read_series, parameter, point, run)
 
     async def _read_daily_series_if_published(
-        self, parameter: str, point: MeteoSwissPoint, run: ForecastRun
+        self, parameter: str, point: ForecastPoint, run: ForecastRun
     ) -> Optional[ForecastSeries]:
         """Read one parameter for one point, or return None when MeteoSwiss does not publish it there."""
         try:

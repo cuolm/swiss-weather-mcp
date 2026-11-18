@@ -38,13 +38,13 @@ MATTERHORN = SwisstopoPlace(
 # of the fakes suits it better
 METEOSWISS_STATION_WEIGHTED_DISTANCE_M = 250000.0
 FLUNTERN = MeteoSwissStation(
-    abbr="SMA", name="Zürich / Fluntern", canton="Zürich", altitude_m=604.0, east_m=2685223.0, north_m=1248410.0,
-    data_since=date(1864, 1, 1), is_manual_site=False,
+    abbreviation="SMA", name="Zürich / Fluntern", canton="Zürich", altitude_m=604.0, east_m=2685223.0,
+    north_m=1248410.0, data_since=date(1864, 1, 1), is_manual_site=False,
 )
 
 
-def find_station(meteoswiss_source_fixture, abbr: str):
-    return meteoswiss_source_fixture._load_stations()[abbr]
+def find_station(meteoswiss_source_fixture, abbreviation: str):
+    return meteoswiss_source_fixture._load_stations()[abbreviation]
 
 
 def count_downloads(source_fixture, url_part: str) -> int:
@@ -107,14 +107,14 @@ def test_find_meteoswiss_station_measurements_skips_a_station_without_temperatur
     meteoswiss_source_fixture, measurement_tools_now_fixture,
 ):
     # Standing on the Uetliberg, whose station has no thermometer, the next one is Fluntern
-    assert _find_meteoswiss_station_measurements(meteoswiss_source_fixture, UETLIBERG)[-1].station.abbr == "SMA"
+    assert _find_meteoswiss_station_measurements(meteoswiss_source_fixture, UETLIBERG)[-1].station.abbreviation == "SMA"
 
 
 def test_find_meteoswiss_station_measurements_skips_a_station_without_rows(
     meteoswiss_source_fixture, measurement_tools_now_fixture,
 ):
     # The Kloten station comes first, but its now file has no rows yet
-    assert _find_meteoswiss_station_measurements(meteoswiss_source_fixture, KLOTEN)[-1].station.abbr == "SMA"
+    assert _find_meteoswiss_station_measurements(meteoswiss_source_fixture, KLOTEN)[-1].station.abbreviation == "SMA"
 
 
 def test_find_meteoswiss_station_measurements_skips_a_station_that_stopped_publishing(
@@ -126,7 +126,7 @@ def test_find_meteoswiss_station_measurements_skips_a_station_that_stopped_publi
     old_fluntern = [fluntern[-1]._replace(measured_at=MEASUREMENTS_NOW - timedelta(minutes=61))]
     mocker.patch.object(meteoswiss_source_fixture, "read_station_measurements", side_effect=[old_fluntern, davos])
 
-    assert _find_meteoswiss_station_measurements(meteoswiss_source_fixture, ZURICH)[-1].station.abbr == "DAV"
+    assert _find_meteoswiss_station_measurements(meteoswiss_source_fixture, ZURICH)[-1].station.abbreviation == "DAV"
 
 
 def test_find_meteoswiss_station_measurements_tries_only_the_first_stations(

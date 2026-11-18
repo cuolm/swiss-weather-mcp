@@ -11,8 +11,8 @@ from swiss_weather_mcp.measurements.slf_source import SLFDailySnowMeasurements
 
 
 FLUNTERN = MeteoSwissStation(
-    abbr="SMA", name="Zürich / Fluntern", canton="Zürich", altitude_m=604.0, east_m=2685223.0, north_m=1248410.0,
-    data_since=date(1864, 1, 1), is_manual_site=False,
+    abbreviation="SMA", name="Zürich / Fluntern", canton="Zürich", altitude_m=604.0, east_m=2685223.0,
+    north_m=1248410.0, data_since=date(1864, 1, 1), is_manual_site=False,
 )
 
 

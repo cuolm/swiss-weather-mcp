@@ -182,15 +182,15 @@ def build_station_table_csv() -> bytes:
     return ("\n".join(lines) + "\n").encode("latin-1")
 
 
-def build_station_now_values_csv(abbr: str) -> bytes:
+def build_station_now_values_csv(abbreviation: str) -> bytes:
     """Build a station's now file the way MeteoSwiss publishes it, with CRLF line ends."""
-    lines = [STATION_NOW_VALUES_COLUMNS, *STATION_NOW_VALUES_ROWS[abbr]]
+    lines = [STATION_NOW_VALUES_COLUMNS, *STATION_NOW_VALUES_ROWS[abbreviation]]
     return ("\r\n".join(lines) + "\r\n").encode("latin-1")
 
 
-def build_station_daily_values_csv(abbr: str, period: str) -> bytes:
+def build_station_daily_values_csv(abbreviation: str, period: str) -> bytes:
     """Build a station's daily file of a period, "recent" or "historical", the way MeteoSwiss publishes it."""
-    rows = STATION_AND_PERIOD_TO_DAYS_ROWS.get((abbr, period), ())
+    rows = STATION_AND_PERIOD_TO_DAYS_ROWS.get((abbreviation, period), ())
     lines = [STATION_DAILY_VALUES_COLUMNS, *rows]
     return ("\r\n".join(lines) + "\r\n").encode("latin-1")
 
@@ -253,9 +253,9 @@ def build_manual_site_table_csv() -> bytes:
     return ("\r\n".join(lines) + "\r\n").encode("latin-1")
 
 
-def build_manual_site_daily_values_csv(abbr: str, period: str) -> bytes:
+def build_manual_site_daily_values_csv(abbreviation: str, period: str) -> bytes:
     """Build a manual site's daily file of a period, "recent" or "historical", the way MeteoSwiss publishes it."""
-    rows = MANUAL_SITE_AND_PERIOD_TO_DAYS_ROWS.get((abbr, period), ())
+    rows = MANUAL_SITE_AND_PERIOD_TO_DAYS_ROWS.get((abbreviation, period), ())
     lines = [MANUAL_SITE_DAILY_VALUES_COLUMNS, *rows]
     return ("\r\n".join(lines) + "\r\n").encode("latin-1")
 

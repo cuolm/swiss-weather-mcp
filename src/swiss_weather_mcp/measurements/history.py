@@ -132,7 +132,7 @@ def _find_meteoswiss_station_daily_measurements(
         # The station table says on which day each station started measuring. A station that started after
         # the asked days has no values for them, so it is skipped without downloading its files.
         if station.data_since > last_day:
-            logger.info(f"Station {station.abbr} started on {station.data_since}, trying the next station")
+            logger.info(f"Station {station.abbreviation} started on {station.data_since}, trying the next station")
             continue
 
         all_days = meteoswiss_source.read_station_daily_measurements(station, first_day, last_day)
@@ -146,7 +146,7 @@ def _find_meteoswiss_station_daily_measurements(
         )
         if has_temperature:
             return asked_days
-        logger.info(f"Station {station.abbr} has no temperature for {described_days}, trying the next station")
+        logger.info(f"Station {station.abbreviation} has no temperature for {described_days}, trying the next station")
 
     # MeteoSwiss publishes the days of all stations together, so days after the newest row of every
     # station tried are not published yet

@@ -25,11 +25,11 @@ BRAUNWALD = SwisstopoPlace(
     altitude_m=1290.0, east_m=2718807.0, north_m=1199989.0,
 )
 GLARUS = MeteoSwissStation(
-    abbr="GLA", name="Glarus", canton="Glarus", altitude_m=517.0, east_m=2723757.0, north_m=1210567.0,
+    abbreviation="GLA", name="Glarus", canton="Glarus", altitude_m=517.0, east_m=2723757.0, north_m=1210567.0,
     data_since=date(1864, 1, 1), is_manual_site=False,
 )
 ELM = MeteoSwissStation(
-    abbr="ELM", name="Elm", canton="Glarus", altitude_m=958.0, east_m=2732266.0, north_m=1198424.0,
+    abbreviation="ELM", name="Elm", canton="Glarus", altitude_m=958.0, east_m=2732266.0, north_m=1198424.0,
     data_since=date(1878, 2, 1), is_manual_site=False,
 )
 
@@ -42,8 +42,8 @@ def count_downloads(source_fixture, file_name: str) -> int:
     return downloads
 
 
-def find_station(meteoswiss_source_fixture, abbr: str):
-    return meteoswiss_source_fixture._load_stations()[abbr]
+def find_station(meteoswiss_source_fixture, abbreviation: str):
+    return meteoswiss_source_fixture._load_stations()[abbreviation]
 
 
 # --- _parse_reference_timestamp ---
@@ -149,7 +149,7 @@ def test_read_station_daily_file_downloads_the_recent_days_again_when_old(
 def test_list_snow_stations_leaves_out_stations_without_snow_depth(meteoswiss_source_fixture):
     # UEB measures no snow depth, and KLO's has an end day
     snow_stations = meteoswiss_source_fixture.list_snow_stations()
-    assert [station.abbr for station in snow_stations] == ["SMA", "DAV"]
+    assert [station.abbreviation for station in snow_stations] == ["SMA", "DAV"]
 
 
 # --- read_snow_depth ---
@@ -173,7 +173,7 @@ def test_read_snow_depth_older_than_210_minutes(mocker, meteoswiss_source_fixtur
 def test_list_manual_sites_that_measured_the_snow_by_the_last_day(meteoswiss_source_fixture):
     # Stallikon measures the snow since 1998
     manual_sites = meteoswiss_source_fixture.list_manual_sites(date(1975, 7, 1))
-    assert [manual_site.abbr for manual_site in manual_sites] == ["SMA", "DAV"]
+    assert [manual_site.abbreviation for manual_site in manual_sites] == ["SMA", "DAV"]
     assert all(manual_site.is_manual_site for manual_site in manual_sites)
 
 
@@ -204,7 +204,7 @@ def test_read_station_daily_measurements_of_a_manual_site(source_fixture, meteos
 def test_read_all_stations_latest_measurements_skips_a_station_not_in_the_table(meteoswiss_source_fixture):
     # MRP is published in the all stations file, but the station table does not say where it is
     all_measurements = meteoswiss_source_fixture.read_all_stations_latest_measurements()
-    assert [measurements.station.abbr for measurements in all_measurements] == ["SMA", "UEB", "KLO", "DAV"]
+    assert [measurements.station.abbreviation for measurements in all_measurements] == ["SMA", "UEB", "KLO", "DAV"]
 
 
 def test_read_all_stations_latest_measurements_time_and_canton(meteoswiss_source_fixture):

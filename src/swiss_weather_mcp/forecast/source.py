@@ -104,7 +104,7 @@ FORECAST_POINT_RADIUS_M = 5000
 REGIONAL_POINT_IDS = {("213", "3"), ("230", "3"), ("242", "3")}
 
 
-class MeteoSwissPoint(NamedTuple):
+class ForecastPoint(NamedTuple):
     """One of the points of the MeteoSwiss point table."""
     point_id: str
     point_type_id: str
@@ -145,7 +145,7 @@ def _find_newest_complete_run_id(run_to_csv_file_urls: Dict[str, Dict[str, str]]
     return max(complete_run_ids)
 
 
-def _build_row_prefix(point: MeteoSwissPoint) -> bytes:
+def _build_row_prefix(point: ForecastPoint) -> bytes:
     """Return the start every row of a point has in a parameter file, such as b"800100;2;"."""
     return f"{point.point_id};{point.point_type_id};".encode()
 
@@ -166,9 +166,9 @@ class ForecastSource:
         self._run_checked_at: Optional[datetime] = None
         # A tool reads its files in parallel, and all of them must come from the same run
         self._run_lookup_lock = threading.Lock()
-        self._points: List[MeteoSwissPoint] = []
+        self._points: List[ForecastPoint] = []
 
-    def _load_points(self) -> List[MeteoSwissPoint]:
+    def _load_points(self) -> List[ForecastPoint]:
         """
         Load the point table once per process, downloading it when it is missing or old.
 
@@ -183,7 +183,7 @@ class ForecastSource:
         )
         points = []
         for row in point_table_rows:
-            point = MeteoSwissPoint(
+            point = ForecastPoint(
                 point_id=row["point_id"],
                 point_type_id=row["point_type_id"],
                 name=row["point_name"],
@@ -199,7 +199,7 @@ class ForecastSource:
         logger.info(f"Loaded {len(points)} forecast points")
         return points
 
-    def find_forecast_point(self, place: SwisstopoPlace) -> MeteoSwissPoint:
+    def find_forecast_point(self, place: SwisstopoPlace) -> ForecastPoint:
         """
         Find the point to forecast a place from.
 
@@ -299,7 +299,7 @@ class ForecastSource:
             logger.info(f"Deleting old cached run {folder.name}")
             shutil.rmtree(folder, ignore_errors=True)
 
-    def _ensure_parameter_file(self, parameter: str, point: MeteoSwissPoint, run_id: str, file_url: str) -> Path:
+    def _ensure_parameter_file(self, parameter: str, point: ForecastPoint, run_id: str, file_url: str) -> Path:
         """
         Return the cached file with this parameter for this point and run, downloading it if missing.
 
@@ -321,7 +321,7 @@ class ForecastSource:
         self._delete_old_cached_runs(run_id)
         return downloaded_file
 
-    def _read_point_values(self, parameter_file: Path, point: MeteoSwissPoint) -> Dict[datetime, float]:
+    def _read_point_values(self, parameter_file: Path, point: ForecastPoint) -> Dict[datetime, float]:
         """Read one point's values from a cached file, keyed by UTC timestamp."""
         row_prefix = _build_row_prefix(point)
         time_to_value: Dict[datetime, float] = {}
@@ -340,7 +340,7 @@ class ForecastSource:
 
         return time_to_value
 
-    def read_series(self, parameter: str, point: MeteoSwissPoint, run: ForecastRun) -> ForecastSeries:
+    def read_series(self, parameter: str, point: ForecastPoint, run: ForecastRun) -> ForecastSeries:
         """
         Read one parameter over the whole forecast window at one point, from the given run.
 

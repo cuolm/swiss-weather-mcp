@@ -10,11 +10,11 @@ BRAUNWALD = SwisstopoPlace(
     altitude_m=1290.0, east_m=2718807.0, north_m=1199989.0,
 )
 GLARUS = MeteoSwissStation(
-    abbr="GLA", name="Glarus", canton="Glarus", altitude_m=517.0, east_m=2723757.0, north_m=1210567.0,
+    abbreviation="GLA", name="Glarus", canton="Glarus", altitude_m=517.0, east_m=2723757.0, north_m=1210567.0,
     data_since=date(1864, 1, 1), is_manual_site=False,
 )
 ELM = MeteoSwissStation(
-    abbr="ELM", name="Elm", canton="Glarus", altitude_m=958.0, east_m=2732266.0, north_m=1198424.0,
+    abbreviation="ELM", name="Elm", canton="Glarus", altitude_m=958.0, east_m=2732266.0, north_m=1198424.0,
     data_since=date(1878, 2, 1), is_manual_site=False,
 )
 

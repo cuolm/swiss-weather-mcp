@@ -7,15 +7,15 @@ from fakes import EARLIER_RUN_ID, RUN_ID, FakeResponse, build_stac_item
 
 from swiss_weather_mcp.errors import CannotAnswerError
 from swiss_weather_mcp.forecast import parameters
-from swiss_weather_mcp.forecast.source import ForecastSource, MeteoSwissPoint
+from swiss_weather_mcp.forecast.source import ForecastPoint, ForecastSource
 from swiss_weather_mcp.places.place_source import SwisstopoPlace
 
 
 # Points of the fake point table
-ZURICH_8001 = MeteoSwissPoint("800100", "2", "Zürich", "8001", 409.0, 2683348.0, 1247414.0)
-ZURICH_8002 = MeteoSwissPoint("800200", "2", "Zürich", "8002", 431.0, 2682417.0, 1246175.0)
-DAVOS = MeteoSwissPoint("26", "1", "Davos", "", 1594.0, 2783519.0, 1187459.0)
-BUCHS_AARAU = MeteoSwissPoint("67", "1", "Buchs / Aarau", "", 387.0, 2648396.0, 1248370.0)
+ZURICH_8001 = ForecastPoint("800100", "2", "Zürich", "8001", 409.0, 2683348.0, 1247414.0)
+ZURICH_8002 = ForecastPoint("800200", "2", "Zürich", "8002", 431.0, 2682417.0, 1246175.0)
+DAVOS = ForecastPoint("26", "1", "Davos", "", 1594.0, 2783519.0, 1187459.0)
+BUCHS_AARAU = ForecastPoint("67", "1", "Buchs / Aarau", "", 387.0, 2648396.0, 1248370.0)
 
 ZURICH = SwisstopoPlace("Zürich", ("Ort",), 9, False, 418.0, 2683500.0, 1247184.0)
 MATTERHORN = SwisstopoPlace("Matterhorn", ("Alpiner Gipfel",), 0, False, 4478.0, 2617049.0, 1091673.0)

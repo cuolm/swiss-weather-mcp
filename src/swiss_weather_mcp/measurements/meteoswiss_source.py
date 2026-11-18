@@ -114,13 +114,13 @@ logger = logging.getLogger(__name__)
 
 STATION_TABLE_URL = "https://data.geo.admin.ch/ch.meteoschweiz.ogd-smn/ogd-smn_meta_stations.csv"
 DATA_INVENTORY_URL = "https://data.geo.admin.ch/ch.meteoschweiz.ogd-smn/ogd-smn_meta_datainventory.csv"
-STATION_NOW_VALUES_URL = "https://data.geo.admin.ch/ch.meteoschweiz.ogd-smn/{abbr}/ogd-smn_{abbr}_t_now.csv"
+STATION_NOW_VALUES_URL = "https://data.geo.admin.ch/ch.meteoschweiz.ogd-smn/{abbreviation}/ogd-smn_{abbreviation}_t_now.csv"
 # The period is RECENT_DAYS or HISTORICAL_DAYS
-STATION_DAILY_VALUES_URL = "https://data.geo.admin.ch/ch.meteoschweiz.ogd-smn/{abbr}/ogd-smn_{abbr}_d_{period}.csv"
+STATION_DAILY_VALUES_URL = "https://data.geo.admin.ch/ch.meteoschweiz.ogd-smn/{abbreviation}/ogd-smn_{abbreviation}_d_{period}.csv"
 ALL_STATIONS_LATEST_VALUES_URL = "https://data.geo.admin.ch/ch.meteoschweiz.messwerte-aktuell/VQHA80.csv"
 MANUAL_SITE_TABLE_URL = "https://data.geo.admin.ch/ch.meteoschweiz.ogd-nime/ogd-nime_meta_stations.csv"
 MANUAL_SITE_INVENTORY_URL = "https://data.geo.admin.ch/ch.meteoschweiz.ogd-nime/ogd-nime_meta_datainventory.csv"
-MANUAL_SITE_DAILY_VALUES_URL = "https://data.geo.admin.ch/ch.meteoschweiz.ogd-nime/{abbr}/ogd-nime_{abbr}_d_{period}.csv"
+MANUAL_SITE_DAILY_VALUES_URL = "https://data.geo.admin.ch/ch.meteoschweiz.ogd-nime/{abbreviation}/ogd-nime_{abbreviation}_d_{period}.csv"
 RECENT_DAYS = "recent"
 HISTORICAL_DAYS = "historical"
 
@@ -142,7 +142,7 @@ MISSING_VALUE_MARKERS = {"", "-"}
 
 class MeteoSwissStation(NamedTuple):
     """A SwissMetNet weather station or a manual site, as their station tables describe them."""
-    abbr: str
+    abbreviation: str
     name: str
     canton: str  # the full name, such as "Zürich"
     altitude_m: float
@@ -174,7 +174,7 @@ def _parse_station(row: Dict[str, str], is_manual_site: bool) -> MeteoSwissStati
     data_since = _parse_data_since(row["station_data_since"])
     canton = find_canton_name(row["station_canton"])
     return MeteoSwissStation(
-        abbr=row["station_abbr"],
+        abbreviation=row["station_abbr"],
         name=row["station_name"],
         canton=canton,
         altitude_m=float(row["station_height_masl"]),
@@ -247,7 +247,7 @@ class MeteoSwissMeasurementSource:
         abbreviation_to_station: Dict[str, MeteoSwissStation] = {}
         for row in station_table_rows:
             station = _parse_station(row, is_manual_site=False)
-            abbreviation_to_station[station.abbr] = station
+            abbreviation_to_station[station.abbreviation] = station
         # Published only once complete, so a parallel request never sees part of the table
         self._abbreviation_to_station = abbreviation_to_station
         logger.info(f"Loaded {len(abbreviation_to_station)} weather stations")
@@ -283,7 +283,7 @@ class MeteoSwissMeasurementSource:
         abbreviation_to_manual_site: Dict[str, MeteoSwissStation] = {}
         for row in manual_site_table_rows:
             manual_site = _parse_station(row, is_manual_site=True)
-            abbreviation_to_manual_site[manual_site.abbr] = manual_site
+            abbreviation_to_manual_site[manual_site.abbreviation] = manual_site
         # Published only once complete, so a parallel request never sees part of the table
         self._abbreviation_to_manual_site = abbreviation_to_manual_site
         logger.info(f"Loaded {len(abbreviation_to_manual_site)} manual sites")
@@ -314,9 +314,9 @@ class MeteoSwissMeasurementSource:
 
     def read_station_measurements(self, station: MeteoSwissStation) -> List[MeteoSwissStationMeasurements]:
         """Read every row of a station's now file, the oldest first."""
-        abbr = station.abbr.lower()
-        station_now_values_url = STATION_NOW_VALUES_URL.format(abbr=abbr)
-        station_now_values_file = self.cache_dir / f"ogd-smn_{abbr}_t_now.csv"
+        abbreviation = station.abbreviation.lower()
+        station_now_values_url = STATION_NOW_VALUES_URL.format(abbreviation=abbreviation)
+        station_now_values_file = self.cache_dir / f"ogd-smn_{abbreviation}_t_now.csv"
         station_now_values_rows = read_recent_csv_rows(
             station_now_values_url, station_now_values_file, STATION_NOW_VALUES_MAX_AGE
         )
@@ -335,15 +335,15 @@ class MeteoSwissMeasurementSource:
 
         Only the snow is read from a manual site's files.
         """
-        abbr = station.abbr.lower()
+        abbreviation = station.abbreviation.lower()
         daily_parameters: Sequence[str]
         if station.is_manual_site:
-            station_daily_values_url = MANUAL_SITE_DAILY_VALUES_URL.format(abbr=abbr, period=period)
-            station_daily_values_file = self.cache_dir / f"ogd-nime_{abbr}_d_{period}.csv"
+            station_daily_values_url = MANUAL_SITE_DAILY_VALUES_URL.format(abbreviation=abbreviation, period=period)
+            station_daily_values_file = self.cache_dir / f"ogd-nime_{abbreviation}_d_{period}.csv"
             daily_parameters = parameters.ALL_MANUAL_SITE_DAILY_PARAMETERS
         else:
-            station_daily_values_url = STATION_DAILY_VALUES_URL.format(abbr=abbr, period=period)
-            station_daily_values_file = self.cache_dir / f"ogd-smn_{abbr}_d_{period}.csv"
+            station_daily_values_url = STATION_DAILY_VALUES_URL.format(abbreviation=abbreviation, period=period)
+            station_daily_values_file = self.cache_dir / f"ogd-smn_{abbreviation}_d_{period}.csv"
             daily_parameters = parameters.ALL_DAILY_PARAMETERS
         station_daily_values_rows = read_recent_csv_rows(
             station_daily_values_url, station_daily_values_file, PERIOD_TO_MAX_AGE[period], serve_stale_on_error=True
@@ -402,7 +402,7 @@ class MeteoSwissMeasurementSource:
         snow_station_abbreviations = self._load_snow_station_abbreviations()
         snow_stations = []
         for station in abbreviation_to_station.values():
-            if station.abbr in snow_station_abbreviations:
+            if station.abbreviation in snow_station_abbreviations:
                 snow_stations.append(station)
         return snow_stations
 
@@ -425,7 +425,7 @@ class MeteoSwissMeasurementSource:
         manual_sites = []
         for manual_site in abbreviation_to_manual_site.values():
             # A site without a first snow day measures only the rain
-            first_snow_day = abbreviation_to_first_snow_day.get(manual_site.abbr)
+            first_snow_day = abbreviation_to_first_snow_day.get(manual_site.abbreviation)
             if first_snow_day is None:
                 continue
             if first_snow_day <= last_day:
