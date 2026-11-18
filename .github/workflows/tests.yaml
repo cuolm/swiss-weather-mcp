@@ -27,7 +27,7 @@ jobs:
       - name: Install Dependencies
         run: uv sync --locked --group dev
       - name: Run Pytest
-        run: uv run pytest
+        run: uv run pytest --cov=swiss_weather_mcp --cov-fail-under=90  # the tests cover 94 % today
 
   lint-and-types:
     name: Lint and Type Check
