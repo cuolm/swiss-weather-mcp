@@ -24,7 +24,7 @@ jobs:
           python-version: "3.11"
           enable-cache: true
       - name: Install Dependencies
-        run: uv sync --group dev
+        run: uv sync --locked --group dev
       - name: Run Pytest
         run: uv run pytest
 
