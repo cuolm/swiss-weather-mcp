@@ -200,8 +200,10 @@ class SwisstopoBoundarySource:
         if self._geopackage_file is None:
             return None
 
-        # A connection of its own for each call, as requests come from several threads
-        database_uri = f"file:{self._geopackage_file}?mode=ro"
+        # A connection of its own for each call, as requests come from several threads. as_uri escapes the
+        # characters a URL gives a meaning, such as "#" and "?", which a cache folder name may hold.
+        geopackage_uri = self._geopackage_file.resolve().as_uri()
+        database_uri = f"{geopackage_uri}?mode=ro"
         connection = sqlite3.connect(database_uri, uri=True)
         try:
             cursor = connection.execute(AREAS_AROUND_QUERY, (east_m, east_m, north_m, north_m))

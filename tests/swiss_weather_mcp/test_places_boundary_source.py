@@ -105,6 +105,13 @@ def test_find_area(boundary_source_fixture):
     assert boundary_source_fixture.find_area(2683200.0, 1247500.0) == Area("Zürich", "Gemeindegebiet", "Zürich")
 
 
+def test_find_area_in_a_cache_folder_with_url_characters(source_fixture, tmp_path):
+    # SQLite reads the GeoPackage path as a URL, in which "#", "?" and "%" have their own meaning
+    boundary_source = SwisstopoBoundarySource(tmp_path / "with#hash?and%25")
+    boundary_source.load_geopackage()
+    assert boundary_source.find_area(2683200.0, 1247500.0) == Area("Zürich", "Gemeindegebiet", "Zürich")
+
+
 def test_find_area_among_overlapping_boxes(boundary_source_fixture):
     boundary_source_fixture.load_geopackage()
     # The Blausee lake lies in the box of the Greifensee only
