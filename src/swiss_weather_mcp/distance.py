@@ -33,10 +33,10 @@ class GridPosition(Protocol):
 PositionT = TypeVar("PositionT", bound=GridPosition)
 
 
-def calculate_distance_m(place: GridPosition, position: GridPosition) -> float:
-    """Return the distance in metres between a place and a position."""
+def calculate_distance_m(first: GridPosition, second: GridPosition) -> float:
+    """Return the distance in metres between two positions."""
     # LV95 is a flat grid in metres, so Pythagoras is exact enough within Switzerland
-    return math.hypot(place.east_m - position.east_m, place.north_m - position.north_m)
+    return math.hypot(first.east_m - second.east_m, first.north_m - second.north_m)
 
 
 def calculate_weighted_distance_m(place: GridPosition, position: GridPosition) -> float:
