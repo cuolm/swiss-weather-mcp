@@ -98,14 +98,14 @@ class ChatLoop:
             logger.error(f"Tool {tool_name} failed: {error}")
             return f"Error calling tool {tool_name}: {error}"
 
-    def _format_assistant_message(self, message: ChatCompletionMessage) -> ChatCompletionAssistantMessageParam:
+    def _format_assistant_message(self, model_reply: ChatCompletionMessage) -> ChatCompletionAssistantMessageParam:
         """Keep only what the chat API needs from an assistant message: its text and its tool calls."""
         formatted_message: ChatCompletionAssistantMessageParam = {
             "role": "assistant",
-            "content": message.content or ""
+            "content": model_reply.content or ""
         }
 
-        if message.tool_calls:
+        if model_reply.tool_calls:
             formatted_message["tool_calls"] = [
                 {
                     "id": tool_call.id,  # each result has to reference the call it answers
@@ -115,7 +115,7 @@ class ChatLoop:
                         "arguments": tool_call.function.arguments,
                     }
                 }
-                for tool_call in message.tool_calls
+                for tool_call in model_reply.tool_calls
                 if isinstance(tool_call, ChatCompletionMessageFunctionToolCall)
             ]
 
@@ -133,18 +133,18 @@ class ChatLoop:
             completion = await self.llm_client.chat.completions.create(
                 model=self.model, messages=self.messages, tools=tools
             )
-            message = completion.choices[0].message
-            assistant_message = self._format_assistant_message(message)
+            model_reply = completion.choices[0].message
+            assistant_message = self._format_assistant_message(model_reply)
             self.messages.append(assistant_message)
 
             # A reply without tool calls is the model's final answer
-            if not message.tool_calls:
-                if message.content is None:  # the model sent no text
+            if not model_reply.tool_calls:
+                if model_reply.content is None:  # the model sent no text
                     return ""
                 else:
-                    return message.content
+                    return model_reply.content
 
-            for tool_call in message.tool_calls:
+            for tool_call in model_reply.tool_calls:
                 # Only function tools are offered, so no other kind of call comes back
                 if not isinstance(tool_call, ChatCompletionMessageFunctionToolCall):
                     continue
