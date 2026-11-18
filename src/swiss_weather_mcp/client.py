@@ -137,6 +137,7 @@ class ChatLoop:
             assistant_message = self._format_assistant_message(message)
             self.messages.append(assistant_message)
 
+            # A reply without tool calls is the final answer; its text can be None, so return "" then
             if not message.tool_calls:
                 return message.content or ""
 
