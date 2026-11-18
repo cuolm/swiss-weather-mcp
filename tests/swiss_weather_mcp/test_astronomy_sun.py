@@ -3,7 +3,7 @@ from datetime import date, datetime, timezone
 import pytest
 
 from swiss_weather_mcp.astronomy.sun import calculate_sun_day, calculate_sun_position
-from swiss_weather_mcp.formatting import SWISS_TZ
+from swiss_weather_mcp.swiss_time import SWISS_TZ
 
 
 ZURICH_LATITUDE_DEG = 47.37

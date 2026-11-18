@@ -8,7 +8,6 @@ import requests
 from ..distance import MAX_STATIONS_TRIED, calculate_weighted_distance_m, is_close, rank_by_weighted_distance
 from ..errors import CannotAnswerError
 from ..formatting import (
-    SWISS_TZ,
     DataFromField,
     PlaceFields,
     describe_distance_and_height,
@@ -17,6 +16,7 @@ from ..formatting import (
     round_to_tenth,
 )
 from ..places import SwisstopoPlace
+from ..swiss_time import SWISS_TZ
 from . import parameters
 from .meteoswiss_source import MeteoSwissMeasurementSource, MeteoSwissStationMeasurements
 from .slf_source import SLFMeasurementSource, SLFStation, SLFStationMeasurements

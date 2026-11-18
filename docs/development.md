@@ -75,6 +75,7 @@ swiss-weather-mcp/
 │   ├── polygons.py         # Whether a position lies inside polygons with holes
 │   ├── coordinates.py      # WGS84 latitude and longitude to LV95 and back
 │   ├── cantons.py          # The names of the cantons by their abbreviation
+│   ├── swiss_time.py       # The Swiss time zone
 │   ├── formatting.py       # Times, wind directions and height differences in the answers
 │   ├── errors.py           # The error for questions the data cannot answer
 │   ├── log.py              # Logging setup

@@ -17,7 +17,7 @@ import math
 from datetime import date, datetime, time
 from typing import NamedTuple, Optional
 
-from ..formatting import SWISS_TZ
+from ..swiss_time import SWISS_TZ
 from .series import MOON_ARGUMENTS, MOON_BETA, MOON_PLON, MOON_U, MOON_V, MOON_W, SUN_ARGUMENTS, SUN_PLON, SUN_RP
 from .sky import (
     ARCSECONDS_PER_DEGREE,

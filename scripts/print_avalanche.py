@@ -5,9 +5,9 @@ import sys
 
 from swiss_weather_mcp.avalanche.service import AvalancheService
 from swiss_weather_mcp.avalanche.source import SLFBulletinSource
+from swiss_weather_mcp.downloads import CACHE_DIR
 from swiss_weather_mcp.errors import CannotAnswerError
 from swiss_weather_mcp.places import PlaceFinder
-from swiss_weather_mcp.server import CACHE_DIR
 
 
 DEFAULT_LOCATION = "Braunwald"

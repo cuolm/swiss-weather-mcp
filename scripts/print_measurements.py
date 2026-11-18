@@ -6,13 +6,13 @@ from collections.abc import Awaitable
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+from swiss_weather_mcp.downloads import CACHE_DIR
 from swiss_weather_mcp.errors import CannotAnswerError
 from swiss_weather_mcp.measurements.extremes import EXTREME_NAME_TO_EXTREME
 from swiss_weather_mcp.measurements.meteoswiss_source import MeteoSwissMeasurementSource
 from swiss_weather_mcp.measurements.service import MeasurementService
 from swiss_weather_mcp.measurements.slf_source import SLFMeasurementSource
 from swiss_weather_mcp.places import PlaceFinder
-from swiss_weather_mcp.server import CACHE_DIR
 
 
 DEFAULT_LOCATION = "Zürich"

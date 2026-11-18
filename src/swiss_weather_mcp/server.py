@@ -2,23 +2,21 @@
 import argparse
 import functools
 import logging
-import os
 import sys
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
-from pathlib import Path
 from typing import Annotated, Any, Optional
 
 import requests
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import ToolAnnotations
-from platformdirs import user_cache_path
 from pydantic import Field
 
 from .astronomy.service import AstronomyService, MoonAnswer, SunAnswer
 from .avalanche.service import AvalancheService, BulletinAnswer
 from .avalanche.source import SLFBulletinSource
+from .downloads import CACHE_DIR
 from .errors import CannotAnswerError
 from .forecast.service import (
     CloudCoverAnswer,
@@ -31,7 +29,6 @@ from .forecast.service import (
     WindAnswer,
 )
 from .forecast.source import ForecastSource
-from .formatting import SWISS_TZ
 from .log import LOG_LEVELS, LogLevel, setup_logging
 from .measurements.current import CurrentAnswer
 from .measurements.extremes import ExtremeName, ExtremesAnswer
@@ -41,14 +38,11 @@ from .measurements.service import MeasurementService
 from .measurements.slf_source import SLFMeasurementSource
 from .measurements.snow import SnowAnswer
 from .places import PlaceFinder
+from .swiss_time import SWISS_TZ
 
 
 logger = logging.getLogger(__name__)
 
-# Shared, OS-standard cache location (survives across working directories the server may be launched from).
-# Override with SWISS_WEATHER_MCP_CACHE_DIR, e.g. to isolate cache location in tests or Docker.
-DEFAULT_CACHE_DIR = user_cache_path("swiss-weather-mcp")
-CACHE_DIR = Path(os.environ.get("SWISS_WEATHER_MCP_CACHE_DIR", DEFAULT_CACHE_DIR))
 
 # The optional near argument of every tool that takes a location. The example keeps a small model
 # from putting the village into location, or swapping the two, which it did without it.

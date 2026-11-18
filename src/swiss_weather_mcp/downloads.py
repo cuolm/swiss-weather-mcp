@@ -3,11 +3,13 @@ Download files and cache them on disk.
 
 Sources: data.geo.admin.ch, the Swiss open data portal that publishes the MeteoSwiss and the
 swisstopo data, and the SLF measurement and bulletin APIs. Read the cached MeteoSwiss CSV files and
-SLF JSON answers, and keep the newest edition of a swisstopo dataset.
+SLF JSON answers, and keep the newest edition of a swisstopo dataset. The cache lives in the OS cache
+folder, or in SWISS_WEATHER_MCP_CACHE_DIR when it is set.
 """
 import csv
 import json
 import logging
+import os
 import threading
 import uuid
 import weakref
@@ -17,6 +19,7 @@ from pathlib import Path
 from typing import Any, BinaryIO, Optional
 
 import requests
+from platformdirs import user_cache_path
 
 
 logger = logging.getLogger(__name__)
@@ -24,6 +27,10 @@ logger = logging.getLogger(__name__)
 REQUEST_TIMEOUT_SECONDS = 60
 DOWNLOAD_CHUNK_SIZE_BYTES = 1024 * 1024
 SWISSTOPO_EDITION_CHECK_INTERVAL = timedelta(days=30)
+# Shared, OS-standard cache location (survives across working directories the server may be launched from).
+# Override with SWISS_WEATHER_MCP_CACHE_DIR, e.g. to isolate cache location in tests or Docker.
+DEFAULT_CACHE_DIR = user_cache_path("swiss-weather-mcp")
+CACHE_DIR = Path(os.environ.get("SWISS_WEATHER_MCP_CACHE_DIR", DEFAULT_CACHE_DIR))
 
 
 # One lock per file being downloaded, so parallel requests download a missing file only once. The locks

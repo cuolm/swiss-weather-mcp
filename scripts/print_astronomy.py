@@ -5,9 +5,9 @@ import sys
 from datetime import datetime
 
 from swiss_weather_mcp.astronomy.service import AstronomyService
-from swiss_weather_mcp.formatting import SWISS_TZ
+from swiss_weather_mcp.downloads import CACHE_DIR
 from swiss_weather_mcp.places import PlaceFinder
-from swiss_weather_mcp.server import CACHE_DIR
+from swiss_weather_mcp.swiss_time import SWISS_TZ
 
 
 DEFAULT_LOCATION = "Zürich"

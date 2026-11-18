@@ -7,8 +7,9 @@ import requests
 
 from ..distance import MAX_STATIONS_TRIED, is_close, rank_by_weighted_distance
 from ..errors import CannotAnswerError
-from ..formatting import SWISS_TZ, DataFromField, describe_distance_and_height, format_swiss_time, round_to_tenth
+from ..formatting import DataFromField, describe_distance_and_height, format_swiss_time, round_to_tenth
 from ..places import SwisstopoPlace
+from ..swiss_time import SWISS_TZ
 from .meteoswiss_source import MeteoSwissMeasurementSource, MeteoSwissStation
 from .slf_source import SLFMeasurementSource, SLFStation
 from .snow_values import LatestNewSnow, LatestSnowDepth, SnowStation

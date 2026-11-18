@@ -12,7 +12,7 @@ from collections.abc import Sequence
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Optional
 
-from ..formatting import SWISS_TZ
+from ..swiss_time import SWISS_TZ
 from .series import COS, Term
 
 

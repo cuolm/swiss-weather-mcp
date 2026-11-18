@@ -4,11 +4,11 @@ import json
 import sys
 from datetime import datetime, time, timedelta
 
+from swiss_weather_mcp.downloads import CACHE_DIR
 from swiss_weather_mcp.forecast.service import ForecastService
 from swiss_weather_mcp.forecast.source import ForecastSource
-from swiss_weather_mcp.formatting import SWISS_TZ
 from swiss_weather_mcp.places import PlaceFinder
-from swiss_weather_mcp.server import CACHE_DIR
+from swiss_weather_mcp.swiss_time import SWISS_TZ
 
 
 DEFAULT_LOCATION = "Zürich"
