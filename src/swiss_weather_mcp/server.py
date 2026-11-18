@@ -609,7 +609,11 @@ class SwissWeatherMCPServer:
                 str: For example "Today is Wednesday, 2026-09-23T13:02 (Swiss time)".
             """
             now = datetime.now(SWISS_TZ)
-            return f"Today is {now:%A}, {now:%Y-%m-%dT%H:%M} (Swiss time)"
+            answer = f"Today is {now:%A}, {now:%Y-%m-%dT%H:%M} (Swiss time)"
+            # Logged as _handle_tool_call logs the other tools, which it wraps
+            logger.info("current_date_and_time: {}")
+            logger.debug(f"current_date_and_time answered: {answer}")
+            return answer
 
     def run(self, transport: str, host: str, port: int) -> None:
         """Serve the tools over stdio, or over streamable HTTP on host and port, until the process stops."""

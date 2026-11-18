@@ -116,8 +116,9 @@ def _describe_meteoswiss_station(
     )
 
 
-def _find_measurements_at(all_measurements: list[MeteoSwissStationMeasurements],
-                          measured_at: datetime) -> Optional[MeteoSwissStationMeasurements]:
+def _find_measurements_at(
+    all_measurements: list[MeteoSwissStationMeasurements], measured_at: datetime
+) -> Optional[MeteoSwissStationMeasurements]:
     """Find the measurements of a time, or None when the station published none for it."""
     for measurements in all_measurements:
         if measurements.measured_at == measured_at:
