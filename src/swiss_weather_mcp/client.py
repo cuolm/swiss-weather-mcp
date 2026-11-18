@@ -65,7 +65,8 @@ class ChatLoop:
         self.model = model
         self.messages: List[ChatCompletionMessageParam] = []
 
-        # The server's guidance on how its tools work together, which MCP clients put into the system prompt
+        # The server sends instructions on how to use its tools when it connects;
+        # the MCP types suggest giving them to the model in the system prompt
         instructions = mcp_client.instructions
         if instructions:
             self.messages.append({"role": "system", "content": instructions})
