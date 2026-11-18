@@ -17,6 +17,7 @@ from typing import Any, BinaryIO, Callable, Dict, List, Optional
 
 import requests
 
+
 logger = logging.getLogger(__name__)
 
 REQUEST_TIMEOUT_SECONDS = 60

@@ -12,6 +12,7 @@ What each series gives:
 """
 from typing import NamedTuple, Tuple
 
+
 SIN = "sin"
 COS = "cos"
 

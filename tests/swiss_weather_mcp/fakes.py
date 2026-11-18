@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from zoneinfo import ZoneInfo
 
+
 POINT_TABLE_COLUMNS = (
     "point_id;point_type_id;station_abbr;postal_code;point_name;point_type_de;point_type_fr;"
     "point_type_it;point_type_en;point_height_masl;point_coordinates_lv95_east;"

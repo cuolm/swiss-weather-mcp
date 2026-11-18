@@ -63,6 +63,7 @@ from ..downloads import read_recent_json
 from ..places import SwisstopoPlace
 from ..polygons import Polygon, Ring, polygons_contain
 
+
 logger = logging.getLogger(__name__)
 
 BULLETIN_URL = "https://aws.slf.ch/api/bulletin/caaml/v4/en/geojson"

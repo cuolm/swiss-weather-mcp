@@ -1,9 +1,9 @@
 from datetime import date, datetime, timedelta, timezone
 
 import requests
-
 from fakes import MEASUREMENTS_NOW
-from swiss_weather_mcp.measurements.snow_values import SnowStationDailyMeasurements, LatestNewSnow, LatestSnowDepth
+
+from swiss_weather_mcp.measurements.snow_values import LatestNewSnow, LatestSnowDepth, SnowStationDailyMeasurements
 
 
 def find_snow_station(slf_source_fixture, code: str):

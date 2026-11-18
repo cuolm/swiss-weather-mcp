@@ -2,6 +2,7 @@ import pytest
 
 from swiss_weather_mcp.coordinates import calculate_lv95_east_m, calculate_lv95_north_m
 
+
 ARCSECONDS_PER_DEGREE = 3600
 
 

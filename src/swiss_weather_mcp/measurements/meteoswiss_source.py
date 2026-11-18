@@ -104,10 +104,11 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Dict, List, NamedTuple, Optional, Sequence, Set
 
-from . import parameters
-from ..downloads import read_recent_csv_rows
 from ..cantons import find_canton_name
-from .snow_values import SNOW_DEPTH_MAX_AGE, SnowStationDailyMeasurements, LatestSnowDepth
+from ..downloads import read_recent_csv_rows
+from . import parameters
+from .snow_values import SNOW_DEPTH_MAX_AGE, LatestSnowDepth, SnowStationDailyMeasurements
+
 
 logger = logging.getLogger(__name__)
 

@@ -9,6 +9,7 @@ from swiss_weather_mcp.errors import CannotAnswerError
 from swiss_weather_mcp.places import PlaceFinder
 from swiss_weather_mcp.server import CACHE_DIR
 
+
 DEFAULT_LOCATION = "Braunwald"
 
 

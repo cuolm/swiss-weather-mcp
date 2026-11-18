@@ -20,9 +20,16 @@ from typing import List, NamedTuple, Optional, Tuple
 from ..formatting import SWISS_TZ
 from .series import MOON_ARGUMENTS, MOON_BETA, MOON_PLON, MOON_U, MOON_V, MOON_W, SUN_ARGUMENTS, SUN_PLON, SUN_RP
 from .sky import (
-    ARCSECONDS_PER_DEGREE, calculate_altitude_deg, calculate_centuries_since_1900, calculate_ecliptic_longitude_deg,
-    calculate_fundamental_arguments_rad, calculate_trigonometric_series, find_crossings, list_minutes_of_day,
+    ARCSECONDS_PER_DEGREE,
+    calculate_altitude_deg,
+    calculate_centuries_since_1900,
+    calculate_ecliptic_longitude_deg,
+    calculate_fundamental_arguments_rad,
+    calculate_trigonometric_series,
+    find_crossings,
+    list_minutes_of_day,
 )
+
 
 # The scaling factor Δ of the Moon, section V, which gives its distance in Earth radii from U
 MOON_DISTANCE_SCALE_EARTH_RADII = 60.40974

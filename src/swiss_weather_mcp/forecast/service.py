@@ -4,12 +4,13 @@ import logging
 from datetime import date, datetime, timedelta, timezone
 from typing import List, Optional, Tuple, TypedDict
 
-from . import parameters
 from ..distance import is_close
 from ..errors import CannotAnswerError
 from ..formatting import PlaceFields, describe_distance_and_height, find_compass_point, format_swiss_time
 from ..places import PlaceFinder, SwisstopoPlace
+from . import parameters
 from .source import ForecastRun, ForecastSeries, ForecastSource, MeteoSwissPoint
+
 
 logger = logging.getLogger(__name__)
 

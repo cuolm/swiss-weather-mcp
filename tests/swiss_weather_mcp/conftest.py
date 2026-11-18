@@ -2,28 +2,47 @@ from datetime import datetime
 
 import pytest
 import requests
-
 from fakes import (
-    ALL_STATIONS_LATEST_VALUES_CSV, DATA_INVENTORY_CSV, MANUAL_SITE_INVENTORY_CSV, MEASUREMENTS_NOW, RUN_ID,
+    ALL_STATIONS_LATEST_VALUES_CSV,
+    DATA_INVENTORY_CSV,
+    MANUAL_SITE_INVENTORY_CSV,
+    MEASUREMENTS_NOW,
+    RUN_ID,
     SLF_CODE_TO_SNOW_HISTORY_ROWS,
-    FakeResponse, build_avalanche_bulletins_geojson, build_boundaries_archive, build_boundaries_editions,
-    build_manual_site_daily_values_csv, build_manual_site_table_csv, build_parameter_csv,
-    build_place_names_archive, build_place_names_editions, build_point_table_csv,
-    build_slf_all_manual_sites_daily_snow_json, build_slf_daily_snow_json,
-    build_slf_measurements_json, build_slf_snow_history_csv, build_slf_stations_json, build_slf_manual_site_days_json,
-    build_slf_manual_sites_json, build_stac_item, build_station_daily_values_csv, build_station_now_values_csv,
+    FakeResponse,
+    build_avalanche_bulletins_geojson,
+    build_boundaries_archive,
+    build_boundaries_editions,
+    build_manual_site_daily_values_csv,
+    build_manual_site_table_csv,
+    build_parameter_csv,
+    build_place_names_archive,
+    build_place_names_editions,
+    build_point_table_csv,
+    build_slf_all_manual_sites_daily_snow_json,
+    build_slf_daily_snow_json,
+    build_slf_manual_site_days_json,
+    build_slf_manual_sites_json,
+    build_slf_measurements_json,
+    build_slf_snow_history_csv,
+    build_slf_stations_json,
+    build_stac_item,
+    build_station_daily_values_csv,
+    build_station_now_values_csv,
     build_station_table_csv,
 )
+
 from swiss_weather_mcp.avalanche.source import SLFBulletinSource
 from swiss_weather_mcp.forecast.service import ForecastService
 from swiss_weather_mcp.forecast.source import ForecastSource
+from swiss_weather_mcp.measurements.meteoswiss_source import MeteoSwissMeasurementSource
+from swiss_weather_mcp.measurements.service import MeasurementService
+from swiss_weather_mcp.measurements.slf_source import SLFMeasurementSource
 from swiss_weather_mcp.places.boundary_source import SwisstopoBoundarySource
 from swiss_weather_mcp.places.finder import PlaceFinder
-from swiss_weather_mcp.measurements.service import MeasurementService
-from swiss_weather_mcp.measurements.meteoswiss_source import MeteoSwissMeasurementSource
-from swiss_weather_mcp.measurements.slf_source import SLFMeasurementSource
 from swiss_weather_mcp.places.lookup import SwisstopoPlaceLookup
 from swiss_weather_mcp.places.place_source import SwisstopoPlaceSource
+
 
 NETWORK_BLOCKED_MESSAGE = "Tests must not use the network; give the test a fake requests.get"
 

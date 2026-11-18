@@ -8,6 +8,7 @@ from ..formatting import format_swiss_time
 from ..places import PlaceFinder, SwisstopoPlace
 from .source import AvalancheBulletin, AvalancheProblem, DangerRating, Elevation, SLFBulletinSource
 
+
 logger = logging.getLogger(__name__)
 
 # The danger levels, https://www.slf.ch/en/avalanche-bulletin-and-snow-situation/about-the-avalanche-bulletin/danger-levels/

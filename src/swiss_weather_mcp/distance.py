@@ -2,6 +2,7 @@
 import math
 from typing import Iterable, List, Optional, Protocol, TypeVar
 
+
 # Weather changes more with height than with distance: 1 m of height gap counts like 20 m farther away
 METRES_PER_HEIGHT_METRE = 20
 METRES_PER_KILOMETRE = 1000

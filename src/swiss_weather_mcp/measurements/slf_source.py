@@ -118,10 +118,11 @@ from typing import Any, Dict, List, NamedTuple, Optional
 
 import requests
 
+from ..cantons import find_canton_name
 from ..coordinates import calculate_lv95_east_m, calculate_lv95_north_m
 from ..downloads import ensure_recent_file, read_recent_json
-from ..cantons import find_canton_name
-from .snow_values import SNOW_DEPTH_MAX_AGE, SnowStationDailyMeasurements, LatestNewSnow, LatestSnowDepth
+from .snow_values import SNOW_DEPTH_MAX_AGE, LatestNewSnow, LatestSnowDepth, SnowStationDailyMeasurements
+
 
 logger = logging.getLogger(__name__)
 

@@ -15,9 +15,16 @@ from typing import NamedTuple, Optional
 
 from .series import SUN_ARGUMENTS, SUN_PLON
 from .sky import (
-    ARCSECONDS_PER_DEGREE, calculate_altitude_deg, calculate_centuries_since_1900, calculate_ecliptic_longitude_deg,
-    calculate_fundamental_arguments_rad, calculate_trigonometric_series, find_crossings, list_minutes_of_day,
+    ARCSECONDS_PER_DEGREE,
+    calculate_altitude_deg,
+    calculate_centuries_since_1900,
+    calculate_ecliptic_longitude_deg,
+    calculate_fundamental_arguments_rad,
+    calculate_trigonometric_series,
+    find_crossings,
+    list_minutes_of_day,
 )
+
 
 # Equation (5), the obliquity of the ecliptic (the tilt of the Earth's axis), and the nutation in
 # longitude after it, in arcseconds

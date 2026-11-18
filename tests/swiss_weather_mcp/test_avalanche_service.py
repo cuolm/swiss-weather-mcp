@@ -3,12 +3,18 @@ import logging
 import pytest
 
 from swiss_weather_mcp.avalanche.service import (
-    MAP_URL, SOURCE, AvalancheService, _build_danger_level_fields, _describe_heights, _format_danger_level,
+    MAP_URL,
+    SOURCE,
+    AvalancheService,
+    _build_danger_level_fields,
+    _describe_heights,
+    _format_danger_level,
     build_bulletin_answer,
 )
 from swiss_weather_mcp.avalanche.source import DangerRating, Elevation
 from swiss_weather_mcp.errors import CannotAnswerError
 from swiss_weather_mcp.places.place_source import SwisstopoPlace
+
 
 # Not in the fake swissNAMES3D archive, so its answer is built without the place finder
 BRAUNWALD = SwisstopoPlace(

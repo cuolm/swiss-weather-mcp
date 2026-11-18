@@ -28,6 +28,7 @@ from typing import Dict, List
 
 from .place_source import SwisstopoPlace
 
+
 # What may follow the query at the start of a longer name, such as "davos" in "davos dorf"
 NAME_SEPARATORS = (" ", "-", "/", "(", ",")
 # What separates the words of a name, such as "Piano della Greina" or "Mümliswil-Ramiswil"

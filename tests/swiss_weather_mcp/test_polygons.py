@@ -1,5 +1,6 @@
 from swiss_weather_mcp.polygons import polygons_contain, ring_contains
 
+
 # A square with a square hole, as a list of polygons, each its outer ring followed by its holes
 SQUARE_WITH_HOLE = [[
     [(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0), (0.0, 0.0)],

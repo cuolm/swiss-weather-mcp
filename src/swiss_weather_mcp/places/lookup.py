@@ -37,6 +37,7 @@ from ..distance import calculate_distance_m
 from .place_source import OBJECT_TYPE_TO_NAME, SETTLEMENT_TYPES, SwisstopoPlace, SwisstopoPlaceSource
 from .suggestions import find_similar_places
 
+
 logger = logging.getLogger(__name__)
 
 # Rows of the same lookup name this close together are one place

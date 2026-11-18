@@ -12,6 +12,7 @@ from .meteoswiss_source import MeteoSwissMeasurementSource, MeteoSwissStation
 from .slf_source import SLFMeasurementSource, SLFStation
 from .snow_values import LatestNewSnow, LatestSnowDepth, SnowStation
 
+
 logger = logging.getLogger(__name__)
 
 # Snow changes with height and terrain, so a station farther than this by distance plus 20 times the

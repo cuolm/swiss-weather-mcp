@@ -4,6 +4,7 @@ import pytest
 
 from swiss_weather_mcp.astronomy.sky import find_crossings, list_minutes_of_day
 
+
 MIDNIGHT = datetime(2026, 10, 28, tzinfo=timezone.utc)
 MINUTE = timedelta(minutes=1)
 # Six minutes from midnight, and a made-up altitude at each: rising past 0° and falling past it again

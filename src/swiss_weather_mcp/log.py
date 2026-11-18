@@ -3,6 +3,7 @@ import logging
 import logging.config
 from typing import Literal, get_args
 
+
 LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 LOG_LEVELS = list(get_args(LogLevel))
 

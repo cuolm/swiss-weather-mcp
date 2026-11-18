@@ -8,6 +8,7 @@ from ..places import PlaceFinder
 from .moon import calculate_moon_day
 from .sun import calculate_sun_day
 
+
 HALF_A_MINUTE = timedelta(seconds=30)
 
 # The Unicode moon symbols, named like the phases, U+1F311 to U+1F318

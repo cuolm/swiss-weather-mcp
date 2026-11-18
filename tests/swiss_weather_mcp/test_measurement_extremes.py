@@ -3,9 +3,13 @@ from datetime import date
 import pytest
 
 from swiss_weather_mcp.measurements.extremes import (
-    MeteoSwissStationValue, _build_canton_rows, _build_sunshine_canton_rows, _find_sunshine_class,
+    MeteoSwissStationValue,
+    _build_canton_rows,
+    _build_sunshine_canton_rows,
+    _find_sunshine_class,
 )
 from swiss_weather_mcp.measurements.meteoswiss_source import MeteoSwissStation
+
 
 FLUNTERN = MeteoSwissStation(
     abbr="SMA", name="Zürich / Fluntern", canton="Zürich", altitude_m=604.0, east_m=2685223.0, north_m=1248410.0,

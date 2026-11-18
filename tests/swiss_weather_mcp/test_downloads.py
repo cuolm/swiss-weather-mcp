@@ -9,6 +9,7 @@ import requests
 from swiss_weather_mcp import downloads
 from swiss_weather_mcp.downloads import ensure_file, ensure_recent_file
 
+
 FILE_URL = "https://data.geo.admin.ch/ch.meteoschweiz.ogd-smn/ogd-smn_meta_stations.csv"
 OTHER_FILE_URL = "https://data.geo.admin.ch/ch.meteoschweiz.ogd-smn/ogd-smn_meta_datainventory.csv"
 MAX_AGE = timedelta(days=7)

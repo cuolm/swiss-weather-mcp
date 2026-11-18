@@ -9,6 +9,7 @@ from swiss_weather_mcp.formatting import SWISS_TZ
 from swiss_weather_mcp.places import PlaceFinder
 from swiss_weather_mcp.server import CACHE_DIR
 
+
 DEFAULT_LOCATION = "Zürich"
 
 

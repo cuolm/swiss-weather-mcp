@@ -5,17 +5,21 @@ from typing import Dict, List, Literal, NotRequired, Optional, TypedDict
 
 import requests
 
-from . import parameters
 from ..distance import MAX_STATIONS_TRIED, is_close, rank_by_weighted_distance
 from ..errors import CannotAnswerError
 from ..formatting import DataFromField, describe_distance_and_height
 from ..places import SwisstopoPlace
+from . import parameters
 from .meteoswiss_source import MeteoSwissMeasurementSource, MeteoSwissStation, MeteoSwissStationMeasurements
 from .slf_source import SLFMeasurementSource
 from .snow import (
-    MAX_SNOW_STATION_WEIGHTED_DISTANCE_M, describe_closest_snow_station, describe_snow_station, list_slf_snow_stations,
+    MAX_SNOW_STATION_WEIGHTED_DISTANCE_M,
+    describe_closest_snow_station,
+    describe_snow_station,
+    list_slf_snow_stations,
 )
-from .snow_values import SnowStationDailyMeasurements, SnowStation
+from .snow_values import SnowStation, SnowStationDailyMeasurements
+
 
 logger = logging.getLogger(__name__)
 

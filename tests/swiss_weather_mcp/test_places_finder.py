@@ -9,6 +9,7 @@ from swiss_weather_mcp.errors import CannotAnswerError
 from swiss_weather_mcp.places.finder import _find_obvious_place
 from swiss_weather_mcp.places.place_source import SwisstopoPlace
 
+
 # Long enough that a request comes while the background load is still downloading
 SLOW_DOWNLOAD_SECONDS = 0.2
 # A held back download goes on after this at the latest, so a failing test does not hang

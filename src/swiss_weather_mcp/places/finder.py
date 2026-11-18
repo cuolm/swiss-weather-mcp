@@ -60,6 +60,7 @@ from .boundary_source import SwisstopoBoundarySource
 from .lookup import SwisstopoPlaceLookup
 from .place_source import SwisstopoPlace, SwisstopoPlaceSource
 
+
 logger = logging.getLogger(__name__)
 
 # A place farther than this from nearby_location is not the one the user means

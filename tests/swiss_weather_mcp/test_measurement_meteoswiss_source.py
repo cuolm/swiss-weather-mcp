@@ -2,15 +2,18 @@ import os
 import time
 from datetime import date, datetime, timedelta, timezone
 
-
 from fakes import MEASUREMENTS_NOW
+
 from swiss_weather_mcp.distance import calculate_weighted_distance_m
 from swiss_weather_mcp.measurements import parameters
 from swiss_weather_mcp.measurements.meteoswiss_source import (
-    MeteoSwissStation, _list_periods, _parse_reference_timestamp,
+    MeteoSwissStation,
+    _list_periods,
+    _parse_reference_timestamp,
 )
 from swiss_weather_mcp.measurements.snow_values import LatestSnowDepth
 from swiss_weather_mcp.places.place_source import SwisstopoPlace
+
 
 # How far back a cached file is dated to make it older than the 5 minutes it is kept
 OLD_FILE_AGE_SECONDS = 10 * 60

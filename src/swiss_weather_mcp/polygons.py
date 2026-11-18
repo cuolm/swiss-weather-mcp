@@ -19,6 +19,7 @@ inside the polygon when it is inside the outer ring and in none of its holes.
 """
 from typing import List, Optional, Tuple
 
+
 # A corner is (east, north) in metres, a ring a closed list of corners, and a polygon its outer ring
 # followed by its holes
 Corner = Tuple[float, float]

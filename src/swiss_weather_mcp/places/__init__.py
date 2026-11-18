@@ -9,4 +9,5 @@ Find the place a user means.
 from .finder import PlaceFinder
 from .place_source import SwisstopoPlace
 
+
 __all__ = ["PlaceFinder", "SwisstopoPlace"]

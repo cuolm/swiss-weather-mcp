@@ -81,11 +81,12 @@ from typing import Dict, List, NamedTuple, Optional
 
 import requests
 
-from . import parameters
 from ..distance import calculate_distance_m, rank_by_weighted_distance
-from ..errors import CannotAnswerError
 from ..downloads import REQUEST_TIMEOUT_SECONDS, ensure_file, read_recent_csv_rows
+from ..errors import CannotAnswerError
 from ..places import SwisstopoPlace
+from . import parameters
+
 
 logger = logging.getLogger(__name__)
 

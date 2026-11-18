@@ -5,6 +5,7 @@ import pytest
 from swiss_weather_mcp.astronomy.moon import calculate_moon_day, calculate_moon_position
 from swiss_weather_mcp.formatting import SWISS_TZ
 
+
 ZURICH_LATITUDE_DEG = 47.37
 ZURICH_LONGITUDE_DEG = 8.54
 

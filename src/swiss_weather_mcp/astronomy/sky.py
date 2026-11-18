@@ -14,6 +14,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 from ..formatting import SWISS_TZ
 from .series import COS, Term
 
+
 # The paper's epoch, 1 January 2000 at 12:00 (2000 January 1.5 in the paper), Julian date 2451545.0.
 # The paper's time is ephemeris time, but it says universal time can be used instead, as no object
 # moves 1' in the less than 90 s between them.

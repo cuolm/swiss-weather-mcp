@@ -4,8 +4,8 @@ import time
 from datetime import date
 
 import pytest
-
 from fakes import RUN_ID, build_swiss_time
+
 from swiss_weather_mcp.errors import CannotAnswerError
 from swiss_weather_mcp.forecast.parameters import PICTOGRAM_CODE_TO_WEATHER
 from swiss_weather_mcp.forecast.service import _build_forecast_point_fields, _describe_pictogram

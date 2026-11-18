@@ -1,4 +1,6 @@
 """The error for a question the data cannot answer."""
+
+
 class CannotAnswerError(Exception):
     """
     A question the data cannot answer.

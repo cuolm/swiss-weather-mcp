@@ -1,7 +1,10 @@
 from datetime import datetime, timezone
 
 from swiss_weather_mcp.avalanche.source import (
-    DangerRating, Elevation, _convert_html_to_text, _parse_problem,
+    DangerRating,
+    Elevation,
+    _convert_html_to_text,
+    _parse_problem,
 )
 from swiss_weather_mcp.places.place_source import SwisstopoPlace
 

@@ -1,9 +1,9 @@
 """Build the measurements_extremes answer: where in Switzerland a value is at its extreme now or this morning."""
 from typing import Any, Dict, List, Literal, NamedTuple, NotRequired, Optional, TypedDict, Union
 
-from . import parameters
 from ..errors import CannotAnswerError
 from ..formatting import format_swiss_time
+from . import parameters
 from .meteoswiss_source import MeteoSwissMeasurementSource, MeteoSwissStation, MeteoSwissStationMeasurements
 from .slf_source import SLFMeasurementSource, SLFMorningSnow, SLFStation
 

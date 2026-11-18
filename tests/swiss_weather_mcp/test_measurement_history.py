@@ -2,17 +2,22 @@ from datetime import date, datetime, timedelta
 
 import pytest
 import requests
-
 from fakes import MEASUREMENTS_NOW
+
 from swiss_weather_mcp.errors import CannotAnswerError
 from swiss_weather_mcp.measurements import parameters
 from swiss_weather_mcp.measurements.history import (
-    _build_rain_field, _find_snow_station_daily_measurements, _find_last_past_day,
-    _find_meteoswiss_station_daily_measurements, _list_snow_stations_to_try, build_history_answer,
+    _build_rain_field,
+    _find_last_past_day,
+    _find_meteoswiss_station_daily_measurements,
+    _find_snow_station_daily_measurements,
+    _list_snow_stations_to_try,
+    build_history_answer,
 )
 from swiss_weather_mcp.measurements.meteoswiss_source import MeteoSwissStation
 from swiss_weather_mcp.measurements.slf_source import SLFStation
 from swiss_weather_mcp.places.place_source import SwisstopoPlace
+
 
 UETLIBERG = SwisstopoPlace(
     name="Uetliberg", object_types=("Huegel",), population_band=0, is_exonym=False, altitude_m=869.0,

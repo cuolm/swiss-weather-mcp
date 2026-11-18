@@ -9,6 +9,7 @@ from typing import List
 from mcp import Client, StdioServerParameters
 from mcp.types import TextContent
 
+
 try:
     from openai import APIConnectionError, APIError, AsyncOpenAI
     from openai.types.chat import (
@@ -28,6 +29,7 @@ except ModuleNotFoundError as error:
     ) from error
 
 from .log import LOG_LEVELS, setup_logging
+
 
 logger = logging.getLogger(__name__)
 

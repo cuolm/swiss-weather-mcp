@@ -45,6 +45,7 @@ from typing import List, NamedTuple, Optional, Tuple
 from ..downloads import download_file, ensure_newest_swisstopo_edition
 from ..polygons import Polygon, polygons_contain
 
+
 logger = logging.getLogger(__name__)
 
 EDITIONS_URL = "https://data.geo.admin.ch/api/stac/v1/collections/ch.swisstopo.swissboundaries3d/items"

@@ -5,16 +5,22 @@ from typing import List, NotRequired, Optional, TypedDict
 
 import requests
 
-from . import parameters
 from ..distance import MAX_STATIONS_TRIED, calculate_weighted_distance_m, is_close, rank_by_weighted_distance
 from ..errors import CannotAnswerError
 from ..formatting import (
-    SWISS_TZ, DataFromField, PlaceFields, describe_distance_and_height, find_compass_point, format_swiss_time,
+    SWISS_TZ,
+    DataFromField,
+    PlaceFields,
+    describe_distance_and_height,
+    find_compass_point,
+    format_swiss_time,
     round_to_tenth,
 )
 from ..places import SwisstopoPlace
+from . import parameters
 from .meteoswiss_source import MeteoSwissMeasurementSource, MeteoSwissStationMeasurements
 from .slf_source import SLFMeasurementSource, SLFStation, SLFStationMeasurements
+
 
 logger = logging.getLogger(__name__)
 

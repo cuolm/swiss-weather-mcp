@@ -10,6 +10,7 @@ from mcp.server.mcpserver.exceptions import ToolError, UnexpectedToolError
 from swiss_weather_mcp.errors import CannotAnswerError
 from swiss_weather_mcp.server import SwissWeatherMCPServer, _parse_swiss_time
 
+
 SWISS_TZ = ZoneInfo("Europe/Zurich")
 
 # Every tool the server offers, with its arguments in order

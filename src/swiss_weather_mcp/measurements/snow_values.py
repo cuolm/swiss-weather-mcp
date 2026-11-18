@@ -2,6 +2,7 @@
 from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, NamedTuple, Optional, Union
 
+
 if TYPE_CHECKING:
     # Only for the type checker, as both sources import this module
     from .meteoswiss_source import MeteoSwissStation

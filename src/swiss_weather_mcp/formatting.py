@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 from .distance import METRES_PER_KILOMETRE, GridPosition, calculate_distance_m
 from .places import SwisstopoPlace
 
+
 SWISS_TZ = ZoneInfo("Europe/Zurich")
 
 # Compass points the wind direction in degrees is reported as, clockwise from north

@@ -2,7 +2,9 @@ import os
 import time
 
 from fakes import BOUNDARY_EDITION_IDS, build_boundaries_geopackage, build_square_geometry
+
 from swiss_weather_mcp.places.boundary_source import Area, SwisstopoBoundarySource, _read_polygons
+
 
 # How far back a cached GeoPackage is dated to make the last look for a newer edition older than 30 days
 OLD_CHECK_AGE_SECONDS = 31 * 24 * 60 * 60

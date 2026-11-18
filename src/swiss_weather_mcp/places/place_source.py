@@ -44,6 +44,7 @@ from typing import Dict, List, NamedTuple, Set, Tuple
 from ..coordinates import calculate_wgs84_latitude_deg, calculate_wgs84_longitude_deg
 from ..downloads import download_file, ensure_newest_swisstopo_edition
 
+
 logger = logging.getLogger(__name__)
 
 EDITIONS_URL = "https://data.geo.admin.ch/api/stac/v1/collections/ch.swisstopo.swissnames3d/items"

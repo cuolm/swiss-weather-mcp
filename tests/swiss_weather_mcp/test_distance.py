@@ -4,6 +4,7 @@ from swiss_weather_mcp.distance import is_close, rank_by_weighted_distance
 from swiss_weather_mcp.measurements.meteoswiss_source import MeteoSwissStation
 from swiss_weather_mcp.places.place_source import SwisstopoPlace
 
+
 BRAUNWALD = SwisstopoPlace(
     name="Braunwald", object_types=("Ort", "Haltestelle Bahn"), population_band=4, is_exonym=False,
     altitude_m=1290.0, east_m=2718807.0, north_m=1199989.0,
