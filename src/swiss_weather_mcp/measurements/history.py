@@ -245,13 +245,17 @@ def _read_snow_history(
     first_day: date,
     last_day: date,
 ) -> list[SnowStationDailyMeasurements]:
-    """Read a station's snow from its source, or none when its SLF history cannot be downloaded."""
+    """Read a station's snow from its source, or none when its SLF history cannot be downloaded or read."""
     if isinstance(station, MeteoSwissStation):
         return meteoswiss_source.read_snow_history(station, first_day, last_day)
     try:
         return slf_source.read_snow_history(station, last_day)
     except requests.RequestException as error:
         logger.warning(f"Could not download the snow history of SLF station {station.code}: {error}")
+        return []
+    except (KeyError, ValueError) as error:
+        # The file downloaded, but has a missing column or a value that is no number
+        logger.warning(f"Could not read the snow history of SLF station {station.code}: {error!r}")
         return []
 
 

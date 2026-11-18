@@ -1,3 +1,4 @@
+import logging
 from datetime import date, datetime, timedelta
 
 import pytest
@@ -271,6 +272,30 @@ def test_find_snow_station_daily_measurements_skips_an_slf_station_without_a_his
         meteoswiss_source_fixture, slf_source_fixture, place, date(2026, 9, 21), date(2026, 9, 21)
     )
     assert gornergrat_days[0].station.code == "ZER2"
+
+
+@pytest.mark.parametrize("parse_error", (KeyError("HS"), ValueError("could not convert string to float: 'x'")))
+def test_find_snow_station_daily_measurements_skips_an_slf_station_with_a_broken_history_file(
+    mocker, caplog, parse_error, meteoswiss_source_fixture, slf_source_fixture
+):
+    # A file that downloads but cannot be read, such as one without the HS column, skips only its station
+    gornergratsee = find_slf_snow_station(slf_source_fixture, "GOR2")
+    place = find_station_place(gornergratsee, "Gornergrat")
+    read_snow_history_file = slf_source_fixture._read_snow_history_file
+
+    def read_broken_gornergratsee_file(station):
+        if station.code == "GOR2":
+            raise parse_error
+        return read_snow_history_file(station)
+
+    mocker.patch.object(slf_source_fixture, "_read_snow_history_file", side_effect=read_broken_gornergratsee_file)
+
+    with caplog.at_level(logging.WARNING):
+        gornergrat_days = _find_snow_station_daily_measurements(
+            meteoswiss_source_fixture, slf_source_fixture, place, date(2026, 9, 21), date(2026, 9, 21)
+        )
+    assert gornergrat_days[0].station.code == "ZER2"
+    assert "Could not read the snow history of SLF station GOR2" in caplog.text
 
 
 # --- _list_snow_stations_to_try ---
