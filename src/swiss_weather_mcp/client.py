@@ -35,6 +35,9 @@ logger = logging.getLogger(__name__)
 # INFO lines, which would come in between the question and the answer
 SERVER_LOG_LEVEL = "WARNING"
 
+# A model that keeps calling tools would otherwise never answer
+MAX_TOOL_TURNS = 10
+
 
 def _parse_args() -> argparse.Namespace:
     """Read the command line options of the test client."""
@@ -118,11 +121,14 @@ class ChatLoop:
         return formatted_message
 
     async def process_query(self, query: str) -> str:
-        """Answer a question: let the model call tools until it gives its final answer, and return it."""
+        """Answer a question: let the model call tools until it gives its final answer, and return it.
+
+        After MAX_TOOL_TURNS rounds of tool calls without a final answer, return a note that it stopped.
+        """
         self.messages.append({"role": "user", "content": query})
         tools = await self.fetch_tool_definitions()
 
-        while True:
+        for _ in range(MAX_TOOL_TURNS):
             completion = await self.llm_client.chat.completions.create(
                 model=self.model, messages=self.messages, tools=tools
             )
@@ -143,6 +149,8 @@ class ChatLoop:
                     "tool_call_id": tool_call.id,
                     "content": tool_result_text,
                 })
+
+        return f"[Stopped after {MAX_TOOL_TURNS} rounds of tool calls without a final answer]"
 
 
 async def _run() -> None:
