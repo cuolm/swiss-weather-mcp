@@ -166,7 +166,7 @@ def ensure_newest_swisstopo_edition(
     Look for a newer edition first when no file is cached, or when the last look is more than
     SWISSTOPO_EDITION_CHECK_INTERVAL ago. The cached file is named after the archive, with
     archive_suffix replaced by cached_suffix; download(archive_url, cached_file) writes it. A look
-    that finds the cached edition still newest touches its file; the files of older editions are
+    that finds the cached edition still newest touches its file; the other cached files are
     deleted.
 
     When the look or the download fails, return the newest cached file. Without a cached file, raise

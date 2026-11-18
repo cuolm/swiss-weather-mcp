@@ -266,8 +266,8 @@ def build_current_answer(
     Build the measurements_current answer for a place; run it in a worker thread, as it downloads.
 
     Add the slf_station block when an SLF station suits the place better than the MeteoSwiss station.
-    Raise CannotAnswerError when none of the MAX_STATIONS_TRIED closest stations published a temperature in
-    the last hour.
+    Raise CannotAnswerError when none of the MAX_STATIONS_TRIED best-suited stations published a temperature
+    in the last hour.
     """
     all_measurements = _find_meteoswiss_station_measurements(meteoswiss_source, place)
     latest_measurements = all_measurements[-1]

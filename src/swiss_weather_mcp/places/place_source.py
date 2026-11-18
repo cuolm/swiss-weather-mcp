@@ -183,7 +183,7 @@ class SwisstopoPlaceSource:
         """
         Read the rows of the object types in FILE_TO_OBJECT_TYPES from the newest edition.
 
-        Download the newest edition first when none is cached or the last look is more than 30 days ago.
+        Look for a newer edition first when none is cached or the last look is more than 30 days ago.
         """
         archive_file = ensure_newest_swisstopo_edition(
             EDITIONS_URL, ARCHIVE_SUFFIX, self.cache_dir, ARCHIVE_SUFFIX, download_file

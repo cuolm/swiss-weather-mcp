@@ -12,7 +12,7 @@ CANTON_ABBREVIATION_TO_NAME = {
     "TG": "Thurgau", "TI": "Ticino", "UR": "Uri", "VD": "Vaud", "VS": "Valais", "ZG": "Zug",
     "ZH": "Zürich", LIECHTENSTEIN_ABBREVIATION: "Liechtenstein",
 }
-# The 26 cantons, without Liechtenstein
+# Liechtenstein is listed like a canton above, but is none
 SWISS_CANTON_ABBREVIATIONS = tuple(
     abbreviation for abbreviation in CANTON_ABBREVIATION_TO_NAME if abbreviation != LIECHTENSTEIN_ABBREVIATION
 )

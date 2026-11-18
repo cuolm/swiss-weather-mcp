@@ -31,7 +31,7 @@ class MeasurementService:
 
         Add the slf_station block when an SLF station suits the location better than the MeteoSwiss station.
         Raise CannotAnswerError for an unknown or unclear location, and when none of the MAX_STATIONS_TRIED
-        closest stations published a temperature in the last hour.
+        best-suited stations published a temperature in the last hour.
         """
         place = await asyncio.to_thread(self.place_finder.find_place, location, nearby_location)
         return await asyncio.to_thread(build_current_answer, self.meteoswiss_source, self.slf_source, place)
