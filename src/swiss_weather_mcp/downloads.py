@@ -150,7 +150,7 @@ def _fetch_newest_swisstopo_archive_url(editions_url: str, archive_suffix: str) 
         if asset_name.endswith(archive_suffix):
             archive_url: str = asset["href"]
             return archive_url
-    raise RuntimeError(f"The edition {newest_edition['id']} holds no file ending in {archive_suffix}")
+    raise ValueError(f"The edition {newest_edition['id']} holds no file ending in {archive_suffix}")
 
 
 def ensure_newest_swisstopo_edition(
@@ -168,6 +168,10 @@ def ensure_newest_swisstopo_edition(
     archive_suffix replaced by cached_suffix; download(archive_url, cached_file) writes it. A look
     that finds the cached edition still newest touches its file; the files of older editions are
     deleted.
+
+    When the look or the download fails, return the newest cached file. Without a cached file, raise
+    requests.RequestException when swisstopo cannot be reached, and KeyError or ValueError when the
+    catalogue's answer has an unknown shape.
     """
     # Usually one file is cached. Two are left when the process stopped after downloading a new edition
     # but before deleting the old one. File names end in their date, so the newest is the last.
@@ -176,16 +180,22 @@ def ensure_newest_swisstopo_edition(
     if cached_files and _is_recent(cached_files[-1], SWISSTOPO_EDITION_CHECK_INTERVAL):
         return cached_files[-1]
 
-    archive_url = _fetch_newest_swisstopo_archive_url(editions_url, archive_suffix)
-    archive_name = archive_url.rsplit("/", 1)[-1]
-    edition_name = archive_name.removesuffix(archive_suffix)
-    cached_file = cache_dir / f"{edition_name}{cached_suffix}"
-    if cached_file.exists():
-        # Still the newest edition; its file time records this look
-        cached_file.touch()
-    else:
-        logger.info(f"Downloading {archive_url}")
-        download(archive_url, cached_file)
+    try:
+        archive_url = _fetch_newest_swisstopo_archive_url(editions_url, archive_suffix)
+        archive_name = archive_url.rsplit("/", 1)[-1]
+        edition_name = archive_name.removesuffix(archive_suffix)
+        cached_file = cache_dir / f"{edition_name}{cached_suffix}"
+        if cached_file.exists():
+            # Still the newest edition; its file time records this look
+            cached_file.touch()
+        else:
+            logger.info(f"Downloading {archive_url}")
+            download(archive_url, cached_file)
+    except (requests.RequestException, KeyError, ValueError) as error:
+        if not cached_files:
+            raise
+        logger.warning(f"Could not look for a newer edition at {editions_url}, using {cached_files[-1].name}: {error}")
+        return cached_files[-1]
 
     for old_file in cached_files:
         if old_file != cached_file:

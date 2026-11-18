@@ -7,7 +7,7 @@ import pytest
 import requests
 
 from swiss_weather_mcp import downloads
-from swiss_weather_mcp.downloads import ensure_file, ensure_recent_file
+from swiss_weather_mcp.downloads import ensure_file, ensure_newest_swisstopo_edition, ensure_recent_file
 
 
 FILE_URL = "https://data.geo.admin.ch/ch.meteoschweiz.ogd-smn/ogd-smn_meta_stations.csv"
@@ -21,6 +21,17 @@ NEW_CONTENT = b"station_abbr;station_name\nELM;Elm\n"
 SLOW_DOWNLOAD_SECONDS = 0.2
 # A thread that is still running after this has hung
 THREAD_TIMEOUT_SECONDS = 5
+EDITIONS_URL = "https://data.geo.admin.ch/api/stac/v1/collections/ch.swisstopo.swissboundaries3d/items"
+ARCHIVE_SUFFIX = "_2056_5728.gpkg.zip"
+GEOPACKAGE_SUFFIX = ".gpkg"
+NEWEST_EDITION_ID = "swissboundaries3d_2026-01"
+NEWEST_ARCHIVE_NAME = f"{NEWEST_EDITION_ID}{ARCHIVE_SUFFIX}"
+NEWEST_ARCHIVE_URL = f"https://data.geo.admin.ch/ch.swisstopo.swissboundaries3d/{NEWEST_EDITION_ID}/{NEWEST_ARCHIVE_NAME}"
+NEWEST_CATALOGUE = {
+    "features": [{"id": NEWEST_EDITION_ID, "assets": {NEWEST_ARCHIVE_NAME: {"href": NEWEST_ARCHIVE_URL}}}],
+}
+# How far back a cached edition is dated to make its last look for a newer edition older than 30 days
+OLD_CHECK_AGE_SECONDS = 31 * 24 * 60 * 60
 
 
 def run_in_parallel(*calls):
@@ -187,3 +198,79 @@ def test_ensure_file_keeps_a_file_however_old(slow_download, old_file):
 
     assert kept_file.read_bytes() == OLD_CONTENT
     assert slow_download.call_count == 0
+
+
+@pytest.fixture
+def old_geopackage(tmp_path):
+    """Return the cached GeoPackage of an older edition, last looked at more than 30 days ago."""
+    cached_file = tmp_path / "swissboundaries3d_2025-04.gpkg"
+    cached_file.write_bytes(OLD_CONTENT)
+    old_time = time.time() - OLD_CHECK_AGE_SECONDS
+    os.utime(cached_file, (old_time, old_time))
+    return cached_file
+
+
+def test_ensure_newest_swisstopo_edition_keeps_the_cached_file_when_the_catalogue_cannot_be_reached(
+    failing_download, old_geopackage, mocker
+):
+    download = mocker.Mock()
+
+    newest_file = ensure_newest_swisstopo_edition(
+        EDITIONS_URL, ARCHIVE_SUFFIX, old_geopackage.parent, GEOPACKAGE_SUFFIX, download
+    )
+
+    assert newest_file == old_geopackage
+    assert newest_file.read_bytes() == OLD_CONTENT
+    assert download.call_count == 0
+
+
+def test_ensure_newest_swisstopo_edition_raises_when_the_catalogue_cannot_be_reached_and_nothing_is_cached(
+    failing_download, tmp_path, mocker
+):
+    download = mocker.Mock()
+
+    with pytest.raises(requests.ConnectionError):
+        ensure_newest_swisstopo_edition(EDITIONS_URL, ARCHIVE_SUFFIX, tmp_path, GEOPACKAGE_SUFFIX, download)
+
+
+def fake_catalogue(mocker, catalogue):
+    """Make every request answer with the catalogue JSON."""
+    response = mocker.Mock()
+    response.json.return_value = catalogue
+    mocker.patch("swiss_weather_mcp.downloads.requests.get", return_value=response)
+
+
+@pytest.mark.parametrize(
+    "catalogue",
+    [
+        {"type": "FeatureCollection"},
+        {"features": []},
+        {"features": [{"id": NEWEST_EDITION_ID, "assets": {}}]},
+    ],
+    ids=["no features", "no editions", "no matching archive"],
+)
+def test_ensure_newest_swisstopo_edition_keeps_the_cached_file_when_the_catalogue_has_an_unknown_shape(
+    catalogue, old_geopackage, mocker
+):
+    fake_catalogue(mocker, catalogue)
+    download = mocker.Mock()
+
+    newest_file = ensure_newest_swisstopo_edition(
+        EDITIONS_URL, ARCHIVE_SUFFIX, old_geopackage.parent, GEOPACKAGE_SUFFIX, download
+    )
+
+    assert newest_file == old_geopackage
+    assert download.call_count == 0
+
+
+def test_ensure_newest_swisstopo_edition_keeps_the_cached_file_when_the_download_fails(old_geopackage, mocker):
+    fake_catalogue(mocker, NEWEST_CATALOGUE)
+    download = mocker.Mock(side_effect=requests.ConnectionError("server down"))
+
+    newest_file = ensure_newest_swisstopo_edition(
+        EDITIONS_URL, ARCHIVE_SUFFIX, old_geopackage.parent, GEOPACKAGE_SUFFIX, download
+    )
+
+    assert newest_file == old_geopackage
+    assert newest_file.read_bytes() == OLD_CONTENT
+    assert download.call_count == 1
