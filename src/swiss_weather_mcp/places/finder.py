@@ -134,12 +134,14 @@ class PlaceFinder:
         boundaries_thread.start()
         return [places_thread, boundaries_thread]
 
-    def _find_place_near(self, places: List[SwisstopoPlace], nearby_location: str) -> Optional[SwisstopoPlace]:
-        """Choose the place nearest to one called nearby_location, or None beyond MAX_NEAR_DISTANCE_M."""
+    def _find_place_near(
+        self, places: List[SwisstopoPlace], nearby_places: List[SwisstopoPlace]
+    ) -> Optional[SwisstopoPlace]:
+        """Choose the place nearest to one of nearby_places, or None beyond MAX_NEAR_DISTANCE_M."""
         closest_place = None
         closest_distance_m = math.inf
-        # nearby_location can itself be the name of several places, so every pair counts
-        for nearby_place in self.place_lookup.find_places_named(nearby_location):
+        # The near name can itself be the name of several places, so every pair counts
+        for nearby_place in nearby_places:
             for place in places:
                 distance_m = calculate_distance_m(place, nearby_place)
                 if distance_m < closest_distance_m:
@@ -162,14 +164,20 @@ class PlaceFinder:
             key=lambda settlement: calculate_distance_m(settlement, place),
         )
         for settlement in nearest_settlements:
-            if self._find_place_near(places, settlement.name) == place:
+            # As the model would give it as near: the name, which other places can have too
+            places_of_settlement_name = self.place_lookup.find_places_named(settlement.name)
+            if self._find_place_near(places, places_of_settlement_name) == place:
                 return settlement.name
         # Two places of the name lie so close that each settlement leads to the other one;
         # they have nearly the same weather
         return nearest_settlements[0].name
 
     def _build_options_error(
-        self, location: str, places: List[SwisstopoPlace], nearby_location: Optional[str]
+        self,
+        location: str,
+        places: List[SwisstopoPlace],
+        nearby_location: Optional[str],
+        nearby_places: List[SwisstopoPlace],
     ) -> CannotAnswerError:
         """Build the refusal of a name of several places, listing every place with a settlement to give as near."""
         option_lines = []
@@ -184,7 +192,6 @@ class PlaceFinder:
 
         no_place_near_sentence = ""
         if nearby_location is not None:
-            nearby_places = self.place_lookup.find_places_named(nearby_location)
             if nearby_places:
                 no_place_near_sentence = f"No '{location}' lies near '{nearby_location}'. "
             else:
@@ -223,8 +230,10 @@ class PlaceFinder:
         if len(places) == 1:
             return places[0]
 
+        nearby_places: List[SwisstopoPlace] = []
         if nearby_location is not None:
-            place_near = self._find_place_near(places, nearby_location)
+            nearby_places = self.place_lookup.find_places_named(nearby_location)
+            place_near = self._find_place_near(places, nearby_places)
             if place_near is not None:
                 return place_near
         else:
@@ -232,4 +241,4 @@ class PlaceFinder:
             obvious_place = _find_obvious_place(places)
             if obvious_place is not None:
                 return obvious_place
-        raise self._build_options_error(location, places, nearby_location)
+        raise self._build_options_error(location, places, nearby_location, nearby_places)
