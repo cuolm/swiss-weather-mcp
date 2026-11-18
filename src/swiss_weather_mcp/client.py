@@ -4,11 +4,9 @@ import asyncio
 import json
 import logging
 import sys
-from contextlib import AsyncExitStack
-from typing import List, Optional
+from typing import List
 
-from mcp import ClientSession, StdioServerParameters
-from mcp.client.stdio import stdio_client
+from mcp import Client, StdioServerParameters
 from mcp.types import TextContent
 
 try:
@@ -55,51 +53,23 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-class MCPClient:
-    """A test client that lets a local model answer questions with the server's tools."""
+class ChatLoop:
+    """A conversation in which a local model answers questions with the tools of a connected MCP server."""
 
-    def __init__(self, model: str, base_url: str):
-        self.session: Optional[ClientSession] = None
-        self.exit_stack = AsyncExitStack()
+    def __init__(self, mcp_client: Client, model: str, base_url: str):
+        self.mcp_client = mcp_client
         self.llm_client = AsyncOpenAI(base_url=base_url, api_key="not-needed")  # local servers ignore the key
         self.model = model
         self.messages: List[ChatCompletionMessageParam] = []
 
-    async def connect_to_server(self) -> None:
-        """Start the server as a subprocess and open a session with it over stdio."""
-        # Launch the server module with the same interpreter running this client
-        server_params = StdioServerParameters(
-            command=sys.executable,
-            args=["-m", "swiss_weather_mcp.server", "--log-level", SERVER_LOG_LEVEL],
-        )
-
-        read_stream, write_stream = await self.exit_stack.enter_async_context(
-            stdio_client(server_params)
-        )
-        self.session = await self.exit_stack.enter_async_context(
-            ClientSession(read_stream, write_stream)
-        )
-        await self.session.discover()
-
         # The server's guidance on how its tools work together, which MCP clients put into the system prompt
-        instructions = self.session.instructions
+        instructions = mcp_client.instructions
         if instructions:
             self.messages.append({"role": "system", "content": instructions})
 
-        # List available tools, names only, the descriptions are multi line docstrings
-        tools_result = await self.session.list_tools()
-        tool_names = ", ".join(tool.name for tool in tools_result.tools)
-        logger.info(f"Connected to server with tools: {tool_names}")
-
-    def _require_session(self) -> ClientSession:
-        """Return the session; raise RuntimeError before connect_to_server."""
-        if self.session is None:
-            raise RuntimeError("Call connect_to_server() before using the client")
-        return self.session
-
     async def fetch_tool_definitions(self) -> List[ChatCompletionFunctionToolParam]:
         """Fetch the server's tools in the format the OpenAI chat API expects."""
-        tools_result = await self._require_session().list_tools()
+        tools_result = await self.mcp_client.list_tools()
         return [
             {
                 "type": "function",
@@ -117,7 +87,7 @@ class MCPClient:
         logger.info(f"Tool: {tool_name} called with arguments: {arguments_json}")
         try:
             arguments = json.loads(arguments_json or "{}")  # the model writes these as JSON text
-            tool_result = await self._require_session().call_tool(tool_name, arguments)
+            tool_result = await self.mcp_client.call_tool(tool_name, arguments)
             texts = [content.text for content in tool_result.content if isinstance(content, TextContent)]
             return "\n".join(texts)
         except Exception as error:
@@ -174,18 +144,26 @@ class MCPClient:
                     "content": tool_result_text,
                 })
 
-    async def close(self) -> None:
-        """Close the session and stop the server."""
-        await self.exit_stack.aclose()
-
 
 async def _run() -> None:
-    """Ask the model each question typed in, until /bye."""
+    """Start the server, then ask the model each question typed in, until /bye."""
     args = _parse_args()
     setup_logging(args.log_level)
-    client = MCPClient(args.model, args.base_url)
-    await client.connect_to_server()
-    try:
+
+    # Launch the server module with the same interpreter running this client
+    server_params = StdioServerParameters(
+        command=sys.executable,
+        args=["-m", "swiss_weather_mcp.server", "--log-level", SERVER_LOG_LEVEL],
+    )
+
+    # Leaving the block closes the session and stops the server
+    async with Client(server_params) as mcp_client:
+        # List available tools, names only, the descriptions are multi line docstrings
+        tools_result = await mcp_client.list_tools()
+        tool_names = ", ".join(tool.name for tool in tools_result.tools)
+        logger.info(f"Connected to server with tools: {tool_names}")
+
+        chat = ChatLoop(mcp_client, args.model, args.base_url)
         logger.info("MCP Client started!")
         loop = asyncio.get_running_loop()
         while True:
@@ -203,21 +181,18 @@ async def _run() -> None:
                 continue
 
             logger.info(f"Query: {query}")
-            messages_before = len(client.messages)
+            messages_before = len(chat.messages)
             try:
-                answer = await client.process_query(query)
+                answer = await chat.process_query(query)
             except APIConnectionError:
                 logger.error(f"Could not reach the model server at {args.base_url}. Start it first (see the README), then ask again.")
-                del client.messages[messages_before:]  # the question was not answered, so it is not sent again
+                del chat.messages[messages_before:]  # the question was not answered, so it is not sent again
                 continue
             except APIError as error:
                 logger.error(f"The model server returned an error: {error}")
-                del client.messages[messages_before:]
+                del chat.messages[messages_before:]
                 continue
             print(f"\n{answer}")
-
-    finally:
-        await client.close()
 
 
 def main() -> None:
