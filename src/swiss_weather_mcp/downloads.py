@@ -24,7 +24,11 @@ from platformdirs import user_cache_path
 
 logger = logging.getLogger(__name__)
 
-REQUEST_TIMEOUT_SECONDS = 60
+# How long to wait for a server to accept the connection, just over the 3 s TCP retransmission window,
+# and then between two parts of its answer, https://requests.readthedocs.io/en/latest/user/advanced/#timeouts
+CONNECT_TIMEOUT_SECONDS = 3.05
+READ_TIMEOUT_SECONDS = 60
+REQUEST_TIMEOUT_SECONDS = (CONNECT_TIMEOUT_SECONDS, READ_TIMEOUT_SECONDS)
 DOWNLOAD_CHUNK_SIZE_BYTES = 1024 * 1024
 SWISSTOPO_EDITION_CHECK_INTERVAL = timedelta(days=30)
 # Shared, OS-standard cache location (survives across working directories the server may be launched from).
