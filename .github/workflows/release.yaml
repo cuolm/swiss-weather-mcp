@@ -39,6 +39,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Set up QEMU  # emulates arm64 while building, so this amd64 runner also builds the arm64 image
+        uses: docker/setup-qemu-action@v4
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4  # initializes BuildKit engine required for gha cache backend
 
@@ -64,6 +67,7 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: .
+          platforms: linux/amd64,linux/arm64  # arm64 for Apple silicon Macs and Arm servers
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
