@@ -13,20 +13,7 @@ permissions:
 jobs:
   test:
     name: Tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-      - name: Install uv and Set up Python
-        uses: astral-sh/setup-uv@v7
-        with:
-          python-version: "3.11"
-          enable-cache: true
-      - name: Install Dependencies
-        run: uv sync --locked --group dev
-      - name: Run Pytest
-        run: uv run pytest
+    uses: ./.github/workflows/tests.yaml  # the full tests: every system and Python version, lint, package and Docker
 
   publish-docker-image:
     name: Publish Docker Image

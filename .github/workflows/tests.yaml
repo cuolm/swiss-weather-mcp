@@ -2,7 +2,9 @@ name: Tests
 
 on:
   push:
+    branches: ["**"]  # not on tags: a release tag runs these tests through workflow_call instead
   pull_request:
+  workflow_call:  # lets the release workflows run these tests before they publish
 
 permissions:
   contents: read  # the jobs only read the code, so the token gets no write access
