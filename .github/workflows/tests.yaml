@@ -19,7 +19,7 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]  # the bundle declares macOS and Windows, mcpb/manifest.json
         python-version: ["3.11", "3.12", "3.13", "3.14"]  # keep in line with the classifiers in pyproject.toml
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Install uv and Set up Python
@@ -36,7 +36,7 @@ jobs:
     name: Lint and Type Check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Install uv and Set up Python
@@ -55,7 +55,7 @@ jobs:
     name: Package Test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0  # hatch-vcs reads the version from the git tags
       - name: Install uv and Set up Python
@@ -78,7 +78,7 @@ jobs:
     name: Docker Build Test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Build Docker image
