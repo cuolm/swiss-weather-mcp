@@ -219,7 +219,13 @@ jobs:
             uv export --frozen --no-dev --no-emit-project --no-hashes --no-header --no-annotate | sed 's/.*/    "&",/'
             echo "]"
           } >> mcpb/pyproject.toml
-          uv lock --directory mcpb
+          # Right after the upload PyPI's CDN can still serve a package list without the release, so try
+          # again for up to 6 minutes, each time with a fresh list of swiss-weather-mcp
+          for attempt in $(seq 12); do
+            uv lock --directory mcpb --refresh-package swiss-weather-mcp && exit 0
+            sleep 30
+          done
+          exit 1
       - name: Validate and Pack the Bundle  # one file name for all releases, so releases/latest/download/ always finds it
         run: |
           npx --yes @anthropic-ai/mcpb@2.1.2 validate mcpb/manifest.json
