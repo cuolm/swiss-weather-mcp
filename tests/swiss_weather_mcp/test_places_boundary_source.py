@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 
 from fakes import BOUNDARY_EDITION_IDS, build_boundaries_geopackage, build_square_geometry
@@ -11,6 +12,8 @@ OLD_CHECK_AGE_SECONDS = 31 * 24 * 60 * 60
 
 OLDER_EDITION_ID = BOUNDARY_EDITION_IDS[0]
 NEWEST_EDITION_ID = BOUNDARY_EDITION_IDS[1]
+# Windows forbids "?" in file names, so a cache folder there cannot hold one
+URL_CHARACTERS_FOLDER = "with#hash%25" if sys.platform == "win32" else "with#hash?and%25"
 
 
 def count_requests(source_fixture, url_end: str) -> int:
@@ -109,7 +112,7 @@ def test_find_area(boundary_source_fixture):
 
 def test_find_area_in_a_cache_folder_with_url_characters(source_fixture, tmp_path):
     # SQLite reads the GeoPackage path as a URL, in which "#", "?" and "%" have their own meaning
-    boundary_source = SwisstopoBoundarySource(tmp_path / "with#hash?and%25")
+    boundary_source = SwisstopoBoundarySource(tmp_path / URL_CHARACTERS_FOLDER)
     boundary_source.load_geopackage()
     assert boundary_source.find_area(2683200.0, 1247500.0) == Area("Zürich", "Gemeindegebiet", "Zürich")
 
