@@ -9,11 +9,12 @@ permissions:
 
 jobs:
   test:
-    name: Pytest (Python ${{ matrix.python-version }})
-    runs-on: ubuntu-latest
+    name: Pytest (${{ matrix.os }}, Python ${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: false  # report every version, rather than cancel the rest after one failure
+      fail-fast: false  # report every system and version, rather than cancel the rest after one failure
       matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]  # the bundle declares macOS and Windows, mcpb/manifest.json
         python-version: ["3.11", "3.12", "3.13", "3.14"]  # keep in line with the classifiers in pyproject.toml
     steps:
       - uses: actions/checkout@v5
