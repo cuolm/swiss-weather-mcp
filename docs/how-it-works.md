@@ -233,8 +233,9 @@
   | SLF snow history files | 1 day |
   | Older days | 30 days |
 
-- Tables, lists and the forecast point table are also kept in memory after the first read, until the
-  server restarts.
+- Places, tables, lists and the forecast point table are also kept in memory after the first read, and
+  the edition of the municipalities is checked once at start. A running server reads them again only
+  after a restart, so for them the times above apply only when the server starts.
 - A file is first written under a temporary name and moved into place when complete, so a cut download
   is never used.
 - When several users need the same missing file at the same time, only one downloads it and the others
