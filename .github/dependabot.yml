@@ -1,0 +1,18 @@
+# Monthly pull requests with newer versions, one for all Python packages and one for all GitHub Actions.
+# Security updates are a repository setting, apart from this file.
+version: 2
+updates:
+  - package-ecosystem: "uv"  # uv.lock, which the Docker image and the bundle install
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    groups:
+      python-packages:
+        patterns: ["*"]
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    groups:
+      github-actions:
+        patterns: ["*"]
