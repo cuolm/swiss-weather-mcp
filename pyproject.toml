@@ -25,6 +25,7 @@ dependencies = [
     "mcp>=2.2,<3",
     "platformdirs>=4.11.4",
     "requests>=2.32.0",
+    "tzdata>=2026.6",
 ]
 
 [project.optional-dependencies]
