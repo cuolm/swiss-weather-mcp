@@ -216,7 +216,7 @@ async def test_handle_tool_call_logs_the_answer_only_at_debug(server_fixture, ca
 
 
 @pytest.mark.asyncio
-async def test_handle_tool_call_value_error(server_fixture, caplog):
+async def test_handle_tool_call_cannot_answer_error(server_fixture, caplog):
     unknown_place_error = CannotAnswerError("Location 'Tessin' is not one of the places")
     server_fixture.forecast_service.read_freezing_level.side_effect = unknown_place_error
 
