@@ -142,6 +142,9 @@ Answers name the forecast point when it is not next to the place (see [Forecast 
 - IMIS mountain stations, snow measured by observers and the [avalanche bulletin](https://www.slf.ch/en/avalanche-bulletin-and-snow-situation/): [SLF](https://www.slf.ch) under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Source: WSL Institute for Snow and Avalanche Research SLF. Report your observations with the [SLF feedback tool](https://pro.slf.ch/reply/public/#/)
 - Places from [swissNAMES3D](https://www.swisstopo.admin.ch/en/landscape-model-swissnames3d), municipalities and cantons from [swissBOUNDARIES3D](https://www.swisstopo.admin.ch/en/landscape-model-swissboundaries3d): [swisstopo](https://www.swisstopo.admin.ch) under its [terms of use](https://www.swisstopo.admin.ch/en/terms-of-use-free-geodata-and-geoservices). Source: Federal Office of Topography swisstopo
 
+The server does not collect or share personal data. It only downloads the public data listed above
+from MeteoSwiss, SLF and swisstopo, and writes its logs only where it runs.
+
 ## Support
 Questions and bugs: [GitHub Issues](https://github.com/cuolm/swiss-weather-mcp/issues).
 
