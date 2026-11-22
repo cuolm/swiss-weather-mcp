@@ -9,6 +9,7 @@
   "homepage": "https://github.com/cuolm/swiss-weather-mcp",
   "repository": "https://github.com/cuolm/swiss-weather-mcp",
   "license": "Apache-2.0",
+  "supportUrl": "https://github.com/cuolm/swiss-weather-mcp/issues",
   "mcpServers": {
     "swiss-weather": {
       "command": "uvx",
