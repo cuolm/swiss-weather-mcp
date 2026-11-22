@@ -1,0 +1,17 @@
+{
+  "name": "swiss-weather-mcp",
+  "displayName": "Swiss Weather",
+  "description": "Weather forecasts, measurements, snow, the avalanche bulletin and sun and moon times for Switzerland",
+  "author": {
+    "name": "cuolm"
+  },
+  "homepage": "https://github.com/cuolm/swiss-weather-mcp",
+  "repository": "https://github.com/cuolm/swiss-weather-mcp",
+  "license": "Apache-2.0",
+  "mcpServers": {
+    "swiss-weather": {
+      "command": "uvx",
+      "args": ["swiss-weather-mcp@latest"]
+    }
+  }
+}
