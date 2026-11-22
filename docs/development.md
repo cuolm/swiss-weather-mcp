@@ -32,7 +32,9 @@ git push origin 0.5.0
 ```
 - A tag of three numbers, such as `0.5.0`, starts `.github/workflows/release.yaml`. After the tests it
   publishes the Docker image to GHCR, the package to PyPI and the server to the MCP Registry, creates the
-  GitHub release and adds the Claude Desktop bundle (`.mcpb`) to it.
+  GitHub release and adds the Claude Desktop bundle (`.mcpb`) to it. Claude reads the plugin from the
+  repository, so before tagging set `version` and the `uvx` pin in `.claude-plugin/plugin.json` to the new
+  version and commit it; the workflow stops before publishing if they differ from the tag.
 - A tag with `a`, `b` or `rc`, such as `0.5.0rc1`, starts `.github/workflows/release_test.yaml`. It
   publishes the package to TestPyPI instead, only checks `server.json` and the bundle's `manifest.json`,
   and still publishes a Docker image and a GitHub pre-release under that tag.

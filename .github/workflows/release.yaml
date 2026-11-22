@@ -14,9 +14,24 @@ jobs:
     name: Tests
     uses: ./.github/workflows/tests.yaml  # the full tests: every system and Python version, lint, package and Docker
 
+  check-claude-plugin-version:
+    name: Check the Claude Plugin Version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+      - name: Compare plugin.json with the Tag  # Claude reads the plugin from the repository, so the tagged commit sets it
+        run: |
+          version=$(jq --raw-output '.version' .claude-plugin/plugin.json)
+          pin=$(jq --raw-output '.mcpServers["swiss-weather"].args[0]' .claude-plugin/plugin.json)
+          if [ "$version" != "$GITHUB_REF_NAME" ] || [ "$pin" != "swiss-weather-mcp==$GITHUB_REF_NAME" ]; then
+            echo "Set version and swiss-weather-mcp==$GITHUB_REF_NAME in .claude-plugin/plugin.json before tagging"
+            exit 1
+          fi
+
   publish-docker-image:
     name: Publish Docker Image
-    needs: [test]
+    needs: [test, check-claude-plugin-version]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -65,7 +80,7 @@ jobs:
 
   build:
     name: Build Distribution
-    needs: [test]
+    needs: [test, check-claude-plugin-version]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
