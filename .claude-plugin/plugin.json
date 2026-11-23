@@ -1,7 +1,6 @@
 {
   "name": "swiss-weather-mcp",
   "displayName": "Swiss Weather",
-  "version": "0.5.1",
   "description": "Weather forecasts, measurements, snow, the avalanche bulletin and sun and moon times for Switzerland",
   "author": {
     "name": "cuolm"
@@ -13,9 +12,7 @@
   "mcpServers": {
     "swiss-weather": {
       "command": "uvx",
-      "args": [
-        "swiss-weather-mcp==0.5.1"
-      ]
+      "args": ["swiss-weather-mcp@latest"]
     }
   }
 }

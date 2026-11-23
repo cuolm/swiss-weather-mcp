@@ -51,7 +51,6 @@ double-click it and select Install.
 claude plugin marketplace add cuolm/claude-plugins
 claude plugin install swiss-weather-mcp@cuolm
 ```
-Turn on auto-update for the marketplace to get new releases.
 
 ## Installation
 Install the server once with uv, instead of starting it with `uvx` on each start as in [Quick Start](#quick-start):
