@@ -20,6 +20,8 @@ from typing import Any, BinaryIO, Optional
 
 import requests
 from platformdirs import user_cache_path
+from requests.adapters import HTTPAdapter
+from urllib3.util import Retry
 
 
 logger = logging.getLogger(__name__)
@@ -30,6 +32,9 @@ logger = logging.getLogger(__name__)
 CONNECT_TIMEOUT_SECONDS = 10
 READ_TIMEOUT_SECONDS = 60
 REQUEST_TIMEOUT_SECONDS = (CONNECT_TIMEOUT_SECONDS, READ_TIMEOUT_SECONDS)
+# One more try when connecting or reading fails, read too because urllib3 reports a slow TLS handshake as
+# a read timeout, https://requests.readthedocs.io/en/latest/user/advanced/#example-automatic-retries
+RETRY_ONCE = Retry(total=1)
 DOWNLOAD_CHUNK_SIZE_BYTES = 1024 * 1024
 SWISSTOPO_EDITION_CHECK_INTERVAL = timedelta(days=30)
 # Shared, OS-standard cache location (survives across working directories the server may be launched from).
@@ -54,6 +59,15 @@ def _find_or_create_download_lock(target_file: Path) -> threading.Lock:
         return download_lock
 
 
+def fetch_url(url: str, stream: bool = False) -> requests.Response:
+    """Send a GET request, trying once more when connecting or reading fails."""
+    # A new session per request, as requests.get makes one, because a shared session is not documented
+    # as safe to use from the parallel threads of the tools
+    with requests.Session() as session:
+        session.mount("https://", HTTPAdapter(max_retries=RETRY_ONCE))
+        return session.get(url, stream=stream, timeout=REQUEST_TIMEOUT_SECONDS)
+
+
 def _write_rows_starting_with(response: requests.Response, row_prefix: bytes, file: BinaryIO) -> None:
     """Write the rows that start with a prefix from a streamed response to a file."""
     # Chunks are split by hand, iter_lines() takes about 45 seconds for the million lines of a file
@@ -75,7 +89,7 @@ def download_file(file_url: str, target_file: Path, only_rows_starting_with: Opt
     # taken for a cached file, and two requests for the same file do not write into each other
     partial_file = target_file.with_name(f"{target_file.name}.{uuid.uuid4().hex}.tmp")
     try:
-        with requests.get(file_url, stream=True, timeout=REQUEST_TIMEOUT_SECONDS) as response:
+        with fetch_url(file_url, stream=True) as response:
             response.raise_for_status()
             with open(partial_file, "wb") as file:
                 if only_rows_starting_with is None:
@@ -153,7 +167,7 @@ def read_recent_json(file_url: str, target_file: Path, max_age: timedelta, serve
 
 def _fetch_newest_swisstopo_archive_url(editions_url: str, archive_suffix: str) -> str:
     """Ask a swisstopo catalogue for the archive of the newest edition, the one whose name ends in archive_suffix."""
-    response = requests.get(editions_url, timeout=REQUEST_TIMEOUT_SECONDS)
+    response = fetch_url(editions_url)
     response.raise_for_status()
     editions = response.json()["features"]
     # Edition IDs end in their date, such as swissnames3d_2026 or swissboundaries3d_2026-01, so the newest

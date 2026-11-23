@@ -79,10 +79,8 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import NamedTuple, Optional
 
-import requests
-
 from ..distance import calculate_distance_m, rank_by_weighted_distance
-from ..downloads import REQUEST_TIMEOUT_SECONDS, ensure_file, read_recent_csv_rows
+from ..downloads import ensure_file, fetch_url, read_recent_csv_rows
 from ..errors import CannotAnswerError
 from ..places import SwisstopoPlace
 from . import parameters
@@ -238,7 +236,7 @@ class ForecastSource:
         Return an empty dict when MeteoSwiss has not created the day's item yet.
         """
         item_url = f"{STAC_BASE_URL}/collections/{COLLECTION_ID}/items/{day.strftime('%Y%m%d')}-ch"
-        response = requests.get(item_url, timeout=REQUEST_TIMEOUT_SECONDS)
+        response = fetch_url(item_url)
         if response.status_code == 404:
             return {}
         response.raise_for_status()

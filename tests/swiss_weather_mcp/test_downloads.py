@@ -1,3 +1,4 @@
+import io
 import os
 import threading
 import time
@@ -5,6 +6,9 @@ from datetime import timedelta
 
 import pytest
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3 import HTTPResponse
+from urllib3.exceptions import ReadTimeoutError
 
 from swiss_weather_mcp import downloads
 from swiss_weather_mcp.downloads import ensure_file, ensure_newest_swisstopo_edition, ensure_recent_file
@@ -32,6 +36,8 @@ NEWEST_CATALOGUE = {
 }
 # How far back a cached edition is dated to make its last look for a newer edition older than 30 days
 OLD_CHECK_AGE_SECONDS = 31 * 24 * 60 * 60
+# Kept before the block_network fixture replaces it, for the tests of the retry inside requests and urllib3
+REAL_ADAPTER_SEND = HTTPAdapter.send
 
 
 def run_in_parallel(*calls):
@@ -56,9 +62,7 @@ def run_in_parallel(*calls):
 @pytest.fixture
 def failing_download(mocker):
     """Make every download fail, as when the server cannot be reached."""
-    return mocker.patch(
-        "swiss_weather_mcp.downloads.requests.get", side_effect=requests.ConnectionError("server down")
-    )
+    return mocker.patch("requests.Session.get", side_effect=requests.ConnectionError("server down"))
 
 
 @pytest.fixture
@@ -69,6 +73,36 @@ def old_file(tmp_path):
     old_time = time.time() - OLD_FILE_AGE_SECONDS
     os.utime(cached_file, (old_time, old_time))
     return cached_file
+
+
+@pytest.fixture
+def server_requests(mocker):
+    """Return a fake of the request urllib3 sends to the server, with the real requests and urllib3 above it."""
+    mocker.patch("requests.adapters.HTTPAdapter.send", REAL_ADAPTER_SEND)
+    return mocker.patch("urllib3.connectionpool.HTTPConnectionPool._make_request")
+
+
+def build_slow_handshake_error():
+    """Return the error urllib3 raises when the TLS handshake takes longer than the connect timeout."""
+    return ReadTimeoutError(None, FILE_URL, "Read timed out. (read timeout=10)")
+
+
+def test_fetch_url_tries_again_after_a_slow_handshake(server_requests):
+    answer = HTTPResponse(body=io.BytesIO(NEW_CONTENT), status=200, preload_content=False)
+    server_requests.side_effect = [build_slow_handshake_error(), answer]
+
+    response = downloads.fetch_url(FILE_URL)
+
+    assert response.content == NEW_CONTENT
+    assert server_requests.call_count == 2
+
+
+def test_fetch_url_gives_up_after_the_second_try(server_requests):
+    server_requests.side_effect = [build_slow_handshake_error(), build_slow_handshake_error()]
+
+    with pytest.raises(requests.ConnectionError):
+        downloads.fetch_url(FILE_URL)
+    assert server_requests.call_count == 2
 
 
 def test_ensure_recent_file_serves_the_older_copy_when_the_download_fails(failing_download, old_file):
@@ -239,7 +273,7 @@ def fake_catalogue(mocker, catalogue):
     """Make every request answer with the catalogue JSON."""
     response = mocker.Mock()
     response.json.return_value = catalogue
-    mocker.patch("swiss_weather_mcp.downloads.requests.get", return_value=response)
+    mocker.patch("requests.Session.get", return_value=response)
 
 
 @pytest.mark.parametrize(

@@ -26,6 +26,7 @@ dependencies = [
     "platformdirs>=4.11.4",
     "requests>=2.32.0",
     "tzdata>=2026.6",
+    "urllib3>=2",
 ]
 
 [project.optional-dependencies]

@@ -44,13 +44,13 @@ from swiss_weather_mcp.places.lookup import SwisstopoPlaceLookup
 from swiss_weather_mcp.places.place_source import SwisstopoPlaceSource
 
 
-NETWORK_BLOCKED_MESSAGE = "Tests must not use the network; give the test a fake requests.get"
+NETWORK_BLOCKED_MESSAGE = "Tests must not use the network; give the test a fake requests.Session.get"
 
 
 @pytest.fixture(autouse=True)
 def block_network(mocker):
     """Fail every real HTTP request, so a test that forgets its fake never reaches the internet."""
-    # Every requests call ends in HTTPAdapter.send, while the fakes replace requests.get before it
+    # Every requests call ends in HTTPAdapter.send, while the fakes replace requests.Session.get before it
     mocker.patch("requests.adapters.HTTPAdapter.send", side_effect=RuntimeError(NETWORK_BLOCKED_MESSAGE))
 
 
@@ -146,7 +146,7 @@ def source_fixture(mocker, tmp_path, tmp_path_factory):
         parameter = url.rsplit("/", 1)[-1].removesuffix(".csv")
         return FakeResponse(body=build_parameter_csv(parameter, published[parameter]))
 
-    get_mock = mocker.patch("swiss_weather_mcp.forecast.source.requests.get", side_effect=fake_get)
+    get_mock = mocker.patch("requests.Session.get", side_effect=fake_get)
     forecast_source = ForecastSource(tmp_path)
     forecast_source.get_mock = get_mock
     forecast_source.published = published
