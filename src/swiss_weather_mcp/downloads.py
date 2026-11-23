@@ -24,9 +24,10 @@ from platformdirs import user_cache_path
 
 logger = logging.getLogger(__name__)
 
-# How long to wait for a server to accept the connection, just over the 3 s TCP retransmission window,
-# and then between two parts of its answer, https://requests.readthedocs.io/en/latest/user/advanced/#timeouts
-CONNECT_TIMEOUT_SECONDS = 3.05
+# How long to wait for a server to accept the connection, and then between two parts of its answer,
+# https://requests.readthedocs.io/en/latest/user/advanced/#timeouts. The data portal sometimes takes
+# more than 3 seconds to set up the secure connection.
+CONNECT_TIMEOUT_SECONDS = 10
 READ_TIMEOUT_SECONDS = 60
 REQUEST_TIMEOUT_SECONDS = (CONNECT_TIMEOUT_SECONDS, READ_TIMEOUT_SECONDS)
 DOWNLOAD_CHUNK_SIZE_BYTES = 1024 * 1024

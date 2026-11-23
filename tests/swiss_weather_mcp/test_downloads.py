@@ -78,7 +78,7 @@ def test_ensure_recent_file_serves_the_older_copy_when_the_download_fails(failin
     assert recent_file.read_bytes() == OLD_CONTENT
     assert failing_download.call_count == 1
     # A silent server is given up after the short connect timeout, not after the long read timeout
-    assert failing_download.call_args.kwargs["timeout"] == (3.05, 60)
+    assert failing_download.call_args.kwargs["timeout"] == (10, 60)
 
 
 def test_ensure_recent_file_raises_when_the_download_fails_without_serve_stale_on_error(failing_download, old_file):
