@@ -23,8 +23,7 @@ Before going into the mountains, check the official
 [MeteoSwiss forecast](https://www.meteoswiss.admin.ch).
 
 ## Demo
-
-https://github.com/user-attachments/assets/ae0a01ad-a029-4c8e-9357-a54e7f29e43e
+https://github.com/user-attachments/assets/0379b24c-48ef-4634-a0a2-09923324c27b
 
 ## Quick Start
 Install [uv](https://docs.astral.sh/uv/getting-started/installation/), then add this to your AI app's MCP config file:
