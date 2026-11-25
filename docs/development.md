@@ -38,27 +38,29 @@ git push origin 0.5.0
   and still publishes a Docker image and a GitHub pre-release under that tag.
 
 ## Running the MCP Client
-The bundled MCP client tests the server over stdio. It starts the MCP server itself, but not the LLM, which has to be running first, for example in `llama-server`.
+The bundled MCP client tests the server over stdio. It starts the MCP server itself, but not the LLM, which has to be running first, for example in `llama serve`.
 
 ```bash
 # Install the server with the client, which pulls in the OpenAI SDK
 uv tool install 'swiss-weather-mcp[client]'
 
-# Install llama.cpp, which provides llama-server, here with Homebrew on macOS or Linux
-brew install llama.cpp
+# Install llama.cpp, which provides llama serve, with Homebrew or curl
+brew install --cask llama-app
+# or: curl -LsSf https://llama.app/install.sh | sh
 
-# Start llama-server with a model in its own terminal; it downloads the model on first use
-llama-server --jinja --no-mmproj -hf unsloth/Qwen3.5-4B-GGUF --port 8080
+# Start llama serve with a model in its own terminal; it downloads the model on first use
+llama serve --no-mmproj -hf unsloth/gemma-4-E2B-it-GGUF:Q4_K_XL --port 8080
 
 # Run the client against it in a second terminal
-swiss-weather-mcp-client --model=unsloth/Qwen3.5-4B-GGUF --base-url=http://localhost:8080/v1
+swiss-weather-mcp-client --model=unsloth/gemma-4-E2B-it-GGUF:Q4_K_XL --base-url=http://localhost:8080/v1
 ```
 From a source checkout, put `uv run --extra client` in front of the client. Other ways to install llama.cpp
-are in its [installation guide](https://github.com/ggml-org/llama.cpp/blob/master/docs/install.md).
+are on [llama.app](https://llama.app/docs/installation).
 
-`--jinja` uses the model's chat template, which tool calling needs (the default in current llama.cpp),
-and `--no-mmproj` skips the vision projector. `--base-url` is the server's OpenAI compatible API, and
+`--no-mmproj` skips the vision projector. `--base-url` is the server's OpenAI compatible API, and
 `--model` the name it lists under `/v1/models`.
+
+<!-- client demo video -->
 
 ## Project Structure
 ```text

@@ -44,16 +44,18 @@ If the file already has content, add only the `"swiss-weather"` entry inside its
 ### In Claude Desktop and Claude Code
 Instead of the config file, install the plugin. First make sure [uv](https://docs.astral.sh/uv/getting-started/installation/) is installed.
 
-**Claude Desktop:** go to Customize > Plugins > Add > Add marketplace, enter `cuolm/claude-plugins` and add
-Swiss Weather. Or download the
+**Claude Desktop:** download the
 [desktop extension](https://github.com/cuolm/swiss-weather-mcp/releases/latest/download/swiss-weather-mcp.mcpb),
-double-click it and select Install.
+double-click it and select Install. Or go to Customize > Plugins > Add > Add marketplace, enter
+`cuolm/claude-plugins` and add Swiss Weather.
 
 **Claude Code:**
 ```bash
 claude plugin marketplace add cuolm/claude-plugins
 claude plugin install swiss-weather-mcp@cuolm
 ```
+
+Step by step, with videos, for pi + llama.cpp, Claude Desktop and Unsloth Studio: [Setup in AI Apps](docs/apps.md).
 
 ## Installation
 Install the server once with uv, instead of starting it with `uvx` on each start as in [Quick Start](#quick-start):
@@ -136,6 +138,7 @@ Answers name the forecast point when it is not next to the place (see [Forecast 
 | `current_date_and_time()` | Today's weekday and the Swiss time now |
 
 ## Details
+- [Setup in AI Apps](docs/apps.md): pi + llama.cpp, Claude Desktop and Unsloth Studio, step by step
 - [How It Works](docs/how-it-works.md): times, places, forecast points, each tool in detail, forecast
   medians, cache and downloads
 - [Development](docs/development.md): running from source, the test client and the project structure
