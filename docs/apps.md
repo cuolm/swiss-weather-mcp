@@ -20,7 +20,7 @@ pi mcp add swiss-weather --exposure direct -- uvx swiss-weather-mcp@latest
 In pi, connect with `/login llama.cpp`, load a model such as Gemma 4 E2B with `/llama` and select it with
 `/model`.
 
-<!-- setup video -->
+https://github.com/user-attachments/assets/fc4c38e6-0b12-4dea-bc9e-b18d301dc085
 
 ## Claude Desktop
 **Desktop extension:** download the
@@ -30,10 +30,10 @@ double-click it and select Install.
 **Plugin:** go to Customize > Plugins > Add > Add marketplace, enter `cuolm/claude-plugins` and add
 Swiss Weather.
 
-<!-- setup video -->
+https://github.com/user-attachments/assets/8058ab50-7970-4c4e-9946-abf6a9bcab93
 
-## Unsloth Studio
+## Unsloth Desktop
 In a chat, click MCP > Manage MCP servers > Add server. Enter `uvx` as the command and
 `swiss-weather-mcp@latest` as the argument, as in the video.
 
-<!-- setup video -->
+https://github.com/user-attachments/assets/ad1feb47-7272-47d0-9f42-f83093f5c764
