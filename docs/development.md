@@ -60,7 +60,7 @@ are on [llama.app](https://llama.app/docs/installation).
 `--no-mmproj` skips the vision projector. `--base-url` is the server's OpenAI compatible API, and
 `--model` the name it lists under `/v1/models`.
 
-<!-- client demo video -->
+https://github.com/user-attachments/assets/57ca03e8-7660-4420-8301-e8a5fa0cc082
 
 ## Project Structure
 ```text
