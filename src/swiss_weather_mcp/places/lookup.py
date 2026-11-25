@@ -7,12 +7,8 @@ A lookup name is a name a place can be found by, normalised, such as "wil sg" an
 or "geneva" for Genève.
 
 The places are built once per process from the rows of swissNAMES3D:
-1. LOOKUP NAMES: each row is filed under every lookup name a user may type. Case, accents and periods
-   do not matter, a canton after the name may be left out, and each part of a settlement's name
-   with a slash counts on its own:
-       "St. Moritz"  → "st moritz"
-       "Wil SG"      → "wil sg", "wil"
-       "Biel/Bienne" → "biel/bienne", "biel", "bienne"
+1. LOOKUP NAMES: each row is filed under every lookup name a user may type, see names.py, such as
+   "wil sg" and "wil" for Wil SG.
 2. GROUPS: rows under the same lookup name that lie within 2 km of each other are one place, such as
    a lake and the quarter on its shore. The place has the official name, position and
    altitude of its biggest settlement, else of its main landmark, and all object types.
@@ -27,15 +23,13 @@ A name no lookup name matches gets suggestions, see suggestions.py.
 """
 import csv
 import logging
-import re
 import threading
-import unicodedata
 from collections import defaultdict
 from importlib import resources
 
-from ..cantons import SWISS_CANTON_ABBREVIATIONS
 from ..distance import calculate_distance_m
 from ..polygons import Polygon, find_bounding_box, polygons_contain
+from .names import build_place_lookup_names, normalise_name
 from .place_source import OBJECT_TYPE_TO_NAME, SETTLEMENT_TYPES, SwisstopoPlace, SwisstopoPlaceSource
 from .suggestions import find_similar_places
 
@@ -44,46 +38,11 @@ logger = logging.getLogger(__name__)
 
 # Rows of the same lookup name this close together are one place
 SAME_PLACE_RADIUS_M = 2000
-# A name such as "Wil SG", the canton telling it apart from the other places called Wil
-CANTON_SUFFIX = re.compile(rf"^(.*\S) (?:{'|'.join(SWISS_CANTON_ABBREVIATIONS)})$")
 # A settlement this big or bigger is named as near: 100 people or more
 MIN_NEAR_SETTLEMENT_BAND = 4
 # The order in which the types of a place are named, settlements first
 OBJECT_TYPE_TO_RANK = {object_type: rank for rank, object_type in enumerate(OBJECT_TYPE_TO_NAME)}
 ENGLISH_PLACE_NAMES_FILE = "english_place_names.csv"
-
-
-def normalise_name(name: str) -> str:
-    """Fold case, strip accents and drop periods, so "zurich" finds "Zürich" and "St Moritz" finds "St. Moritz"."""
-    # NFKD splits "ü" into "u" and a separate accent mark, which is dropped here
-    casefolded = name.casefold()
-    decomposed = unicodedata.normalize("NFKD", casefolded)
-    without_accents = ""
-    for character in decomposed:
-        if not unicodedata.combining(character):
-            without_accents += character
-    # A period becomes a space, so "i.E." and "i. E." are the same once the words are joined by one space
-    words = without_accents.replace(".", " ").split()
-    return " ".join(words)
-
-
-def _build_lookup_names(row: SwisstopoPlace) -> list[str]:
-    """Build every lookup name of a row, such as "wil sg" and "wil" for "Wil SG"."""
-    lookup_names = [normalise_name(row.name)]
-    canton_suffix = CANTON_SUFFIX.match(row.name)
-    if canton_suffix:
-        name_without_canton = canton_suffix.group(1)
-        lookup_name_without_canton = normalise_name(name_without_canton)
-        lookup_names.append(lookup_name_without_canton)
-    # Only settlements: other slashes split names such as the shooting range "Küsnacht 300/50/25m"
-    if "/" in row.name and row.object_types[0] in SETTLEMENT_TYPES:
-        for part in row.name.split("/"):
-            if part.strip():
-                lookup_name_of_part = normalise_name(part)
-                lookup_names.append(lookup_name_of_part)
-    # A lookup name counts once, even when two rules give it
-    unique_lookup_names = list(dict.fromkeys(lookup_names))
-    return unique_lookup_names
 
 
 def _group_close_rows(rows: list[SwisstopoPlace]) -> list[list[SwisstopoPlace]]:
@@ -226,7 +185,7 @@ class SwisstopoPlaceLookup:
 
             lookup_name_to_rows: dict[str, list[SwisstopoPlace]] = defaultdict(list)
             for row in self.place_source.read_rows():
-                for lookup_name in _build_lookup_names(row):
+                for lookup_name in build_place_lookup_names(row):
                     lookup_name_to_rows[lookup_name].append(row)
 
             lookup_name_to_places = {}

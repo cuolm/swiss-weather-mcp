@@ -1,6 +1,7 @@
 import logging
 
-from swiss_weather_mcp.places.lookup import _read_english_place_names, normalise_name
+from swiss_weather_mcp.places.lookup import _read_english_place_names
+from swiss_weather_mcp.places.names import normalise_name
 
 
 def build_square(east_from_m: float, east_to_m: float, north_from_m: float, north_to_m: float):
@@ -25,14 +26,6 @@ def count_archive_downloads(source_fixture) -> int:
         if call.args[0].endswith(".csv.zip"):
             downloads += 1
     return downloads
-
-
-# --- normalise_name ---
-
-def test_normalise_name_ignores_periods():
-    # swisstopo writes "St. Moritz", which is often typed without the period
-    assert normalise_name("St Moritz") == normalise_name("St. Moritz")
-    assert normalise_name("Affoltern i.E.") == normalise_name("Affoltern i. E.")
 
 
 # --- find_places_named ---

@@ -4,12 +4,7 @@ import time
 
 from fakes import BOUNDARY_EDITION_IDS, build_boundaries_geopackage, build_square_geometry
 
-from swiss_weather_mcp.places.boundary_source import (
-    Area,
-    SwisstopoBoundarySource,
-    _build_municipality_lookup_names,
-    _read_polygons,
-)
+from swiss_weather_mcp.places.boundary_source import Area, SwisstopoBoundarySource, _read_polygons
 
 
 # How far back a cached GeoPackage is dated to make the last look for a newer edition older than 30 days
@@ -141,17 +136,6 @@ def test_find_area_outside_every_area(boundary_source_fixture):
 def test_find_area_before_loading(source_fixture, boundary_source_fixture):
     assert boundary_source_fixture.find_area(2683200.0, 1247500.0) is None
     assert count_requests(source_fixture, ".gpkg.zip") == 0
-
-
-# --- _build_municipality_lookup_names ---
-
-def test_build_municipality_lookup_names_without_the_canton():
-    lookup_names = _build_municipality_lookup_names("Saint-Barthélemy (VD)")
-    assert lookup_names == ["saint-barthelemy (vd)", "saint-barthelemy"]
-
-
-def test_build_municipality_lookup_names_of_each_part_of_a_name_with_a_slash():
-    assert _build_municipality_lookup_names("Albula/Alvra") == ["albula/alvra", "albula", "alvra"]
 
 
 # --- find_municipalities_named ---
