@@ -16,9 +16,12 @@ odd number of times when the position lies inside, https://en.wikipedia.org/wiki
 
 The line runs east from the position, and the crossings are counted for each ring alone. A position is
 inside the polygon when it is inside the outer ring and in none of its holes.
+
+A ring of a municipality has thousands of corners, so the box around the polygons rules out the positions
+far away first.
 """
 from itertools import pairwise
-from typing import Optional
+from typing import NamedTuple, Optional
 
 
 # A corner is (east, north) in metres, a ring a closed list of corners, and a polygon its outer ring
@@ -26,6 +29,31 @@ from typing import Optional
 Corner = tuple[float, float]
 Ring = list[Corner]
 Polygon = list[Ring]
+
+
+class BoundingBox(NamedTuple):
+    """The smallest rectangle around polygons, on LV95."""
+    min_east_m: float
+    max_east_m: float
+    min_north_m: float
+    max_north_m: float
+
+    def contains(self, position_east_m: float, position_north_m: float) -> bool:
+        """Tell whether a position lies inside the box or on its edge."""
+        is_inside_east = self.min_east_m <= position_east_m <= self.max_east_m
+        is_inside_north = self.min_north_m <= position_north_m <= self.max_north_m
+        return is_inside_east and is_inside_north
+
+
+def find_bounding_box(polygons: list[Polygon]) -> BoundingBox:
+    """Find the smallest rectangle around the outer rings of polygons."""
+    east_values_m = []
+    north_values_m = []
+    for outer_ring, *_ in polygons:
+        for corner_east_m, corner_north_m in outer_ring:
+            east_values_m.append(corner_east_m)
+            north_values_m.append(corner_north_m)
+    return BoundingBox(min(east_values_m), max(east_values_m), min(north_values_m), max(north_values_m))
 
 
 def _find_crossing_east(edge_start: Corner, edge_end: Corner, horizontal_line_north: float) -> Optional[float]:

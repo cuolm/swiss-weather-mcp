@@ -542,9 +542,12 @@ def build_avalanche_bulletins_geojson() -> bytes:
 # the French and German names of Zürich and Genève, in the same spot. Wil SG is the town, and two
 # smaller districts are called Wil. Biel/Bienne has a name in two languages, like its railway
 # station, and the shooting range of Küsnacht a name with slashes. No row is called Davos: Davos
-# Dorf and Davos Platz are. No row is called Flims either, and Flums is a bigger town spelled alike.
-# Grindelwald is a village and a hamlet in canton Luzern, so the village is the obvious one.
-# The rows from Zürich on are exactly as swisstopo publishes them.
+# Dorf and Davos Platz are, of one size and close together. No row is called Flims either, and Flums
+# is a bigger town spelled alike. Grindelwald is a village and a hamlet in canton Luzern, so the village
+# is the obvious one. Grimentz and Zinal are villages of one size
+# 6.3 km apart in Anniviers. Brig and Glis are towns of one size 1 km apart in Brig-Glis, and Briga and
+# Brigue are the Italian and French names of Brig. St-Barthélemy VD is the village of the municipality
+# Saint-Barthélemy (VD). The rows from Zürich on are exactly as swisstopo publishes them.
 PLACE_NAMES_COLUMNS = "UUID;NAME;STATUS;NAMEN_TYP;OBJEKTART;EINWOHNERKATEGORIE;E;N;Z"
 PLACE_NAMES_FILE_TO_ROWS = {
     "swissNAMES3D_PKT.csv": (
@@ -578,6 +581,13 @@ PLACE_NAMES_FILE_TO_ROWS = {
         "{33};Flums;offiziell;einfacher Name;Ort;2'000 bis 9'999;2744605;1217332;454",
         "{35};Grindelwald;offiziell;einfacher Name;Ort;2'000 bis 9'999;2645921;1163748;1040",
         "{36};Grindelwald;offiziell;einfacher Name;Ort;< 20;2649992;1209309;892",
+        "{38};Grimentz;offiziell;einfacher Name;Ort;100 bis 999;2610414;1114165;1620",
+        "{39};Zinal;offiziell;einfacher Name;Ort;100 bis 999;2614489;1109384;1674",
+        "{40};Brig;offiziell;Endonym;Ort;2'000 bis 9'999;2642391;1129576;682",
+        "{41};Briga;informell;Exonym;Ort;2'000 bis 9'999;2642391;1129576;682",
+        "{42};Brigue;informell;Exonym;Ort;2'000 bis 9'999;2642391;1129576;682",
+        "{43};Glis;offiziell;einfacher Name;Ort;2'000 bis 9'999;2641559;1128994;682",
+        "{44};St-Barthélemy VD;offiziell;einfacher Name;Ort;100 bis 999;2535886;1165556;584",
     ),
     "swissNAMES3D_PLY.csv": (
         "{5};Oerlikon;offiziell;einfacher Name;Quartier;10'000 bis 49'999;2683539;1251401;448",
@@ -613,14 +623,19 @@ def build_place_names_editions() -> dict:
 
 # Areas as squares in LV95, the corners east from, east to, north from, north to, around the places
 # above: Zürich holds Lindenhof and the Blausee place and district, the Greifensee, an area of the canton
-# itself, the Blausee lake, and Vaduz, in Liechtenstein, has no canton number. The real tables have the
-# same columns, and more.
+# itself, the Blausee lake, and Vaduz, in Liechtenstein, has no canton number. Davos, Anniviers, Brig-Glis
+# and Saint-Barthélemy (VD) hold the villages of their name, and no place has their name. The real tables
+# have the same columns, and more.
 BOUNDARY_AREAS = (
     ("Zürich", "Gemeindegebiet", 1, (2676000.0, 2690000.0, 1241000.0, 1250000.0)),
     ("Greifensee", "Kantonsgebiet", 1, (2685000.0, 2695000.0, 1250000.0, 1256000.0)),
     ("Vaduz", "Gemeindegebiet", None, (2756000.0, 2760000.0, 1220000.0, 1225000.0)),
+    ("Davos", "Gemeindegebiet", 18, (2775000.0, 2790000.0, 1180000.0, 1192000.0)),
+    ("Anniviers", "Gemeindegebiet", 23, (2605000.0, 2620000.0, 1105000.0, 1120000.0)),
+    ("Brig-Glis", "Gemeindegebiet", 23, (2638000.0, 2646000.0, 1125000.0, 1133000.0)),
+    ("Saint-Barthélemy (VD)", "Gemeindegebiet", 22, (2534000.0, 2538000.0, 1163000.0, 1168000.0)),
 )
-BOUNDARY_CANTONS = ((1, "Zürich"),)
+BOUNDARY_CANTONS = ((1, "Zürich"), (18, "Graubünden"), (22, "Vaud"), (23, "Valais"))
 BOUNDARY_EDITION_IDS = ("swissboundaries3d_2025-04", "swissboundaries3d_2026-01")
 # The member name of the real archives
 BOUNDARY_GEOPACKAGE_NAME = "swissBOUNDARIES3D_1_5_LV95_LN02.gpkg"

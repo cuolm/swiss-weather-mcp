@@ -1,4 +1,4 @@
-from swiss_weather_mcp.polygons import polygons_contain, ring_contains
+from swiss_weather_mcp.polygons import BoundingBox, find_bounding_box, polygons_contain, ring_contains
 
 
 # A square with a square hole, as a list of polygons, each its outer ring followed by its holes
@@ -34,3 +34,21 @@ def test_polygons_contain_not_a_position_in_a_hole():
 
 def test_polygons_contain_not_a_position_outside():
     assert not polygons_contain(SQUARE_WITH_HOLE, 12.0, 5.0)
+
+
+# --- find_bounding_box ---
+
+def test_find_bounding_box_of_several_polygons():
+    triangle = [(20.0, -3.0), (25.0, -3.0), (25.0, 2.0), (20.0, -3.0)]
+    polygons = [*SQUARE_WITH_HOLE, [triangle]]
+    assert find_bounding_box(polygons) == BoundingBox(0.0, 25.0, -3.0, 10.0)
+
+
+# --- BoundingBox.contains ---
+
+def test_bounding_box_contains_a_position_on_its_edge():
+    assert BoundingBox(0.0, 10.0, 0.0, 10.0).contains(10.0, 5.0)
+
+
+def test_bounding_box_contains_not_a_position_outside():
+    assert not BoundingBox(0.0, 10.0, 0.0, 10.0).contains(5.0, 10.5)

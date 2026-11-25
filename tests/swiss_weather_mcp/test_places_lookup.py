@@ -3,6 +3,18 @@ import logging
 from swiss_weather_mcp.places.lookup import _read_english_place_names, normalise_name
 
 
+def build_square(east_from_m: float, east_to_m: float, north_from_m: float, north_to_m: float):
+    """Build the polygons of one square, as the shape of a municipality."""
+    corners = [
+        (east_from_m, north_from_m),
+        (east_to_m, north_from_m),
+        (east_to_m, north_to_m),
+        (east_from_m, north_to_m),
+        (east_from_m, north_from_m),
+    ]
+    return [[corners]]
+
+
 def find_names(place_lookup, location: str):
     return [place.name for place in place_lookup.find_places_named(location)]
 
@@ -195,3 +207,24 @@ def test_near_settlements(place_lookup_fixture):
     # Blausee, Wil and Moos are names of several places, Uetliberg has fewer than 100 people,
     # and Genf is the German name of Genève
     assert not {"Blausee", "Wil", "Moos", "Uetliberg", "Genf"} & names
+
+
+# --- find_biggest_settlements_inside ---
+
+def test_find_biggest_settlements_inside_sorted_by_name(place_lookup_fixture):
+    # Brig-Glis: Brig and Glis are of one size, and Briga and Brigue are other names of Brig
+    brig_glis = build_square(2638000.0, 2646000.0, 1125000.0, 1133000.0)
+    settlements = place_lookup_fixture.find_biggest_settlements_inside(brig_glis)
+    assert [settlement.name for settlement in settlements] == ["Brig", "Glis"]
+
+
+def test_find_biggest_settlements_inside_leaves_out_the_smaller_ones(place_lookup_fixture):
+    # Zürich holds Wil, Lindenhof and Uetliberg too, and Zurich is its French name
+    zurich = build_square(2676000.0, 2690000.0, 1241000.0, 1250000.0)
+    settlements = place_lookup_fixture.find_biggest_settlements_inside(zurich)
+    assert [settlement.name for settlement in settlements] == ["Zürich"]
+
+
+def test_find_biggest_settlements_inside_without_any(place_lookup_fixture):
+    empty_square = build_square(2600000.0, 2601000.0, 1200000.0, 1201000.0)
+    assert place_lookup_fixture.find_biggest_settlements_inside(empty_square) == []

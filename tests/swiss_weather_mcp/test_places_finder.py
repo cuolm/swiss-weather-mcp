@@ -23,6 +23,11 @@ def build_place(object_type: str, population_band: int) -> SwisstopoPlace:
     )
 
 
+def load_places_and_boundaries(place_finder) -> None:
+    for loading_thread in place_finder.start_loading_places():
+        loading_thread.join()
+
+
 def count_archive_downloads(source_fixture) -> int:
     downloads = 0
     for call in source_fixture.get_mock.call_args_list:
@@ -124,12 +129,53 @@ def test_find_place_two_places_with_the_same_nearest_settlement(place_finder_fix
 
 def test_find_place_suggests_similar_names(place_finder_fixture):
     with pytest.raises(CannotAnswerError) as raised:
-        place_finder_fixture.find_place("Davos")
+        place_finder_fixture.find_place("Flims")
     assert str(raised.value) == (
-        "Location 'Davos' was not found. Similar names: \"Davos Dorf\" (settlement, 2,000 to 9,999 people, 1564 m), "
-        "\"Davos Platz\" (settlement, 2,000 to 9,999 people, 1558 m). Call again with one of these names as location, "
+        "Location 'Flims' was not found. Similar names: \"Flims Dorf\" (settlement, 1,000 to 1,999 people, 1079 m), "
+        "\"Flums\" (settlement, 2,000 to 9,999 people, 454 m). Call again with one of these names as location, "
         "or ask the user."
     )
+
+
+def test_find_place_of_a_municipality_with_one_biggest_settlement(place_finder_fixture):
+    load_places_and_boundaries(place_finder_fixture)
+    assert place_finder_fixture.find_place("Saint-Barthélemy").name == "St-Barthélemy VD"
+
+
+def test_find_place_of_a_municipality_takes_the_first_of_settlements_close_together(place_finder_fixture):
+    # Davos Dorf and Davos Platz lie 2.3 km apart and 6 m one above the other, so they have the same weather
+    load_places_and_boundaries(place_finder_fixture)
+    assert place_finder_fixture.find_place("Davos").name == "Davos Dorf"
+    assert place_finder_fixture.find_place("Brig-Glis").name == "Brig"
+
+
+def test_find_place_of_a_municipality_lists_settlements_far_apart(place_finder_fixture):
+    # Grimentz and Zinal lie 6.3 km apart and 54 m one above the other
+    load_places_and_boundaries(place_finder_fixture)
+    with pytest.raises(CannotAnswerError) as raised:
+        place_finder_fixture.find_place("Anniviers")
+    assert str(raised.value) == (
+        "'Anniviers' is a municipality with 2 villages of the same size and different weather. "
+        "Call again with location 'Anniviers' and near set to the village next to the place the user means, or ask "
+        "the user which one they mean. The biggest first:\n"
+        '  location="Anniviers", near="Grimentz": settlement, 100 to 999 people, 1620 m, '
+        "municipality Anniviers, canton Valais\n"
+        '  location="Anniviers", near="Zinal": settlement, 100 to 999 people, 1674 m, '
+        "municipality Anniviers, canton Valais"
+    )
+
+
+def test_find_place_of_a_municipality_chooses_the_settlement_closest_to_near(place_finder_fixture):
+    load_places_and_boundaries(place_finder_fixture)
+    assert place_finder_fixture.find_place("Anniviers", nearby_location="Zinal").name == "Zinal"
+
+
+def test_find_place_takes_a_place_before_a_municipality_of_the_name(mocker, place_finder_fixture):
+    # Zürich is the name of the city and of its municipality
+    load_places_and_boundaries(place_finder_fixture)
+    find_municipalities_named = mocker.spy(place_finder_fixture.boundary_source, "find_municipalities_named")
+    assert place_finder_fixture.find_place("Zürich").name == "Zürich"
+    find_municipalities_named.assert_not_called()
 
 
 def test_find_place_unknown_name(place_finder_fixture):

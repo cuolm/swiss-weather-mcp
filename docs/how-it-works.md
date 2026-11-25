@@ -30,7 +30,17 @@
 - The municipalities and cantons use swisstopo's names, in the local language, such as `Genève`
   or `Graubünden`. They appear once the swissBOUNDARIES3D GeoPackage has been downloaded, which
   happens in the background at start. The cantons of the stations use the same names.
-- An unknown name gets up to 10 suggestions, such as `Davos Dorf` and `Davos Platz` for `Davos`.
+- A name no place has can be the name of a municipality from swissBOUNDARIES3D, such as `Davos`. The
+  tool then takes the biggest settlement inside the municipality, such as `Jona` for `Rapperswil-Jona`.
+  - When several are of the same size and lie within 3 km of each other, counting 100 m of height gap
+    like 2 km, they have the same weather, and the tool takes the first by name: `Davos Dorf` of
+    `Davos Dorf` and `Davos Platz`.
+  - When they lie farther apart, the tool lists them like the places of a shared name, each with its
+    own name as `near`, such as `location="Anniviers", near="Zinal"` for one of the ten villages of
+    `Anniviers`, from Niouc at 883 m to Chandolin at 1950 m.
+  - Tested on the forecasts of the 94 municipalities with several settlements of the same size: those
+    within 3 km differed by at most 1 °C.
+- An unknown name gets up to 10 suggestions, such as `Grosser Aletschgletscher` for `Aletschgletscher`.
 
 ## Forecast Points
 - The forecast comes from a MeteoSwiss forecast point near the place. An answer names it in

@@ -29,11 +29,18 @@ How we use it:
    look for a newer edition is more than 30 days ago, and unpack it.
 2. For a position, ask the spatial index for the areas whose box holds it, and read only their shapes
    to find the one the position lies in. All shapes would take about 245 MB of memory.
+3. For a name, read the names of the municipalities, and the shapes of only those a user means by it.
+   Case, accents and periods do not matter, the canton after the name may be left out, and each part of a
+   name with a slash counts on its own:
+       "Davos"                 → "davos"
+       "Saint-Barthélemy (VD)" → "saint-barthelemy (vd)", "saint-barthelemy"
+       "Albula/Alvra"          → "albula/alvra", "albula", "alvra"
 
     <cache dir>/boundaries/
     └── swissboundaries3d_2026-01.gpkg   (the newest edition, replaced when a newer one appears)
 """
 import logging
+import re
 import shutil
 import sqlite3
 import struct
@@ -42,8 +49,10 @@ import zipfile
 from pathlib import Path
 from typing import NamedTuple, Optional
 
+from ..cantons import SWISS_CANTON_ABBREVIATIONS
 from ..downloads import download_file, ensure_newest_swisstopo_edition
 from ..polygons import Polygon, polygons_contain
+from .lookup import normalise_name
 
 
 logger = logging.getLogger(__name__)
@@ -66,6 +75,11 @@ AREAS_AROUND_QUERY = """
     LEFT JOIN tlm_kantonsgebiet AS canton ON canton.kantonsnummer = area.kantonsnummer
     WHERE box.minx <= ? AND box.maxx >= ? AND box.miny <= ? AND box.maxy >= ?
 """
+# The names of the areas of one kind, without their shapes
+AREA_NAMES_QUERY = "SELECT id, name FROM tlm_hoheitsgebiet WHERE objektart = ?"
+AREA_SHAPE_QUERY = "SELECT geom FROM tlm_hoheitsgebiet WHERE id = ?"
+# A municipality whose name other municipalities have too carries its canton, such as "Saint-Barthélemy (VD)"
+CANTON_SUFFIX = re.compile(rf"^(.*\S) \((?:{'|'.join(SWISS_CANTON_ABBREVIATIONS)})\)$")
 
 # A GeoPackage geometry is a header, then the shape as well-known binary (WKB). The header has 8 bytes,
 # then an envelope whose size bits 1 to 3 of the flags byte give.
@@ -108,6 +122,12 @@ class Area(NamedTuple):
         if self.canton is None:
             return location
         return f"{location}, canton {self.canton}"
+
+
+class Municipality(NamedTuple):
+    """A municipality of swissBOUNDARIES3D, with its shape."""
+    name: str  # such as "Davos" or "Saint-Barthélemy (VD)"
+    polygons: list[Polygon]
 
 
 def _read_wkb(wkb: memoryview, offset: int) -> tuple[list[Polygon], int]:
@@ -158,8 +178,33 @@ def _read_polygons(geometry: bytes) -> list[Polygon]:
     return polygons
 
 
+def _connect(geopackage_file: Path) -> sqlite3.Connection:
+    """Open a GeoPackage to read."""
+    # A connection of its own for each call, as requests come from several threads. as_uri escapes the
+    # characters a URL gives a meaning, such as "#" and "?", which a cache folder name may hold.
+    geopackage_uri = geopackage_file.resolve().as_uri()
+    database_uri = f"{geopackage_uri}?mode=ro"
+    return sqlite3.connect(database_uri, uri=True)
+
+
+def _build_municipality_lookup_names(name: str) -> list[str]:
+    """Build every lookup name of a municipality, such as "saint-barthelemy (vd)" and "saint-barthelemy"."""
+    lookup_names = [normalise_name(name)]
+    canton_suffix = CANTON_SUFFIX.match(name)
+    if canton_suffix:
+        name_without_canton = canton_suffix.group(1)
+        lookup_name_without_canton = normalise_name(name_without_canton)
+        lookup_names.append(lookup_name_without_canton)
+    if "/" in name:
+        for part in name.split("/"):
+            if part.strip():
+                lookup_name_of_part = normalise_name(part)
+                lookup_names.append(lookup_name_of_part)
+    return lookup_names
+
+
 class SwisstopoBoundarySource:
-    """Find the area of a position in the newest swissBOUNDARIES3D edition, cached on disk."""
+    """Find the area of a position, and the municipalities of a name, in the newest swissBOUNDARIES3D edition."""
 
     def __init__(self, cache_dir: Path):
         self.cache_dir = cache_dir / "boundaries"
@@ -186,7 +231,7 @@ class SwisstopoBoundarySource:
             partial_file.unlink(missing_ok=True)
 
     def load_geopackage(self) -> None:
-        """Make sure the newest GeoPackage is cached, so find_area can use it."""
+        """Make sure the newest GeoPackage is cached, so find_area and find_municipalities_named can use it."""
         self._geopackage_file = ensure_newest_swisstopo_edition(
             EDITIONS_URL, ARCHIVE_SUFFIX, self.cache_dir, GEOPACKAGE_SUFFIX, self._download_geopackage
         )
@@ -201,11 +246,7 @@ class SwisstopoBoundarySource:
         if self._geopackage_file is None:
             return None
 
-        # A connection of its own for each call, as requests come from several threads. as_uri escapes the
-        # characters a URL gives a meaning, such as "#" and "?", which a cache folder name may hold.
-        geopackage_uri = self._geopackage_file.resolve().as_uri()
-        database_uri = f"{geopackage_uri}?mode=ro"
-        connection = sqlite3.connect(database_uri, uri=True)
+        connection = _connect(self._geopackage_file)
         try:
             cursor = connection.execute(AREAS_AROUND_QUERY, (east_m, east_m, north_m, north_m))
             areas = cursor.fetchall()
@@ -217,3 +258,32 @@ class SwisstopoBoundarySource:
             if polygons_contain(polygons, east_m, north_m):
                 return Area(area_name, area_kind, canton_name)
         return None
+
+    def find_municipalities_named(self, location: str) -> list[Municipality]:
+        """
+        Find the municipalities a user means by a name, such as Davos for "davos".
+
+        Case, accents and periods are ignored, a canton after the name may be left out, and each part of a name
+        with a slash counts on its own. Return none for a name no municipality has, and before load_geopackage
+        has cached the GeoPackage.
+        """
+        if self._geopackage_file is None:
+            return []
+
+        lookup_name = normalise_name(location)
+        municipalities = []
+        connection = _connect(self._geopackage_file)
+        try:
+            cursor = connection.execute(AREA_NAMES_QUERY, (MUNICIPALITY_KIND,))
+            municipality_rows = cursor.fetchall()
+            for area_id, municipality_name in municipality_rows:
+                municipality_lookup_names = _build_municipality_lookup_names(municipality_name)
+                if lookup_name not in municipality_lookup_names:
+                    continue
+                cursor = connection.execute(AREA_SHAPE_QUERY, (area_id,))
+                (geometry,) = cursor.fetchone()
+                polygons = _read_polygons(geometry)
+                municipalities.append(Municipality(municipality_name, polygons))
+        finally:
+            connection.close()
+        return municipalities

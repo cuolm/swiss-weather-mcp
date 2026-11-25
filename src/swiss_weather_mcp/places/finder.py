@@ -13,16 +13,29 @@ The location is looked up among the places of swissNAMES3D, see lookup.py:
   name leads back to that place. Each also names the municipality and canton it lies in, from
   swissBOUNDARIES3D, see boundary_source.py, so a user who answers with a canton can be matched
   to its line.
-- No place has the name: we refuse and suggest up to 10 similar names, see suggestions.py, so the
-  model can call again with one of them.
+- No place has the name, but a municipality has, such as Davos: the biggest settlement inside the
+  municipality, from swissBOUNDARIES3D, see boundary_source.py. When several settlements are the
+  biggest, of the same population band:
+    - close together, they have the same weather, so the first by name is taken: Davos Dorf of
+      Davos Dorf and Davos Platz.
+    - far apart, we refuse and list them, each with its own name as near, such as the ten villages
+      of Anniviers.
+- Neither a place nor a municipality has the name: we refuse and suggest up to 10 similar names, see
+  suggestions.py, so the model can call again with one of them.
 
     location
        │
        ▼
     places with that name
        ├── one ──────► that place
-       ├── none ─────► refuse: Location 'Davos' was not found. Similar names: "Davos Dorf"
-       │               (settlement, 2,000 to 9,999 people, 1564 m), "Davos Platz" (...), ...
+       ├── none ─────► a municipality with that name?
+       │                 ├── one biggest settlement ─────────────► that settlement
+       │                 ├── several biggest, close together ────► the first by name
+       │                 ├── several biggest, far apart ─────────► refuse, with one line per settlement:
+       │                 │     location="Anniviers", near="Zinal": settlement, 100 to 999 people,
+       │                 │       1674 m, municipality Anniviers, canton Valais
+       │                 └── no ─► refuse: Location 'Aletschgletscher' was not found. Similar names:
+       │                             "Grosser Aletschgletscher" (glacier, 2528 m), ...
        └── several
               │
               ▼
@@ -49,12 +62,13 @@ import heapq
 import logging
 import math
 import threading
+from itertools import combinations
 from pathlib import Path
 from typing import Optional
 
 import requests
 
-from ..distance import calculate_distance_m
+from ..distance import calculate_distance_m, calculate_weighted_distance_m
 from ..errors import CannotAnswerError
 from .boundary_source import SwisstopoBoundarySource
 from .lookup import SwisstopoPlaceLookup
@@ -71,6 +85,17 @@ MAX_NEAR_SETTLEMENTS_TRIED = 20
 # other place is a settlement of fewer than 100, so at least ten times smaller
 OBVIOUS_PLACE_MIN_BAND = 5
 OBVIOUS_OTHER_PLACE_MAX_BAND = 3
+# Settlements this close by weighted distance, see calculate_weighted_distance_m, have the same weather
+MAX_EQUAL_SETTLEMENT_WEIGHTED_DISTANCE_M = 3000
+
+
+def _lie_close_together(settlements: list[SwisstopoPlace]) -> bool:
+    """Tell whether every two settlements lie within MAX_EQUAL_SETTLEMENT_WEIGHTED_DISTANCE_M of each other."""
+    for first_settlement, second_settlement in combinations(settlements, 2):
+        weighted_distance_m = calculate_weighted_distance_m(first_settlement, second_settlement)
+        if weighted_distance_m > MAX_EQUAL_SETTLEMENT_WEIGHTED_DISTANCE_M:
+            return False
+    return True
 
 
 def _find_obvious_place(places: list[SwisstopoPlace]) -> Optional[SwisstopoPlace]:
@@ -98,7 +123,8 @@ class PlaceFinder:
     Find the swisstopo place a user means.
 
     A name of several places needs near, a settlement next to the one the user means, unless one place
-    is obvious. For an unknown name, suggest similar names, see SwisstopoPlaceLookup.find_places_named_alike.
+    is obvious. A name no place has may be the name of a municipality, which stands for its biggest
+    settlements. For an unknown name, suggest similar names, see SwisstopoPlaceLookup.find_places_named_alike.
     """
 
     def __init__(self, cache_dir: Path):
@@ -177,13 +203,22 @@ class PlaceFinder:
         self,
         location: str,
         places: list[SwisstopoPlace],
+        is_municipality: bool,
         nearby_location: Optional[str],
         nearby_places: list[SwisstopoPlace],
     ) -> CannotAnswerError:
-        """Build the refusal of a name of several places, listing every place with a settlement to give as near."""
+        """
+        Build the refusal of a name of several places, listing every place with a settlement to give as near.
+
+        The places of a municipality are settlements with names of their own, each given as its own near.
+        """
         option_lines = []
         for place in places:
-            near_settlement_name = self._find_near_settlement_name(place, places)
+            if is_municipality:
+                # The settlements of a municipality have different names, so near can be each one's own name
+                near_settlement_name = place.name
+            else:
+                near_settlement_name = self._find_near_settlement_name(place, places)
             option_line = f'  location="{location}", near="{near_settlement_name}": {place.description}'
             area = self.boundary_source.find_area(place.east_m, place.north_m)
             if area is not None:
@@ -191,6 +226,12 @@ class PlaceFinder:
             option_lines.append(option_line)
         listed_options = "\n".join(option_lines)
 
+        if is_municipality:
+            places_sentence = (
+                f"'{location}' is a municipality with {len(places)} villages of the same size and different weather."
+            )
+        else:
+            places_sentence = f"'{location}' is the name of {len(places)} places."
         no_place_near_sentence = ""
         if nearby_location is not None:
             if nearby_places:
@@ -198,7 +239,7 @@ class PlaceFinder:
             else:
                 no_place_near_sentence = f"No place is called '{nearby_location}'. "
         return CannotAnswerError(
-            f"{no_place_near_sentence}'{location}' is the name of {len(places)} places. Call again with location "
+            f"{no_place_near_sentence}{places_sentence} Call again with location "
             f"'{location}' and near set to the village next to the place the user means, or ask the user "
             f"which one they mean. The biggest first:\n{listed_options}"
         )
@@ -216,16 +257,37 @@ class PlaceFinder:
             f"names as location, or ask the user."
         )
 
+    def _find_biggest_settlements_of_municipality(self, location: str) -> list[SwisstopoPlace]:
+        """
+        Find the biggest settlements of the municipality with this name, sorted by name.
+
+        If there is only one settlement, or several settlements that lie close together and so have the
+        same weather, return only the first. Return an empty list if no municipality has this name.
+        """
+        biggest_settlements = []
+        for municipality in self.boundary_source.find_municipalities_named(location):
+            biggest_settlements_inside = self.place_lookup.find_biggest_settlements_inside(municipality.polygons)
+            biggest_settlements.extend(biggest_settlements_inside)
+        if _lie_close_together(biggest_settlements):
+            return biggest_settlements[:1]
+        return biggest_settlements
+
     def find_place(self, location: str, nearby_location: Optional[str] = None) -> SwisstopoPlace:
         """
         Find the place a user means.
 
+        A name no place has may be the name of a municipality, see _find_biggest_settlements_of_municipality.
         nearby_location is only used for a name of several places; without it, the obvious place is
         taken, see _find_obvious_place. Case, accents and periods are ignored. Raise CannotAnswerError
         for an unknown name, suggesting similar names, and for a name of several places that neither
         nearby_location nor an obvious place tells apart, listing every place to call again with.
         """
         places = self.place_lookup.find_places_named(location)
+        if places:
+            is_municipality = False
+        else:
+            places = self._find_biggest_settlements_of_municipality(location)
+            is_municipality = True
         if not places:
             raise self._build_unknown_name_error(location)
         if len(places) == 1:
@@ -242,4 +304,4 @@ class PlaceFinder:
             obvious_place = _find_obvious_place(places)
             if obvious_place is not None:
                 return obvious_place
-        raise self._build_options_error(location, places, nearby_location, nearby_places)
+        raise self._build_options_error(location, places, is_municipality, nearby_location, nearby_places)

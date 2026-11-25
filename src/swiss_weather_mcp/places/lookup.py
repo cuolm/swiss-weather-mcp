@@ -20,6 +20,8 @@ The places are built once per process from the rows of swissNAMES3D:
    towns a user most likely means.
 4. ENGLISH: english_place_names.csv adds the English names swissNAMES3D lacks, such as Geneva
    for Genève, each under a lookup name no row has.
+5. SETTLEMENTS: the settlements with people, each once under its official name, the biggest first, to
+   find the biggest settlements inside a municipality, such as Davos Dorf and Davos Platz in Davos.
 
 A name no lookup name matches gets suggestions, see suggestions.py.
 """
@@ -33,6 +35,7 @@ from importlib import resources
 
 from ..cantons import SWISS_CANTON_ABBREVIATIONS
 from ..distance import calculate_distance_m
+from ..polygons import Polygon, find_bounding_box, polygons_contain
 from .place_source import OBJECT_TYPE_TO_NAME, SETTLEMENT_TYPES, SwisstopoPlace, SwisstopoPlaceSource
 from .suggestions import find_similar_places
 
@@ -186,6 +189,24 @@ def _find_near_settlements(lookup_name_to_places: dict[str, list[SwisstopoPlace]
     return near_settlements
 
 
+def _list_settlements(lookup_name_to_places: dict[str, list[SwisstopoPlace]]) -> list[SwisstopoPlace]:
+    """List each settlement with people once, under its official name: the biggest first, then by name."""
+    settlements = []
+    settlement_positions = set()
+    for places in lookup_name_to_places.values():
+        for place in places:
+            # The official name, so Brig is listed and not Briga or Brigue in the same spot
+            is_official_settlement = place.object_types[0] in SETTLEMENT_TYPES and not place.is_exonym
+            # A place is filed under several lookup names, such as Biel/Bienne under "biel" and "bienne"
+            position = (place.east_m, place.north_m)
+            if is_official_settlement and place.population_band and position not in settlement_positions:
+                settlement_positions.add(position)
+                settlements.append(place)
+    # By the normalised name, so an accent does not move a name to the end, such as Évolène after Zinal
+    settlements.sort(key=lambda settlement: (-settlement.population_band, normalise_name(settlement.name)))
+    return settlements
+
+
 class SwisstopoPlaceLookup:
     """Find the swisstopo places of a lookup name, and the places to suggest for a name no lookup name matches."""
 
@@ -193,6 +214,7 @@ class SwisstopoPlaceLookup:
         self.place_source = place_source
         self._lookup_name_to_places: dict[str, list[SwisstopoPlace]] = {}
         self._near_settlements: list[SwisstopoPlace] = []
+        self._settlements: list[SwisstopoPlace] = []
         # The load at server start and a request may come at the same time, and only one may download
         self._loading_lock = threading.Lock()
 
@@ -213,6 +235,7 @@ class SwisstopoPlaceLookup:
             _add_english_names(lookup_name_to_places)
 
             self._near_settlements = _find_near_settlements(lookup_name_to_places)
+            self._settlements = _list_settlements(lookup_name_to_places)
             # Published last, so a parallel request never sees part of the places
             self._lookup_name_to_places = lookup_name_to_places
             logger.info(f"Built the places of {len(lookup_name_to_places)} lookup names")
@@ -236,3 +259,21 @@ class SwisstopoPlaceLookup:
         self.load_places()
         query = normalise_name(location)
         return find_similar_places(self._lookup_name_to_places, query)
+
+    def find_biggest_settlements_inside(self, polygons: list[Polygon]) -> list[SwisstopoPlace]:
+        """
+        Find the biggest settlements inside polygons, sorted by name: those of the biggest population band there.
+
+        Return none when no settlement with people lies inside.
+        """
+        self.load_places()
+        bounding_box = find_bounding_box(polygons)
+        biggest_settlements: list[SwisstopoPlace] = []
+        for settlement in self._settlements:
+            # The settlements come biggest first, so the first one inside sets the band
+            if biggest_settlements and settlement.population_band < biggest_settlements[0].population_band:
+                break
+            is_in_box = bounding_box.contains(settlement.east_m, settlement.north_m)
+            if is_in_box and polygons_contain(polygons, settlement.east_m, settlement.north_m):
+                biggest_settlements.append(settlement)
+        return biggest_settlements
