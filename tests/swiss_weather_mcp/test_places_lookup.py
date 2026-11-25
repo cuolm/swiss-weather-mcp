@@ -44,7 +44,7 @@ def test_find_places_named_ignores_case_and_accents(place_lookup_fixture):
 
 
 def test_find_places_named_without_the_canton(place_lookup_fixture):
-    # Wil SG is the town, the two districts are smaller, so the town comes first
+    # Wil SG is the town, the two quarters are smaller, so the town comes first
     places = place_lookup_fixture.find_places_named("Wil")
     assert [(place.name, place.population_band) for place in places] == [("Wil SG", 7), ("Wil", 6), ("Wil", 4)]
     assert find_names(place_lookup_fixture, "Wil SG") == ["Wil SG"]
@@ -69,7 +69,7 @@ def test_find_places_named_merges_close_rows(place_lookup_fixture):
 
 
 def test_find_places_named_biggest_first(place_lookup_fixture):
-    # The Blausee place and district are one place with people, which comes before the lake
+    # The Blausee place and quarter are one place with people, which comes before the lake
     blausee = place_lookup_fixture.find_places_named("Blausee")
     assert [place.object_types for place in blausee] == [("Ort", "Quartier"), ("See",)]
 

@@ -14,7 +14,7 @@ The places are built once per process from the rows of swissNAMES3D:
        "Wil SG"      → "wil sg", "wil"
        "Biel/Bienne" → "biel/bienne", "biel", "bienne"
 2. GROUPS: rows under the same lookup name that lie within 2 km of each other are one place, such as
-   a lake and the district on its shore. The place has the official name, position and
+   a lake and the quarter on its shore. The place has the official name, position and
    altitude of its biggest settlement, else of its main landmark, and all object types.
 3. ORDER: the places of a lookup name are sorted biggest first, so a list of them starts with the
    towns a user most likely means.

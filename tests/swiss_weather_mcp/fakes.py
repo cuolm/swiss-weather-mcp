@@ -533,14 +533,14 @@ def build_avalanche_bulletins_geojson() -> bytes:
     return json.dumps(feature_collection).encode("utf-8")
 
 
-# Some columns of the swissNAMES3D files, with real places. Oerlikon is a city district in the
+# Some columns of the swissNAMES3D files, with real places. Oerlikon is a city quarter in the
 # points file and again in the areas file, where it is not read. Rüti is a field name, which is
 # not read either, and Zürich HB a railway station. The Rheinfall is a waterfall. Blausee is the
-# name of three places: a place and a district 280 m apart, which are one place, and a lake near
+# name of three places: a place and a quarter 280 m apart, which are one place, and a lake near
 # Wallisellen. Uetliberg is a hill and the hamlet on it. Lindenhof lies next to Zürich 8001. Both
 # Moos are nearest to Wallisellen, and one Seeli lies 12 km from Wallisellen. Zurich and Genf are
 # the French and German names of Zürich and Genève, in the same spot. Wil SG is the town, and two
-# smaller districts are called Wil. Biel/Bienne has a name in two languages, like its railway
+# smaller quarters are called Wil. Biel/Bienne has a name in two languages, like its railway
 # station, and the shooting range of Küsnacht a name with slashes. No row is called Davos: Davos
 # Dorf and Davos Platz are, of one size and close together. No row is called Flims either, and Flums
 # is a bigger town spelled alike. Grindelwald is a village and a hamlet in canton Luzern, so the village
@@ -622,7 +622,7 @@ def build_place_names_editions() -> dict:
 
 
 # Areas as squares in LV95, the corners east from, east to, north from, north to, around the places
-# above: Zürich holds Lindenhof and the Blausee place and district, the Greifensee, an area of the canton
+# above: Zürich holds Lindenhof and the Blausee place and quarter, the Greifensee, an area of the canton
 # itself, the Blausee lake, and Vaduz, in Liechtenstein, has no canton number. Davos, Anniviers, Brig-Glis
 # and Saint-Barthélemy (VD) hold the villages of their name, and no place has their name. The real tables
 # have the same columns, and more.

@@ -44,7 +44,7 @@ def test_place_display_name():
 
 
 def test_place_description_names_every_type():
-    assert BLAUSEE.description == "district and lake, fewer than 20 people, 887 m"
+    assert BLAUSEE.description == "quarter and lake, fewer than 20 people, 887 m"
 
 
 def test_place_description_without_people():

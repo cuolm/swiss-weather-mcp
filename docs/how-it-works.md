@@ -10,7 +10,7 @@
   the model needs for questions such as "tomorrow" or "tonight".
 
 ## Locations
-- A location is a place name from swissNAMES3D: a town, village, city district, peak, pass, lake,
+- A location is a place name from swissNAMES3D: a town, village, city quarter, peak, pass, lake,
   glacier, valley or railway station, such as `Zürich`, `Oerlikon`, `Titlis` or `Zürichsee`.
 - Case and accents don't matter, and a few English names such as `Geneva` work too.
 - When several places share a name and `near` is missing, the tool takes the biggest one if that is
@@ -23,7 +23,7 @@
   each with the call that chooses it and the municipality and canton it lies in:
   ```
   'Blausee' is the name of 6 places. [...] The biggest first:
-    location="Blausee", near="Blausee-Mitholz": district and lake, fewer than 20 people, 887 m, municipality Kandergrund, canton Bern
+    location="Blausee", near="Blausee-Mitholz": quarter and lake, fewer than 20 people, 887 m, municipality Kandergrund, canton Bern
     location="Blausee", near="Ramiswil": settlement, fewer than 20 people, 683 m, municipality Mümliswil-Ramiswil, canton Solothurn
     ...
   ```

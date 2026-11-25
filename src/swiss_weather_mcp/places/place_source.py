@@ -55,7 +55,7 @@ ARCHIVE_SUFFIX = "_2056.csv.zip"
 FILE_TO_OBJECT_TYPES = {
     "swissNAMES3D_PKT.csv": {
         "Ort", "Ortsteil", "Quartier", "Quartierteil",                                   # settlements
-        "Alpiner Gipfel", "Hauptgipfel", "Gipfel", "Haupthuegel", "Huegel", "Felskopf",  # peaks, hills, rocks
+        "Alpiner Gipfel", "Hauptgipfel", "Gipfel", "Haupthuegel", "Huegel", "Felskopf",  # peaks, hills, rocky summits
         "Pass", "Strassenpass", "Wasserfall",                                            # passes, waterfalls
         "Haltestelle Bahn", "Uebrige Bahnen", "Aussichtspunkt",                          # stations, viewpoints
         "Gebaeude", "Offenes Gebaeude",                                                  # buildings, such as huts
@@ -69,11 +69,13 @@ FILE_TO_OBJECT_TYPES = {
 SETTLEMENT_TYPES = ("Ort", "Ortsteil", "Quartier", "Quartierteil")
 # How an answer calls each object type. The order is also the order in which the types of a
 # place are named, so a settlement comes first and a peak before the cable car station on it.
+# The English names are our own, as swisstopo describes the object types only in German and French.
+# A settlement is an Ort, Ortsteil, Quartier or Quartierteil, which swisstopo calls a populated place.
 OBJECT_TYPE_TO_NAME = {
     "Ort": "settlement", "Ortsteil": "part of a settlement",
-    "Quartier": "district", "Quartierteil": "part of a district",
+    "Quartier": "quarter", "Quartierteil": "part of a quarter",
     "Alpiner Gipfel": "peak", "Hauptgipfel": "peak", "Gipfel": "peak", "Haupthuegel": "hill", "Huegel": "hill",
-    "Massiv": "mountain massif", "Huegelzug": "range of hills", "Grat": "ridge", "Felskopf": "rock",
+    "Massiv": "mountain massif", "Huegelzug": "range of hills", "Grat": "ridge", "Felskopf": "rocky summit",
     "Pass": "pass", "Strassenpass": "pass",
     "See": "lake", "Seeteil": "part of a lake", "Seeinsel": "island", "Gletscher": "glacier", "Wasserfall": "waterfall",
     "Haltestelle Bahn": "railway station", "Uebrige Bahnen": "cable car station", "Aussichtspunkt": "viewpoint",
@@ -106,7 +108,7 @@ class SwisstopoPlace(NamedTuple):
     A named place of swissNAMES3D.
 
     One row as published, or several close rows of the same name merged into one, such as a lake and
-    the district on its shore.
+    the quarter on its shore.
     """
     name: str
     object_types: tuple[str, ...]  # such as ("Quartier", "See"), in the order of OBJECT_TYPE_TO_NAME
@@ -133,7 +135,7 @@ class SwisstopoPlace(NamedTuple):
 
     @property
     def description(self) -> str:
-        """What the place is, such as "district and lake, fewer than 20 people, 887 m"."""
+        """What the place is, such as "quarter and lake, fewer than 20 people, 887 m"."""
         type_names: list[str] = []
         for object_type in self.object_types:
             type_name = OBJECT_TYPE_TO_NAME[object_type]

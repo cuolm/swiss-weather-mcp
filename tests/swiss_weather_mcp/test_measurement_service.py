@@ -140,8 +140,8 @@ async def test_read_current_when_slf_cannot_be_reached(mocker, measurement_servi
 
 
 @pytest.mark.asyncio
-async def test_read_current_for_a_district(measurement_service_fixture):
-    # The station is found from the district itself, not from the town around it
+async def test_read_current_for_a_part_of_a_quarter(measurement_service_fixture):
+    # The station is found from the part of the quarter itself, not from the town around it
     answer = await measurement_service_fixture.read_current("Lindenhof")
 
     assert answer["data_from"].startswith(
