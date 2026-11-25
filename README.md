@@ -55,7 +55,7 @@ claude plugin marketplace add cuolm/claude-plugins
 claude plugin install swiss-weather-mcp@cuolm
 ```
 
-Step by step, with videos, for pi + llama.cpp, Claude Desktop and Unsloth Studio: [Setup in AI Apps](docs/apps.md).
+Step by step, with videos, for pi + llama.cpp, Claude Desktop and Unsloth Desktop: [Setup in AI Apps](docs/apps.md).
 
 ## Installation
 Install the server once with uv, instead of starting it with `uvx` on each start as in [Quick Start](#quick-start):
@@ -138,10 +138,11 @@ Answers name the forecast point when it is not next to the place (see [Forecast 
 | `current_date_and_time()` | Today's weekday and the Swiss time now |
 
 ## Details
-- [Setup in AI Apps](docs/apps.md): pi + llama.cpp, Claude Desktop and Unsloth Studio, step by step
+- [Setup in AI Apps](docs/apps.md): pi + llama.cpp, Claude Desktop and Unsloth Desktop, step by step
 - [How It Works](docs/how-it-works.md): times, places, forecast points, each tool in detail, forecast
   medians, cache and downloads
-- [Development](docs/development.md): running from source, the test client and the project structure
+- [Development](docs/development.md): running from source, the test client with a demo video, and the
+  project structure
 
 ## Data Sources
 - [Local forecasts](https://opendatadocs.meteoswiss.ch/e-forecast-data/e4-local-forecast-data) and [SwissMetNet measurements](https://opendatadocs.meteoswiss.ch/a-data-groundbased/a1-automatic-weather-stations): [MeteoSwiss](https://www.meteoswiss.admin.ch) under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Source: MeteoSwiss
