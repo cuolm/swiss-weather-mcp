@@ -68,7 +68,7 @@ from typing import Optional
 
 import requests
 
-from ..distance import calculate_distance_m, calculate_weighted_distance_m
+from ..distance import calculate_distance_m, is_within_weighted_distance
 from ..errors import CannotAnswerError
 from .boundary_source import SwisstopoBoundarySource
 from .lookup import SwisstopoPlaceLookup
@@ -87,15 +87,6 @@ OBVIOUS_PLACE_MIN_BAND = 5
 OBVIOUS_OTHER_PLACE_MAX_BAND = 3
 # Settlements this close by weighted distance, see calculate_weighted_distance_m, have the same weather
 MAX_EQUAL_SETTLEMENT_WEIGHTED_DISTANCE_M = 3000
-
-
-def _lie_close_together(settlements: list[SwisstopoPlace]) -> bool:
-    """Tell whether every two settlements lie within MAX_EQUAL_SETTLEMENT_WEIGHTED_DISTANCE_M of each other."""
-    for first_settlement, second_settlement in combinations(settlements, 2):
-        weighted_distance_m = calculate_weighted_distance_m(first_settlement, second_settlement)
-        if weighted_distance_m > MAX_EQUAL_SETTLEMENT_WEIGHTED_DISTANCE_M:
-            return False
-    return True
 
 
 def _find_obvious_place(places: list[SwisstopoPlace]) -> Optional[SwisstopoPlace]:
@@ -199,16 +190,9 @@ class PlaceFinder:
         # they have nearly the same weather
         return nearest_settlements[0].name
 
-    def _build_options_error(
-        self,
-        location: str,
-        places: list[SwisstopoPlace],
-        is_municipality: bool,
-        nearby_location: Optional[str],
-        nearby_places: list[SwisstopoPlace],
-    ) -> CannotAnswerError:
+    def _build_option_lines(self, location: str, places: list[SwisstopoPlace], is_municipality: bool) -> list[str]:
         """
-        Build the refusal of a name of several places, listing every place with a settlement to give as near.
+        Build one line per place: the call that chooses it, what it is and where it lies.
 
         The places of a municipality are settlements with names of their own, each given as its own near.
         """
@@ -224,6 +208,18 @@ class PlaceFinder:
             if area is not None:
                 option_line += f", {area.description}"
             option_lines.append(option_line)
+        return option_lines
+
+    def _build_options_error(
+        self,
+        location: str,
+        places: list[SwisstopoPlace],
+        is_municipality: bool,
+        nearby_location: Optional[str],
+        nearby_places: list[SwisstopoPlace],
+    ) -> CannotAnswerError:
+        """Build the refusal of a name of several places, listing every place with a settlement to give as near."""
+        option_lines = self._build_option_lines(location, places, is_municipality)
         listed_options = "\n".join(option_lines)
 
         if is_municipality:
@@ -268,7 +264,11 @@ class PlaceFinder:
         for municipality in self.boundary_source.find_municipalities_named(location):
             biggest_settlements_inside = self.place_lookup.find_biggest_settlements_inside(municipality.polygons)
             biggest_settlements.extend(biggest_settlements_inside)
-        if _lie_close_together(biggest_settlements):
+        lie_close_together = all(
+            is_within_weighted_distance(first_settlement, second_settlement, MAX_EQUAL_SETTLEMENT_WEIGHTED_DISTANCE_M)
+            for first_settlement, second_settlement in combinations(biggest_settlements, 2)
+        )
+        if lie_close_together:
             return biggest_settlements[:1]
         return biggest_settlements
 

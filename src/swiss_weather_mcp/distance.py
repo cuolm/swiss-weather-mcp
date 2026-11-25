@@ -55,6 +55,12 @@ def is_close(place: GridPosition, position: GridPosition) -> bool:
     return distance_km <= CLOSE_MAX_DISTANCE_KM and abs(difference_m) <= CLOSE_MAX_HEIGHT_DIFFERENCE_M
 
 
+def is_within_weighted_distance(first: GridPosition, second: GridPosition, max_weighted_distance_m: float) -> bool:
+    """Tell whether two positions lie within max_weighted_distance_m of each other, by distance plus height gap."""
+    weighted_distance_m = calculate_weighted_distance_m(first, second)
+    return weighted_distance_m <= max_weighted_distance_m
+
+
 def rank_by_weighted_distance(
     place: GridPosition, positions: Iterable[PositionT], max_weighted_distance_m: Optional[float] = None
 ) -> list[PositionT]:
@@ -65,7 +71,6 @@ def rank_by_weighted_distance(
     """
     close_positions = []
     for position in positions:
-        weighted_distance_m = calculate_weighted_distance_m(place, position)
-        if max_weighted_distance_m is None or weighted_distance_m <= max_weighted_distance_m:
+        if max_weighted_distance_m is None or is_within_weighted_distance(place, position, max_weighted_distance_m):
             close_positions.append(position)
     return sorted(close_positions, key=lambda position: calculate_weighted_distance_m(place, position))

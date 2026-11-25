@@ -1,6 +1,6 @@
 from datetime import date
 
-from swiss_weather_mcp.distance import is_close, rank_by_weighted_distance
+from swiss_weather_mcp.distance import is_close, is_within_weighted_distance, rank_by_weighted_distance
 from swiss_weather_mcp.measurements.meteoswiss_source import MeteoSwissStation
 from swiss_weather_mcp.places.place_source import SwisstopoPlace
 
@@ -17,6 +17,14 @@ ELM = MeteoSwissStation(
     abbreviation="ELM", name="Elm", canton="Glarus", altitude_m=958.0, east_m=2732266.0, north_m=1198424.0,
     data_since=date(1878, 2, 1), is_manual_site=False,
 )
+
+
+# --- is_within_weighted_distance ---
+
+def test_is_within_weighted_distance():
+    # Elm is 13.5 km away and 332 m lower, 20.2 km in all
+    assert is_within_weighted_distance(BRAUNWALD, ELM, max_weighted_distance_m=25000)
+    assert not is_within_weighted_distance(BRAUNWALD, ELM, max_weighted_distance_m=20000)
 
 
 # --- rank_by_weighted_distance ---
