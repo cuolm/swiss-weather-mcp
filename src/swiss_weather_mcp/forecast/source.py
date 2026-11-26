@@ -259,7 +259,7 @@ class ForecastSource:
         """
         Find the newest run with a file for every parameter, in today's or yesterday's item.
 
-        The result is reused for RUN_LOOKUP_MAX_AGE. Raise RuntimeError when neither day has a complete run.
+        The result is reused for RUN_LOOKUP_MAX_AGE. Raise CannotAnswerError when neither day has a complete run.
         """
         with self._run_lookup_lock:
             now = datetime.now(timezone.utc)
@@ -277,8 +277,8 @@ class ForecastSource:
                     self._run_checked_at = now
                     return ForecastRun(self._run_id, self._parameter_to_file_url)
 
-        raise RuntimeError(
-            "The MeteoSwiss local forecasting collection published no complete run for today or yesterday"
+        raise CannotAnswerError(
+            "MeteoSwiss has published no complete forecast for today or yesterday, try again later."
         )
 
     def _delete_old_cached_runs(self, current_run_id: str) -> None:

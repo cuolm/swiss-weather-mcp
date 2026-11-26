@@ -44,6 +44,15 @@ def test_find_latest_run_falls_back_to_yesterday(mocker, tmp_path):
     assert run_id == RUN_ID
 
 
+def test_find_latest_run_without_a_complete_run(mocker, tmp_path):
+    # Neither today's nor yesterday's item holds a run with every file
+    responses = [FakeResponse(payload={"assets": {}}), FakeResponse(payload={"assets": {}})]
+    mocker.patch("requests.Session.get", side_effect=responses)
+
+    with pytest.raises(CannotAnswerError, match="no complete forecast for today or yesterday, try again later"):
+        ForecastSource(tmp_path).find_latest_run()
+
+
 def test_find_latest_run_skips_a_run_being_uploaded(mocker, tmp_path):
     # MeteoSwiss uploads the files of a run one by one, so the newest run can list only a few
     item = build_stac_item(EARLIER_RUN_ID, parameters.ALL_PARAMETERS)

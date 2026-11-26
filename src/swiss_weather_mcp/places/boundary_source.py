@@ -219,6 +219,9 @@ class SwisstopoBoundarySource:
             download_file(archive_url, archive_file)
             with zipfile.ZipFile(archive_file) as archive:
                 geopackage_names = [name for name in archive.namelist() if name.endswith(GEOPACKAGE_SUFFIX)]
+                # A ValueError lets the download keep using the cached edition, as it does for a broken catalogue
+                if not geopackage_names:
+                    raise ValueError(f"The swissBOUNDARIES3D archive {archive_name} holds no GeoPackage")
                 with archive.open(geopackage_names[0]) as packed, open(partial_file, "wb") as unpacked:
                     shutil.copyfileobj(packed, unpacked)
             partial_file.replace(geopackage_file)

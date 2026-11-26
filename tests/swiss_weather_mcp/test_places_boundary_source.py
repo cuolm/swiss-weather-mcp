@@ -1,7 +1,9 @@
 import os
 import sys
 import time
+import zipfile
 
+import pytest
 from fakes import BOUNDARY_EDITION_IDS, build_boundaries_geopackage, build_square_geometry
 
 from swiss_weather_mcp.places.boundary_source import Area, SwisstopoBoundarySource, _read_polygons
@@ -38,6 +40,13 @@ def write_cached_geopackage(tmp_path, edition_id: str, age_seconds: int):
     checked_at = time.time() - age_seconds
     os.utime(geopackage_file, (checked_at, checked_at))
     return geopackage_file
+
+
+def write_archive_without_geopackage(archive_url: str, archive_file) -> None:
+    """Download an archive that holds no GeoPackage, only a text file."""
+    archive_file.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(archive_file, "w") as archive:
+        archive.writestr("readme.txt", "no GeoPackage here")
 
 
 # --- Area ---
@@ -100,6 +109,27 @@ def test_load_geopackage_replaces_an_older_edition(source_fixture, tmp_path):
     boundary_source = SwisstopoBoundarySource(tmp_path)
     boundary_source.load_geopackage()
     assert list_cached_names(tmp_path) == [f"{NEWEST_EDITION_ID}.gpkg"]
+
+
+def test_load_geopackage_refuses_an_archive_without_a_geopackage(mocker, source_fixture, tmp_path):
+    mocker.patch(
+        "swiss_weather_mcp.places.boundary_source.download_file", side_effect=write_archive_without_geopackage
+    )
+    boundary_source = SwisstopoBoundarySource(tmp_path)
+    with pytest.raises(ValueError, match="holds no GeoPackage"):
+        boundary_source.load_geopackage()
+
+
+def test_load_geopackage_keeps_the_cached_edition_when_the_archive_has_no_geopackage(
+    mocker, source_fixture, tmp_path
+):
+    mocker.patch(
+        "swiss_weather_mcp.places.boundary_source.download_file", side_effect=write_archive_without_geopackage
+    )
+    write_cached_geopackage(tmp_path, OLDER_EDITION_ID, age_seconds=OLD_CHECK_AGE_SECONDS)
+    boundary_source = SwisstopoBoundarySource(tmp_path)
+    boundary_source.load_geopackage()
+    assert list_cached_names(tmp_path) == [f"{OLDER_EDITION_ID}.gpkg"]
 
 
 # --- find_area ---
