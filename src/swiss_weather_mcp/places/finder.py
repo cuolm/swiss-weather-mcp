@@ -72,6 +72,7 @@ from ..distance import calculate_distance_m, is_within_weighted_distance
 from ..errors import CannotAnswerError
 from .boundary_source import SwisstopoBoundarySource
 from .lookup import SwisstopoPlaceLookup
+from .names import normalise_name
 from .place_source import SwisstopoPlace, SwisstopoPlaceSource
 
 
@@ -151,6 +152,46 @@ class PlaceFinder:
         places_thread.start()
         boundaries_thread.start()
         return [places_thread, boundaries_thread]
+
+    def _find_biggest_settlements_of_municipality(self, location: str) -> list[SwisstopoPlace]:
+        """
+        Find the biggest settlements of the municipality with this name, sorted by name.
+
+        If there is only one settlement, or several settlements that lie close together and so have the
+        same weather, return only the first. Return none if no municipality has this name.
+        """
+        municipalities = self.boundary_source.find_municipalities_named(location)
+        biggest_settlements = []
+        for municipality in municipalities:
+            biggest_settlements_inside = self.place_lookup.find_biggest_settlements_inside(municipality.polygons)
+            biggest_settlements.extend(biggest_settlements_inside)
+        # Several municipalities can have this name, so we sort the settlements of all of them by name together
+        biggest_settlements.sort(key=lambda settlement: normalise_name(settlement.name))
+        settlement_pairs = combinations(biggest_settlements, 2)
+        lie_close_together = True
+        for first_settlement, second_settlement in settlement_pairs:
+            pair_lies_close = is_within_weighted_distance(
+                first_settlement, second_settlement, MAX_EQUAL_SETTLEMENT_WEIGHTED_DISTANCE_M
+            )
+            if not pair_lies_close:
+                lie_close_together = False
+                break
+        if lie_close_together:
+            return biggest_settlements[:1]
+        return biggest_settlements
+
+    def _build_unknown_name_error(self, location: str) -> CannotAnswerError:
+        """Build the refusal of a name no place has, suggesting similar names to call again with."""
+        similar_places = self.place_lookup.find_places_named_alike(location)
+        if not similar_places:
+            return CannotAnswerError(
+                f"Location '{location}' was not found. Check the spelling, or try a nearby town or village."
+            )
+        listed_suggestions = ", ".join(f'"{place.name}" ({place.description})' for place in similar_places)
+        return CannotAnswerError(
+            f"Location '{location}' was not found. Similar names: {listed_suggestions}. Call again with one of these "
+            f"names as location, or ask the user."
+        )
 
     def _find_closest_place(
         self, candidate_places: list[SwisstopoPlace], nearby_location_places: list[SwisstopoPlace]
@@ -239,44 +280,6 @@ class PlaceFinder:
             f"'{location}' and near set to the village next to the place the user means, or ask the user "
             f"which one they mean. The biggest first:\n{listed_options}"
         )
-
-    def _build_unknown_name_error(self, location: str) -> CannotAnswerError:
-        """Build the refusal of a name no place has, suggesting similar names to call again with."""
-        similar_places = self.place_lookup.find_places_named_alike(location)
-        if not similar_places:
-            return CannotAnswerError(
-                f"Location '{location}' was not found. Check the spelling, or try a nearby town or village."
-            )
-        listed_suggestions = ", ".join(f'"{place.name}" ({place.description})' for place in similar_places)
-        return CannotAnswerError(
-            f"Location '{location}' was not found. Similar names: {listed_suggestions}. Call again with one of these "
-            f"names as location, or ask the user."
-        )
-
-    def _find_biggest_settlements_of_municipality(self, location: str) -> list[SwisstopoPlace]:
-        """
-        Find the biggest settlements of the municipality with this name, sorted by name.
-
-        If there is only one settlement, or several settlements that lie close together and so have the
-        same weather, return only the first. Return none if no municipality has this name.
-        """
-        municipalities = self.boundary_source.find_municipalities_named(location)
-        biggest_settlements = []
-        for municipality in municipalities:
-            biggest_settlements_inside = self.place_lookup.find_biggest_settlements_inside(municipality.polygons)
-            biggest_settlements.extend(biggest_settlements_inside)
-        settlement_pairs = combinations(biggest_settlements, 2)
-        lie_close_together = True
-        for first_settlement, second_settlement in settlement_pairs:
-            pair_lies_close = is_within_weighted_distance(
-                first_settlement, second_settlement, MAX_EQUAL_SETTLEMENT_WEIGHTED_DISTANCE_M
-            )
-            if not pair_lies_close:
-                lie_close_together = False
-                break
-        if lie_close_together:
-            return biggest_settlements[:1]
-        return biggest_settlements
 
     def find_place(self, location: str, nearby_location: Optional[str] = None) -> SwisstopoPlace:
         """
