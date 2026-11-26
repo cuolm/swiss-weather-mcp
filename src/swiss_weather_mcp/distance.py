@@ -74,3 +74,15 @@ def rank_by_weighted_distance(
         if max_weighted_distance_m is None or is_within_weighted_distance(place, position, max_weighted_distance_m):
             close_positions.append(position)
     return sorted(close_positions, key=lambda position: calculate_weighted_distance_m(place, position))
+
+
+def rank_stations_to_try(
+    place: GridPosition, stations: Iterable[PositionT], max_weighted_distance_m: Optional[float] = None
+) -> list[PositionT]:
+    """
+    Rank stations by their weighted distance to a place and keep the closest 3, the ones a tool tries.
+
+    With max_weighted_distance_m, leave out the stations farther away than it.
+    """
+    ranked_stations = rank_by_weighted_distance(place, stations, max_weighted_distance_m)
+    return ranked_stations[:MAX_STATIONS_TRIED]

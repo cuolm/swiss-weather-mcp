@@ -5,7 +5,7 @@ from typing import Optional, TypedDict
 
 import requests
 
-from ..distance import MAX_STATIONS_TRIED, is_close, rank_by_weighted_distance
+from ..distance import is_close, rank_by_weighted_distance, rank_stations_to_try
 from ..errors import CannotAnswerError
 from ..formatting import DataFromField, describe_distance_and_height, describe_source, format_swiss_time, round_to_tenth
 from ..places import SwisstopoPlace
@@ -80,8 +80,8 @@ def _find_snow_depth(
     METRES_PER_HEIGHT_METRE times the height gap, and the first of the first MAX_STATIONS_TRIED
     with a current snow depth is taken.
     """
-    ranked_snow_stations = rank_by_weighted_distance(place, snow_stations, MAX_SNOW_STATION_WEIGHTED_DISTANCE_M)
-    for station in ranked_snow_stations[:MAX_STATIONS_TRIED]:
+    snow_stations_to_try = rank_stations_to_try(place, snow_stations, MAX_SNOW_STATION_WEIGHTED_DISTANCE_M)
+    for station in snow_stations_to_try:
         snow_depth = _read_snow_depth(meteoswiss_source, slf_source, station)
         if snow_depth is not None:
             return snow_depth
@@ -107,8 +107,8 @@ def _find_new_snow(
     The stations are chosen and ranked as for the snow depth, and the first of the first
     MAX_STATIONS_TRIED with new snow from today or yesterday is taken.
     """
-    ranked_snow_stations = rank_by_weighted_distance(place, slf_snow_stations, MAX_SNOW_STATION_WEIGHTED_DISTANCE_M)
-    for station in ranked_snow_stations[:MAX_STATIONS_TRIED]:
+    slf_stations_to_try = rank_stations_to_try(place, slf_snow_stations, MAX_SNOW_STATION_WEIGHTED_DISTANCE_M)
+    for station in slf_stations_to_try:
         new_snow = _read_new_snow(slf_source, station)
         if new_snow is not None:
             return new_snow

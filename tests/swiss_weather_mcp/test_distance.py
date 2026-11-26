@@ -1,6 +1,11 @@
 from datetime import date
 
-from swiss_weather_mcp.distance import is_close, is_within_weighted_distance, rank_by_weighted_distance
+from swiss_weather_mcp.distance import (
+    is_close,
+    is_within_weighted_distance,
+    rank_by_weighted_distance,
+    rank_stations_to_try,
+)
 from swiss_weather_mcp.measurements.meteoswiss_source import MeteoSwissStation
 from swiss_weather_mcp.places.place_source import SwisstopoPlace
 
@@ -36,6 +41,20 @@ def test_rank_by_weighted_distance_puts_the_closest_first():
 
 def test_rank_by_weighted_distance_leaves_out_positions_beyond_the_limit():
     assert rank_by_weighted_distance(BRAUNWALD, [GLARUS, ELM], max_weighted_distance_m=25000) == [ELM]
+
+
+# --- rank_stations_to_try ---
+
+def test_rank_stations_to_try_keeps_the_closest_three():
+    # Two more stations like Glarus, each 10 km farther east, rank after it and the last one is left out
+    farther_glarus = GLARUS._replace(abbreviation="GLA2", east_m=GLARUS.east_m + 10000)
+    farthest_glarus = GLARUS._replace(abbreviation="GLA3", east_m=GLARUS.east_m + 20000)
+    stations = [farthest_glarus, GLARUS, farther_glarus, ELM]
+    assert rank_stations_to_try(BRAUNWALD, stations) == [ELM, GLARUS, farther_glarus]
+
+
+def test_rank_stations_to_try_leaves_out_stations_beyond_the_limit():
+    assert rank_stations_to_try(BRAUNWALD, [GLARUS, ELM], max_weighted_distance_m=25000) == [ELM]
 
 
 # --- is_close ---

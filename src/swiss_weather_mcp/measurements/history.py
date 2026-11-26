@@ -5,7 +5,7 @@ from typing import Literal, NotRequired, Optional, TypedDict
 
 import requests
 
-from ..distance import MAX_STATIONS_TRIED, is_close, rank_by_weighted_distance
+from ..distance import is_close, rank_by_weighted_distance, rank_stations_to_try
 from ..errors import CannotAnswerError
 from ..formatting import DataFromField, describe_distance_and_height, describe_source
 from ..places import SwisstopoPlace
@@ -131,9 +131,9 @@ def _find_meteoswiss_station_daily_measurements(
     """
     described_days = _describe_days(first_day, last_day)
     meteoswiss_stations = meteoswiss_source.list_stations()
-    ranked_meteoswiss_stations = rank_by_weighted_distance(place, meteoswiss_stations)
+    meteoswiss_stations_to_try = rank_stations_to_try(place, meteoswiss_stations)
     newest_published_days = []
-    for station in ranked_meteoswiss_stations[:MAX_STATIONS_TRIED]:
+    for station in meteoswiss_stations_to_try:
         # The station table says on which day each station started measuring. A station that started after
         # the asked days has no values for them, so it is skipped without downloading its files.
         if station.data_since > last_day:
@@ -160,8 +160,9 @@ def _find_meteoswiss_station_daily_measurements(
         raise CannotAnswerError(
             f"MeteoSwiss has not published the daily measurements for {described_days} yet, try again later."
         )
+    tried_count = len(meteoswiss_stations_to_try)
     raise CannotAnswerError(
-        f"None of the {MAX_STATIONS_TRIED} stations tried for {place.display_name} has a daily temperature "
+        f"None of the {tried_count} stations tried for {place.display_name} has a daily temperature "
         f"for {described_days}."
     )
 
@@ -226,21 +227,14 @@ def _build_weather_block(
     return {**data_from_field, "days": day_rows}
 
 
-def _list_snow_stations_to_try(ranked_snow_stations: list[SnowStation]) -> list[SnowStation]:
-    """List the first MAX_STATIONS_TRIED stations of each source, MeteoSwiss and SLF, in their order."""
-    meteoswiss_count = 0
-    slf_count = 0
-    snow_stations_to_try: list[SnowStation] = []
-    for station in ranked_snow_stations:
-        if isinstance(station, MeteoSwissStation):
-            meteoswiss_count += 1
-            if meteoswiss_count <= MAX_STATIONS_TRIED:
-                snow_stations_to_try.append(station)
-        else:
-            slf_count += 1
-            if slf_count <= MAX_STATIONS_TRIED:
-                snow_stations_to_try.append(station)
-    return snow_stations_to_try
+def _list_snow_stations_to_try(
+    place: SwisstopoPlace, meteoswiss_manual_sites: list[MeteoSwissStation], slf_snow_stations: list[SLFStation]
+) -> list[SnowStation]:
+    """List the stations to try of each source, MeteoSwiss and SLF, ranked together by weighted distance."""
+    meteoswiss_sites_to_try = rank_stations_to_try(place, meteoswiss_manual_sites, MAX_SNOW_STATION_WEIGHTED_DISTANCE_M)
+    slf_stations_to_try = rank_stations_to_try(place, slf_snow_stations, MAX_SNOW_STATION_WEIGHTED_DISTANCE_M)
+    snow_stations_to_try: list[SnowStation] = [*meteoswiss_sites_to_try, *slf_stations_to_try]
+    return rank_by_weighted_distance(place, snow_stations_to_try)
 
 
 def _read_snow_history(
@@ -298,7 +292,7 @@ def _find_snow_station_daily_measurements(
 
     # Each source has its own tries: many SLF stations started after the asked days, and most SLF observers
     # pause in summer, so they would use up the tries of a MeteoSwiss site that measured
-    tried_snow_stations = _list_snow_stations_to_try(ranked_snow_stations)
+    tried_snow_stations = _list_snow_stations_to_try(place, meteoswiss_manual_sites, slf_snow_stations)
     newest_published_days = []
     for station in tried_snow_stations:
         daily_measurements = _read_snow_history(meteoswiss_source, slf_source, station, first_day, last_day)

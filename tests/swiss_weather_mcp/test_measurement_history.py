@@ -300,36 +300,48 @@ def test_find_snow_station_daily_measurements_skips_an_slf_station_with_a_broken
 
 # --- _list_snow_stations_to_try ---
 
-def build_meteoswiss_site(abbreviation: str) -> MeteoSwissStation:
+# The stations below lie at its height, east of it, so only their distance ranks them
+DAVOS_DORF = SwisstopoPlace(
+    name="Davos Dorf", object_types=("Ort",), population_band=6, is_exonym=False, altitude_m=1564.0,
+    east_m=2783248.0, north_m=1187061.0,
+)
+
+
+def build_meteoswiss_site(abbreviation: str, metres_east_of_davos_dorf: float) -> MeteoSwissStation:
     return MeteoSwissStation(
-        abbreviation=abbreviation, name=abbreviation, canton="Graubünden", altitude_m=1500.0, east_m=2780000.0,
-        north_m=1190000.0, data_since=date(1931, 1, 1), is_manual_site=True,
+        abbreviation=abbreviation, name=abbreviation, canton="Graubünden", altitude_m=DAVOS_DORF.altitude_m,
+        east_m=DAVOS_DORF.east_m + metres_east_of_davos_dorf, north_m=DAVOS_DORF.north_m, data_since=date(1931, 1, 1),
+        is_manual_site=True,
     )
 
 
-def build_slf_station(code: str) -> SLFStation:
+def build_slf_station(code: str, metres_east_of_davos_dorf: float) -> SLFStation:
     return SLFStation(
-        code=code, name=code, canton="Graubünden", altitude_m=2500.0, east_m=2780000.0, north_m=1190000.0,
-        is_manual_site=False,
+        code=code, name=code, canton="Graubünden", altitude_m=DAVOS_DORF.altitude_m,
+        east_m=DAVOS_DORF.east_m + metres_east_of_davos_dorf, north_m=DAVOS_DORF.north_m, is_manual_site=False,
     )
 
 
 def test_list_snow_stations_to_try_gives_each_source_its_own_tries():
     # Four SLF stations suit a place better than the first MeteoSwiss site, which is still tried: for a day
     # before they started, or in summer, the SLF stations have no values
-    slf_stations = [build_slf_station(code) for code in ("AAA2", "BBB2", "CCC2", "DDD2")]
-    meteoswiss_sites = [build_meteoswiss_site(abbreviation) for abbreviation in ("AAA", "BBB", "CCC", "DDD")]
-    ranked_snow_stations = [*slf_stations, *meteoswiss_sites]
-
-    snow_stations_to_try = _list_snow_stations_to_try(ranked_snow_stations)
+    slf_stations = [
+        build_slf_station(code, metres_east)
+        for code, metres_east in (("AAA2", 100), ("BBB2", 200), ("CCC2", 300), ("DDD2", 400))
+    ]
+    meteoswiss_sites = [
+        build_meteoswiss_site(abbreviation, metres_east)
+        for abbreviation, metres_east in (("AAA", 500), ("BBB", 600), ("CCC", 700), ("DDD", 800))
+    ]
+    snow_stations_to_try = _list_snow_stations_to_try(DAVOS_DORF, meteoswiss_sites, slf_stations)
     assert snow_stations_to_try == [*slf_stations[:3], *meteoswiss_sites[:3]]
 
 
 def test_list_snow_stations_to_try_keeps_the_order_of_suitability():
-    aaa2 = build_slf_station("AAA2")
-    aaa = build_meteoswiss_site("AAA")
-    bbb2 = build_slf_station("BBB2")
-    assert _list_snow_stations_to_try([aaa2, aaa, bbb2]) == [aaa2, aaa, bbb2]
+    aaa2 = build_slf_station("AAA2", 100)
+    aaa = build_meteoswiss_site("AAA", 200)
+    bbb2 = build_slf_station("BBB2", 300)
+    assert _list_snow_stations_to_try(DAVOS_DORF, [aaa], [aaa2, bbb2]) == [aaa2, aaa, bbb2]
 
 
 # --- build_history_answer ---
