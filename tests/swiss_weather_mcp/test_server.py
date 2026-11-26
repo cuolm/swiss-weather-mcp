@@ -1,5 +1,6 @@
 import json
 import logging
+import sys
 from datetime import date, datetime, timezone
 from zoneinfo import ZoneInfo
 
@@ -9,7 +10,7 @@ from mcp.server.mcpserver.exceptions import ToolError, UnexpectedToolError
 from starlette.testclient import TestClient
 
 from swiss_weather_mcp.errors import CannotAnswerError
-from swiss_weather_mcp.server import SwissWeatherMCPServer, _parse_swiss_time
+from swiss_weather_mcp.server import SwissWeatherMCPServer, _parse_args, _parse_swiss_time
 
 
 SWISS_TZ = ZoneInfo("Europe/Zurich")
@@ -52,6 +53,38 @@ def server_fixture(mocker):
     astronomy_service = mocker.AsyncMock()
     avalanche_service = mocker.AsyncMock()
     return SwissWeatherMCPServer(forecast_service, measurement_service, astronomy_service, avalanche_service, "INFO")
+
+
+# --- _parse_args ---
+
+def test_parse_args_defaults(monkeypatch):
+    # Without options the server talks over stdio, and over HTTP it stays on this computer: a default host
+    # of 0.0.0.0 would open it to the whole network without anything failing
+    monkeypatch.setattr(sys, "argv", ["swiss-weather-mcp"])
+    args = _parse_args()
+    assert args.transport == "stdio"
+    assert args.host == "localhost"
+    assert args.port == 8050
+    assert args.cache_all_forecast_points is False
+    assert args.log_level == "INFO"
+
+
+def test_parse_args_reads_the_options(monkeypatch):
+    command_line = [
+        "swiss-weather-mcp",
+        "--transport=streamable-http",
+        "--host=127.0.0.1",
+        "--port=8051",
+        "--cache-all-forecast-points",
+        "--log-level=DEBUG",
+    ]
+    monkeypatch.setattr(sys, "argv", command_line)
+    args = _parse_args()
+    assert args.transport == "streamable-http"
+    assert args.host == "127.0.0.1"
+    assert args.port == 8051
+    assert args.cache_all_forecast_points is True
+    assert args.log_level == "DEBUG"
 
 
 # --- _parse_swiss_time ---
@@ -378,6 +411,12 @@ async def test_current_date_and_time_format(server_fixture):
 
 
 # --- run ---
+
+def test_run_over_stdio(mocker, server_fixture):
+    run_mock = mocker.patch.object(server_fixture.mcp, "run")
+    server_fixture.run("stdio", "localhost", 8050)
+    run_mock.assert_called_once_with(transport="stdio")
+
 
 def build_http_app(mocker, server_fixture, host: str):
     """Build the HTTP app run() serves on host, without starting the web server."""
