@@ -1,50 +1,18 @@
-# Exclude Python cache files
-__pycache__/
-*.pyc
-*.pyo
+# Copy only what the image needs to build and run the server, so local files never get in:
+# leave everything out, then let the needed files back in
+*
+!src/
+!pyproject.toml
+!uv.lock
+!README.md
+!LICENSE.txt
+!.python-version
 
-# Exclude tool caches
-.mypy_cache/
-.pytest_cache/
-.ruff_cache/
+# Leave out the Python cache files inside src/ again; a pattern without **/ matches only in the top folder
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/.DS_Store
 
-# Exclude local exploration scratch space
-explore/
-
-# Exclude virtual environment and environment files
-.env
-.venv/
-env/
-venv/
-
-# Exclude version control files and folders
-# Note: excluding .git/ means hatch-vcs cannot read tags, so the Dockerfile
-# sets SETUPTOOLS_SCM_PRETEND_VERSION from the BUILD_VERSION build-arg instead.
-.git/
-.github/
-.gitignore
-
-# Exclude logs
-*.log
-
-# Exclude test folders
-tests/
-
-# Exclude docs folder as not needed inside container
-docs/
-
-# Exclude Python packaging/build artifacts
-*.egg-info/
-build/
-dist/
-
-# Editor/IDE configs
-.vscode/
-.idea/
-
-# Exclude Dockerfile and dockerignore file itself
-Dockerfile
-.dockerignore
-
-# Exclude the Claude Desktop bundle, which the image does not use
-mcpb/
+# .git/ is left out too, so hatch-vcs cannot read tags: the Dockerfile sets SETUPTOOLS_SCM_PRETEND_VERSION
+# from the BUILD_VERSION build-arg instead
