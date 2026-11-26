@@ -165,6 +165,18 @@ def test_find_place_of_a_municipality_lists_settlements_far_apart(place_finder_f
     )
 
 
+def test_find_place_of_a_municipality_lists_settlements_when_one_lies_far(place_finder_fixture):
+    # Charmoille and Fregiécourt lie close together, but Miécourt lies far from both, so it may have other
+    # weather: one pair far apart is enough to list all three
+    load_places_and_boundaries(place_finder_fixture)
+    with pytest.raises(CannotAnswerError) as raised:
+        place_finder_fixture.find_place("La Baroche")
+    message = str(raised.value)
+    assert message.startswith("'La Baroche' is a municipality with 3 villages of the same size and different weather.")
+    for village in ("Charmoille", "Fregiécourt", "Miécourt"):
+        assert f'location="La Baroche", near="{village}"' in message
+
+
 def test_find_place_of_a_municipality_chooses_the_settlement_closest_to_near(place_finder_fixture):
     load_places_and_boundaries(place_finder_fixture)
     assert place_finder_fixture.find_place("Anniviers", nearby_location="Zinal").name == "Zinal"

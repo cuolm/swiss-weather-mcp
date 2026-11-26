@@ -547,7 +547,9 @@ def build_avalanche_bulletins_geojson() -> bytes:
 # so the village is the obvious one. Grimentz and Zinal are villages of one size 6.3 km apart in
 # Anniviers. Brig and Glis are towns of one size 1 km apart in Brig-Glis, and Briga and Brigue
 # are the Italian and French names of Brig. St-Barthélemy VD is the village of the municipality
-# Saint-Barthélemy (VD). The rows from Zürich on are exactly as swisstopo publishes them.
+# Saint-Barthélemy (VD). Charmoille, Fregiécourt and Miécourt are villages of one size in La
+# Baroche: the first two lie 1.4 km apart by weighted distance, Miécourt more than 3 km from
+# both. The rows from Zürich on are exactly as swisstopo publishes them.
 PLACE_NAMES_COLUMNS = "UUID;NAME;STATUS;NAMEN_TYP;OBJEKTART;EINWOHNERKATEGORIE;E;N;Z"
 PLACE_NAMES_FILE_TO_ROWS = {
     "swissNAMES3D_PKT.csv": (
@@ -588,6 +590,9 @@ PLACE_NAMES_FILE_TO_ROWS = {
         "{42};Brigue;informell;Exonym;Ort;2'000 bis 9'999;2642391;1129576;682",
         "{43};Glis;offiziell;einfacher Name;Ort;2'000 bis 9'999;2641559;1128994;682",
         "{44};St-Barthélemy VD;offiziell;einfacher Name;Ort;100 bis 999;2535886;1165556;584",
+        "{45};Charmoille;offiziell;einfacher Name;Ort;100 bis 999;2582344;1252483;519",
+        "{46};Fregiécourt;offiziell;einfacher Name;Ort;100 bis 999;2581891;1251326;526",
+        "{47};Miécourt;offiziell;einfacher Name;Ort;100 bis 999;2580137;1252978;479",
     ),
     "swissNAMES3D_PLY.csv": (
         "{5};Oerlikon;offiziell;einfacher Name;Quartier;10'000 bis 49'999;2683539;1251401;448",
@@ -623,8 +628,8 @@ def build_place_names_editions() -> dict:
 
 # Areas as squares in LV95, the corners east from, east to, north from, north to, around the places
 # above: Zürich holds Lindenhof and the Blausee place and quarter, the Greifensee, an area of the canton
-# itself, the Blausee lake, and Vaduz, in Liechtenstein, has no canton number. Davos, Anniviers, Brig-Glis
-# and Saint-Barthélemy (VD) hold the villages of their name, and no place has their name. The real tables
+# itself, the Blausee lake, and Vaduz, in Liechtenstein, has no canton number. Davos, Anniviers, Brig-Glis,
+# Saint-Barthélemy (VD) and La Baroche hold the villages of their name, and no place has their name. The real tables
 # have the same columns, and more.
 BOUNDARY_AREAS = (
     ("Zürich", "Gemeindegebiet", 1, (2676000.0, 2690000.0, 1241000.0, 1250000.0)),
@@ -634,8 +639,9 @@ BOUNDARY_AREAS = (
     ("Anniviers", "Gemeindegebiet", 23, (2605000.0, 2620000.0, 1105000.0, 1120000.0)),
     ("Brig-Glis", "Gemeindegebiet", 23, (2638000.0, 2646000.0, 1125000.0, 1133000.0)),
     ("Saint-Barthélemy (VD)", "Gemeindegebiet", 22, (2534000.0, 2538000.0, 1163000.0, 1168000.0)),
+    ("La Baroche", "Gemeindegebiet", 26, (2578000.0, 2585000.0, 1249000.0, 1255000.0)),
 )
-BOUNDARY_CANTONS = ((1, "Zürich"), (18, "Graubünden"), (22, "Vaud"), (23, "Valais"))
+BOUNDARY_CANTONS = ((1, "Zürich"), (18, "Graubünden"), (22, "Vaud"), (23, "Valais"), (26, "Jura"))
 BOUNDARY_EDITION_IDS = ("swissboundaries3d_2025-04", "swissboundaries3d_2026-01")
 # The member name of the real archives
 BOUNDARY_GEOPACKAGE_NAME = "swissBOUNDARIES3D_1_5_LV95_LN02.gpkg"
