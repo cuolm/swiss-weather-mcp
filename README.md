@@ -81,6 +81,8 @@ The server runs on its own, and your AI app connects to it by URL. Start it with
 ```bash
 swiss-weather-mcp --transport=streamable-http --host=localhost --port=8050
 ```
+The server has no login, so anyone who can reach its port can use it: keep it on your own computer with `--host=localhost`, as above.
+
 Then add its URL to your AI app's MCP config file:
 ```json
 {
@@ -108,7 +110,9 @@ Then add its URL to your AI app's MCP config file:
   }
 }
 ```
-To use another port, change the first `8050` in `-p` and the one in the URL.
+To use another port, change the first `8050` in `-p` and the one in the URL, for example when Docker says `address already in use` because another program already uses 8050.
+
+The `127.0.0.1` in `-p` keeps the server on your computer. Without it, Docker opens the port to your whole network, and anyone there could use the server, as it has no login.
 
 The Docker images are built and published automatically by GitHub Actions to the project's [GitHub Container Registry](https://ghcr.io/cuolm/swiss-weather-mcp), tagged `:latest` (newest release) and by version.
 Each `docker run` starts a new container with an empty cache. Mount a volume to keep it, for example
