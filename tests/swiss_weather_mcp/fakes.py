@@ -542,11 +542,11 @@ def build_avalanche_bulletins_geojson() -> bytes:
 # the French and German names of Zürich and Genève, in the same spot. Wil SG is the town, and two
 # smaller quarters are called Wil. Biel/Bienne has a name in two languages, like its railway
 # station, and the shooting range of Küsnacht a name with slashes. No row is called Davos: Davos
-# Dorf and Davos Platz are, of one size and close together. No row is called Flims either, and Flums
-# is a bigger town spelled alike. Grindelwald is a village and a hamlet in canton Luzern, so the village
-# is the obvious one. Grimentz and Zinal are villages of one size
-# 6.3 km apart in Anniviers. Brig and Glis are towns of one size 1 km apart in Brig-Glis, and Briga and
-# Brigue are the Italian and French names of Brig. St-Barthélemy VD is the village of the municipality
+# Dorf and Davos Platz are, of one size and close together. No row is called Flims either, and
+# Flums is a bigger town spelled alike. Grindelwald is a village and a hamlet in canton Luzern,
+# so the village is the obvious one. Grimentz and Zinal are villages of one size 6.3 km apart in
+# Anniviers. Brig and Glis are towns of one size 1 km apart in Brig-Glis, and Briga and Brigue
+# are the Italian and French names of Brig. St-Barthélemy VD is the village of the municipality
 # Saint-Barthélemy (VD). The rows from Zürich on are exactly as swisstopo publishes them.
 PLACE_NAMES_COLUMNS = "UUID;NAME;STATUS;NAMEN_TYP;OBJEKTART;EINWOHNERKATEGORIE;E;N;Z"
 PLACE_NAMES_FILE_TO_ROWS = {

@@ -258,7 +258,7 @@ class PlaceFinder:
         Find the biggest settlements of the municipality with this name, sorted by name.
 
         If there is only one settlement, or several settlements that lie close together and so have the
-        same weather, return only the first. Return an empty list if no municipality has this name.
+        same weather, return only the first. Return none if no municipality has this name.
         """
         municipalities = self.boundary_source.find_municipalities_named(location)
         biggest_settlements = []

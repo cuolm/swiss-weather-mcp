@@ -38,8 +38,8 @@
   - When they lie farther apart, the tool lists them like the places of a shared name, each with its
     own name as `near`, such as `location="Anniviers", near="Zinal"` for one of the ten villages of
     `Anniviers`, from Niouc at 883 m to Chandolin at 1950 m.
-  - Tested on the forecasts of the 94 municipalities with several settlements of the same size: those
-    within 3 km differed by at most 1 °C.
+  - Tested on one forecast run, of 2026-11-25: of the 94 municipalities with several settlements of
+    the same size, the 44 whose settlements lie within 3 km differed by at most 1 °C.
 - An unknown name gets up to 10 suggestions, such as `Grosser Aletschgletscher` for `Aletschgletscher`.
 
 ## Forecast Points
