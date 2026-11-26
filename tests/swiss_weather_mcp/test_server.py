@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 import pytest
 import requests
 from mcp.server.mcpserver.exceptions import ToolError, UnexpectedToolError
+from starlette.testclient import TestClient
 
 from swiss_weather_mcp.errors import CannotAnswerError
 from swiss_weather_mcp.server import SwissWeatherMCPServer, _parse_swiss_time
@@ -33,6 +34,14 @@ EXPECTED_TOOLS = {
 }
 
 FREEZING_LEVEL_CALL = {"location": "Zurich", "when": "2026-09-24T14:00"}
+# The first request an MCP client sends over HTTP, with the headers the transport asks for
+INITIALIZE_REQUEST = {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "initialize",
+    "params": {"protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "test", "version": "1"}},
+}
+MCP_HEADERS = {"Content-Type": "application/json", "Accept": "application/json, text/event-stream"}
 
 
 @pytest.fixture
@@ -276,3 +285,38 @@ async def test_current_date_and_time_format(server_fixture):
     moment = _parse_swiss_time(timestamp)
     assert moment.tzinfo is SWISS_TZ, "written without an offset, so read as Swiss time"
     assert moment.strftime("%A") == weekday
+
+
+# --- run ---
+
+def build_http_app(mocker, server_fixture, host: str):
+    """Build the HTTP app run() serves on host, without starting the web server."""
+    serve_mock = mocker.patch("uvicorn.Server.serve", autospec=True)
+    server_fixture.run("streamable-http", host, 8050)
+    uvicorn_server = serve_mock.call_args.args[0]
+    return uvicorn_server.config.app
+
+
+def send_initialize_request(app, headers: dict[str, str]) -> int:
+    """Send the first MCP request to the app with extra headers, and return the status code."""
+    with TestClient(app) as client:
+        response = client.post("/mcp", json=INITIALIZE_REQUEST, headers={**MCP_HEADERS, **headers})
+    return response.status_code
+
+
+def test_run_answers_a_request_for_localhost_in_docker(mocker, server_fixture):
+    # The Docker image listens on 0.0.0.0, where mcp would not check the Host by itself
+    app = build_http_app(mocker, server_fixture, "0.0.0.0")
+    assert send_initialize_request(app, {"Host": "localhost:8050"}) == 200
+
+
+def test_run_refuses_a_request_for_another_host_in_docker(mocker, server_fixture):
+    # A website that points its own name at this computer sends its own name as the Host
+    app = build_http_app(mocker, server_fixture, "0.0.0.0")
+    assert send_initialize_request(app, {"Host": "evil.example:8050"}) == 421
+
+
+def test_run_refuses_a_request_from_another_website_in_docker(mocker, server_fixture):
+    app = build_http_app(mocker, server_fixture, "0.0.0.0")
+    headers = {"Host": "localhost:8050", "Origin": "http://evil.example"}
+    assert send_initialize_request(app, headers) == 403

@@ -10,6 +10,7 @@ from typing import Annotated, Any, Optional
 import requests
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
+from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import ToolAnnotations
 from pydantic import Field
 
@@ -57,6 +58,15 @@ READS_OPEN_DATA = ToolAnnotations(read_only_hint=True, open_world_hint=True)
 READS_THE_CLOCK = ToolAnnotations(read_only_hint=True, open_world_hint=False)
 # The model reads an answer as its JSON text, so the weather tools publish no output schema: it would add
 # thousands of tokens to the tool list of every conversation
+
+# Answer only HTTP requests addressed to this computer, such as localhost:8050. mcp checks this by itself
+# only when the server listens on localhost, but in Docker it listens on 0.0.0.0. Without the check, a
+# website open in the browser could point its own name at this computer and call the tools (DNS rebinding).
+LOCALHOST_TRANSPORT_SECURITY = TransportSecuritySettings(
+    enable_dns_rebinding_protection=True,
+    allowed_hosts=["127.0.0.1:*", "localhost:*", "[::1]:*"],
+    allowed_origins=["http://127.0.0.1:*", "http://localhost:*", "http://[::1]:*"],
+)
 
 Tool = Callable[..., Awaitable[Mapping[str, Any]]]
 
@@ -623,7 +633,13 @@ class SwissWeatherMCPServer:
             self.mcp.run(transport="stdio")
         else:
             logger.info("Running server with Streamable HTTP transport")
-            self.mcp.run(transport="streamable-http", host=host, port=port, stateless_http=True)
+            self.mcp.run(
+                transport="streamable-http",
+                host=host,
+                port=port,
+                stateless_http=True,
+                transport_security=LOCALHOST_TRANSPORT_SECURITY,
+            )
 
 
 def _build_server(args: argparse.Namespace) -> SwissWeatherMCPServer:
