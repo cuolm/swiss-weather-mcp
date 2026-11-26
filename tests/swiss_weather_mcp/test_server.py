@@ -197,6 +197,96 @@ async def test_astronomy_sun_passes_the_day_on(server_fixture):
     server_fixture.astronomy_service.read_sun.assert_awaited_once_with("Zürich", date(2026, 10, 28), None)
 
 
+@pytest.mark.asyncio
+async def test_forecast_daily_passes_the_first_day_on(server_fixture):
+    server_fixture.forecast_service.read_daily.return_value = {"place": "Zürich"}
+
+    await server_fixture.mcp.call_tool("forecast_daily", {"location": "Zürich", "start_date": "2026-09-26", "days": 2})
+    server_fixture.forecast_service.read_daily.assert_awaited_once_with("Zürich", date(2026, 9, 26), 2, None)
+
+
+@pytest.mark.asyncio
+async def test_forecast_rain_passes_the_period_on(server_fixture):
+    server_fixture.forecast_service.read_rain.return_value = {"place": "Zürich"}
+
+    await server_fixture.mcp.call_tool(
+        "forecast_rain", {"location": "Zürich", "start": "2026-09-23T12:00", "end": "2026-09-23T18:00"}
+    )
+    server_fixture.forecast_service.read_rain.assert_awaited_once_with(
+        "Zürich", datetime(2026, 9, 23, 12, tzinfo=SWISS_TZ), datetime(2026, 9, 23, 18, tzinfo=SWISS_TZ), None
+    )
+
+
+@pytest.mark.asyncio
+async def test_forecast_temperature_passes_the_period_on(server_fixture):
+    server_fixture.forecast_service.read_temperature.return_value = {"place": "Zürich"}
+
+    await server_fixture.mcp.call_tool(
+        "forecast_temperature", {"location": "Zürich", "start": "2026-09-23T06:00", "end": "2026-09-23T12:00"}
+    )
+    server_fixture.forecast_service.read_temperature.assert_awaited_once_with(
+        "Zürich", datetime(2026, 9, 23, 6, tzinfo=SWISS_TZ), datetime(2026, 9, 23, 12, tzinfo=SWISS_TZ), None
+    )
+
+
+@pytest.mark.asyncio
+async def test_forecast_temperature_without_an_end_passes_none_on(server_fixture):
+    server_fixture.forecast_service.read_temperature.return_value = {"place": "Zürich"}
+
+    await server_fixture.mcp.call_tool("forecast_temperature", {"location": "Zürich", "start": "2026-09-23T14:00"})
+    server_fixture.forecast_service.read_temperature.assert_awaited_once_with(
+        "Zürich", datetime(2026, 9, 23, 14, tzinfo=SWISS_TZ), None, None
+    )
+
+
+@pytest.mark.asyncio
+async def test_forecast_sunshine_without_an_end_passes_none_on(server_fixture):
+    server_fixture.forecast_service.read_sunshine.return_value = {"place": "Zürich"}
+
+    await server_fixture.mcp.call_tool("forecast_sunshine", {"location": "Zürich", "start": "2026-09-23T00:00"})
+    server_fixture.forecast_service.read_sunshine.assert_awaited_once_with(
+        "Zürich", datetime(2026, 9, 23, 0, tzinfo=SWISS_TZ), None, None
+    )
+
+
+@pytest.mark.asyncio
+async def test_forecast_wind_passes_the_moment_and_near_on(server_fixture):
+    server_fixture.forecast_service.read_wind.return_value = {"place": "Blausee"}
+
+    await server_fixture.mcp.call_tool(
+        "forecast_wind", {"location": "Blausee", "when": "2026-09-24T14:00", "near": "Wallisellen"}
+    )
+    server_fixture.forecast_service.read_wind.assert_awaited_once_with(
+        "Blausee", datetime(2026, 9, 24, 14, tzinfo=SWISS_TZ), "Wallisellen"
+    )
+
+
+@pytest.mark.asyncio
+async def test_forecast_cloud_cover_passes_the_moment_on(server_fixture):
+    server_fixture.forecast_service.read_cloud_cover.return_value = {"place": "Zürich"}
+
+    await server_fixture.mcp.call_tool("forecast_cloud_cover", {"location": "Zürich", "when": "2026-09-24T14:00"})
+    server_fixture.forecast_service.read_cloud_cover.assert_awaited_once_with(
+        "Zürich", datetime(2026, 9, 24, 14, tzinfo=SWISS_TZ), None
+    )
+
+
+@pytest.mark.asyncio
+async def test_measurements_snow_passes_near_on(server_fixture):
+    server_fixture.measurement_service.read_snow.return_value = {"place": "Blausee"}
+
+    await server_fixture.mcp.call_tool("measurements_snow", {"location": "Blausee", "near": "Wallisellen"})
+    server_fixture.measurement_service.read_snow.assert_awaited_once_with("Blausee", "Wallisellen")
+
+
+@pytest.mark.asyncio
+async def test_measurements_extremes_passes_the_extreme_on(server_fixture):
+    server_fixture.measurement_service.read_extremes.return_value = {"extreme": "wettest"}
+
+    await server_fixture.mcp.call_tool("measurements_extremes", {"extreme": "wettest"})
+    server_fixture.measurement_service.read_extremes.assert_awaited_once_with("wettest")
+
+
 # --- _handle_tool_call ---
 
 @pytest.mark.asyncio
