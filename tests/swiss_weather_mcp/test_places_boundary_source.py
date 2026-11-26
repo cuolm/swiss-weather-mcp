@@ -163,6 +163,20 @@ def test_find_area_outside_every_area(boundary_source_fixture):
     assert boundary_source_fixture.find_area(2600000.0, 1200000.0) is None
 
 
+def test_find_area_after_another_server_replaced_the_edition(source_fixture, tmp_path):
+    # This server loaded the older edition; another server using the same cache then downloaded the newest
+    # and deleted the older one
+    older_file = write_cached_geopackage(tmp_path, OLDER_EDITION_ID, age_seconds=0)
+    boundary_source = SwisstopoBoundarySource(tmp_path)
+    boundary_source.load_geopackage()
+    write_cached_geopackage(tmp_path, NEWEST_EDITION_ID, age_seconds=0)
+    older_file.unlink()
+
+    assert boundary_source.find_area(2683200.0, 1247500.0) == Area("Zürich", "Gemeindegebiet", "Zürich")
+    municipalities = boundary_source.find_municipalities_named("Davos")
+    assert [municipality.name for municipality in municipalities] == ["Davos"]
+
+
 def test_find_area_before_loading(source_fixture, boundary_source_fixture):
     assert boundary_source_fixture.find_area(2683200.0, 1247500.0) is None
     assert count_requests(source_fixture, ".gpkg.zip") == 0

@@ -236,16 +236,34 @@ class SwisstopoBoundarySource:
         )
         logger.info(f"Loaded the swissBOUNDARIES3D edition {self._geopackage_file.name}")
 
+    def _find_geopackage_file(self) -> Optional[Path]:
+        """
+        Return the GeoPackage to read, or None before load_geopackage has cached one.
+
+        When the loaded edition is gone, return the newest cached edition instead.
+        """
+        # Another server using the same cache deletes this edition when it downloads a newer one, so we switch to
+        # the newer one instead of failing on every question until this server restarts
+        if self._geopackage_file is not None and not self._geopackage_file.exists():
+            found_files = self.cache_dir.glob(f"*{GEOPACKAGE_SUFFIX}")
+            cached_files = sorted(found_files)
+            if cached_files:
+                newest_file = cached_files[-1]
+                logger.info(f"The edition {self._geopackage_file.name} is gone, using {newest_file.name}")
+                self._geopackage_file = newest_file
+        return self._geopackage_file
+
     def find_area(self, east_m: float, north_m: float) -> Optional[Area]:
         """
         Find the area an LV95 position lies in.
 
         Return None outside every area, and before load_geopackage has cached the GeoPackage.
         """
-        if self._geopackage_file is None:
+        geopackage_file = self._find_geopackage_file()
+        if geopackage_file is None:
             return None
 
-        connection = _connect(self._geopackage_file)
+        connection = _connect(geopackage_file)
         try:
             cursor = connection.execute(AREAS_AROUND_QUERY, (east_m, east_m, north_m, north_m))
             areas = cursor.fetchall()
@@ -266,12 +284,13 @@ class SwisstopoBoundarySource:
         with a slash counts on its own. Return none for a name no municipality has, and before load_geopackage
         has cached the GeoPackage.
         """
-        if self._geopackage_file is None:
+        geopackage_file = self._find_geopackage_file()
+        if geopackage_file is None:
             return []
 
         lookup_name = normalise_name(location)
         municipalities = []
-        connection = _connect(self._geopackage_file)
+        connection = _connect(geopackage_file)
         try:
             matching_rows = _find_municipality_rows_named(connection, lookup_name)
             for area_id, municipality_name in matching_rows:
