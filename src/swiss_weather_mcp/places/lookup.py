@@ -221,9 +221,11 @@ class SwisstopoPlaceLookup:
 
     def find_biggest_settlements_inside(self, polygons: list[Polygon]) -> list[SwisstopoPlace]:
         """
-        Find the biggest settlements inside polygons, sorted by name: those of the biggest population band there.
+        Find the biggest settlements inside polygons, such as Davos Dorf and Davos Platz in Davos.
 
-        Return none when no settlement with people lies inside.
+        Biggest means in the highest population band inside, such as 2,000 to 9,999 people, so every
+        settlement of that band is returned, sorted by name; smaller ones are left out. Return none when no
+        settlement with people lies inside.
         """
         self.load_places()
         bounding_box = find_bounding_box(polygons)

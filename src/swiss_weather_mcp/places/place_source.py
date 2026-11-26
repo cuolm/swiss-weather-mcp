@@ -105,10 +105,11 @@ def _join_with_and(words: list[str]) -> str:
 
 class SwisstopoPlace(NamedTuple):
     """
-    A named place of swissNAMES3D.
+    A place of swissNAMES3D, such as the village Braunwald.
 
-    One row as published, or several close rows of the same name merged into one, such as a lake and
-    the quarter on its shore.
+    Usually one entry of swissNAMES3D. Entries of the same name within 2 km of each other are one place,
+    with all their object types and the position of the biggest settlement: the village Braunwald and
+    its station are one place, ("Ort", "Haltestelle Bahn").
     """
     name: str
     object_types: tuple[str, ...]  # such as ("Quartier", "See"), in the order of OBJECT_TYPE_TO_NAME

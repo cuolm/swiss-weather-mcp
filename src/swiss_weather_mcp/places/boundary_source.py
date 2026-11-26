@@ -1,5 +1,5 @@
 """
-Find the municipality and canton of a position with swissBOUNDARIES3D.
+Find the area of a position, and the municipalities of a name, with swissBOUNDARIES3D.
 
 swissBOUNDARIES3D holds the swisstopo boundaries of the administrative units of Switzerland and
 Liechtenstein.

@@ -274,13 +274,14 @@ class PlaceFinder:
 
     def find_place(self, location: str, nearby_location: Optional[str] = None) -> SwisstopoPlace:
         """
-        Find the place a user means.
+        Find the place a user means, such as Davos Dorf for "Davos".
 
-        A name no place has may be the name of a municipality, see _find_biggest_settlements_of_municipality.
-        nearby_location is only used for a name of several places; without it, the obvious place is
-        taken, see _find_obvious_place. Case, accents and periods are ignored. Raise CannotAnswerError
-        for an unknown name, suggesting similar names, and for a name of several places that neither
-        nearby_location nor an obvious place tells apart, listing every place to call again with.
+        Case, accents and periods are ignored. A municipality's name stands for its biggest settlement. When
+        several places have the name, nearby_location picks the one closest to it; without it, a town of 1,000
+        or more people wins over villages of fewer than 100.
+
+        Raise CannotAnswerError for an unknown name, with similar names, and for several places none of these
+        rules picks, with every place to call again with.
         """
         places = self.place_lookup.find_places_named(location)
         if places:
@@ -300,7 +301,8 @@ class PlaceFinder:
             if place_near is not None:
                 return place_near
         else:
-            # Only without near: a near no place lies close to may well point to one of the small places
+            # Pick the big town only when the user gave no near. If they gave a near that lies far from every
+            # place, they probably mean one of the small ones, so we ask instead of guessing.
             obvious_place = _find_obvious_place(places)
             if obvious_place is not None:
                 return obvious_place
