@@ -152,18 +152,18 @@ class PlaceFinder:
         boundaries_thread.start()
         return [places_thread, boundaries_thread]
 
-    def _find_place_near(
-        self, places: list[SwisstopoPlace], nearby_places: list[SwisstopoPlace]
+    def _find_closest_place(
+        self, candidate_places: list[SwisstopoPlace], nearby_location_places: list[SwisstopoPlace]
     ) -> Optional[SwisstopoPlace]:
-        """Choose the place nearest to one of nearby_places, or None beyond MAX_NEAR_DISTANCE_M."""
+        """Choose the candidate place closest to one of nearby_location_places, or None beyond MAX_NEAR_DISTANCE_M."""
         closest_place = None
         closest_distance_m = math.inf
-        # The near name can itself be the name of several places, so every pair counts
-        for nearby_place in nearby_places:
-            for place in places:
-                distance_m = calculate_distance_m(place, nearby_place)
+        # Several places can have the near name too, so we compare every candidate with every one of them
+        for nearby_location_place in nearby_location_places:
+            for candidate_place in candidate_places:
+                distance_m = calculate_distance_m(candidate_place, nearby_location_place)
                 if distance_m < closest_distance_m:
-                    closest_place = place
+                    closest_place = candidate_place
                     closest_distance_m = distance_m
         if closest_distance_m > MAX_NEAR_DISTANCE_M:
             return None
@@ -184,7 +184,7 @@ class PlaceFinder:
         for settlement in nearest_settlements:
             # As the model would give it as near: the name, which other places can have too
             places_of_settlement_name = self.place_lookup.find_places_named(settlement.name)
-            if self._find_place_near(places, places_of_settlement_name) == place:
+            if self._find_closest_place(places, places_of_settlement_name) == place:
                 return settlement.name
         # Two places of the name lie so close that each settlement leads to the other one;
         # they have nearly the same weather
@@ -216,7 +216,7 @@ class PlaceFinder:
         places: list[SwisstopoPlace],
         is_municipality: bool,
         nearby_location: Optional[str],
-        nearby_places: list[SwisstopoPlace],
+        nearby_location_places: list[SwisstopoPlace],
     ) -> CannotAnswerError:
         """Build the refusal of a name of several places, listing every place with a settlement to give as near."""
         option_lines = self._build_option_lines(location, places, is_municipality)
@@ -230,7 +230,7 @@ class PlaceFinder:
             places_sentence = f"'{location}' is the name of {len(places)} places."
         no_place_near_sentence = ""
         if nearby_location is not None:
-            if nearby_places:
+            if nearby_location_places:
                 no_place_near_sentence = f"No '{location}' lies near '{nearby_location}'. "
             else:
                 no_place_near_sentence = f"No place is called '{nearby_location}'. "
@@ -260,14 +260,20 @@ class PlaceFinder:
         If there is only one settlement, or several settlements that lie close together and so have the
         same weather, return only the first. Return an empty list if no municipality has this name.
         """
+        municipalities = self.boundary_source.find_municipalities_named(location)
         biggest_settlements = []
-        for municipality in self.boundary_source.find_municipalities_named(location):
+        for municipality in municipalities:
             biggest_settlements_inside = self.place_lookup.find_biggest_settlements_inside(municipality.polygons)
             biggest_settlements.extend(biggest_settlements_inside)
-        lie_close_together = all(
-            is_within_weighted_distance(first_settlement, second_settlement, MAX_EQUAL_SETTLEMENT_WEIGHTED_DISTANCE_M)
-            for first_settlement, second_settlement in combinations(biggest_settlements, 2)
-        )
+        settlement_pairs = combinations(biggest_settlements, 2)
+        lie_close_together = True
+        for first_settlement, second_settlement in settlement_pairs:
+            pair_lies_close = is_within_weighted_distance(
+                first_settlement, second_settlement, MAX_EQUAL_SETTLEMENT_WEIGHTED_DISTANCE_M
+            )
+            if not pair_lies_close:
+                lie_close_together = False
+                break
         if lie_close_together:
             return biggest_settlements[:1]
         return biggest_settlements
@@ -294,16 +300,16 @@ class PlaceFinder:
         if len(places) == 1:
             return places[0]
 
-        nearby_places: list[SwisstopoPlace] = []
+        nearby_location_places: list[SwisstopoPlace] = []
         if nearby_location is not None:
-            nearby_places = self.place_lookup.find_places_named(nearby_location)
-            place_near = self._find_place_near(places, nearby_places)
-            if place_near is not None:
-                return place_near
+            nearby_location_places = self.place_lookup.find_places_named(nearby_location)
+            closest_place = self._find_closest_place(places, nearby_location_places)
+            if closest_place is not None:
+                return closest_place
         else:
             # Pick the big town only when the user gave no near. If they gave a near that lies far from every
             # place, they probably mean one of the small ones, so we ask instead of guessing.
             obvious_place = _find_obvious_place(places)
             if obvious_place is not None:
                 return obvious_place
-        raise self._build_options_error(location, places, is_municipality, nearby_location, nearby_places)
+        raise self._build_options_error(location, places, is_municipality, nearby_location, nearby_location_places)
