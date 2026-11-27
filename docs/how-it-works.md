@@ -28,8 +28,7 @@
     ...
   ```
 - The municipalities and cantons use swisstopo's names, in the local language, such as `Genève`
-  or `Graubünden`. They appear once the swissBOUNDARIES3D GeoPackage has been downloaded, which
-  happens in the background at start. The cantons of the stations use the same names.
+  or `Graubünden`. The cantons of the stations use the same names.
 - A name no place has can be the name of a municipality from swissBOUNDARIES3D, such as `Davos`. The
   tool then takes the biggest settlement inside the municipality, such as `Jona` for `Rapperswil-Jona`.
   - When several are of the same size and lie within 3 km of each other, counting 100 m of height gap
