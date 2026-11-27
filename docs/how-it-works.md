@@ -105,7 +105,7 @@
     gust, wind direction and sea-level pressure. It also gives how the temperature and pressure changed
     over the last 3 hours, and the rain, sunshine and strongest gust of the last hour.
   - In the mountains it adds an `slf_station` block from one of the about 200 mountain stations (IMIS)
-    of the [SLF](https://www.slf.ch), most of them between 1300 and 3300 m. The block gives the
+    of the [SLF](https://www.slf.ch), most of them between 2000 and 3000 m. The block gives the
     temperature, humidity, wind, wind direction and strongest 5-second gust of the 30 minutes up to the
     station's latest measurement. With at least 10 cm of snow, it also gives the temperature of the snow
     surface over the same 30 minutes.
@@ -117,17 +117,17 @@
 - `measurements_history` gives the daily values of a MeteoSwiss station, chosen as for
   `measurements_current`: the first of the 3 best stations that has a temperature on the days asked.
   - A day runs from 00:00 to 24:00 UTC, which is 01:00 to 01:00 Swiss time in winter and 02:00 to 02:00
-    in summer. MeteoSwiss publishes a day the next morning.
+    in summer. MeteoSwiss adds new days at about 01:00 and 10:00 UTC, so a day is there the next day.
   - The days go back to when the station started, such as 1864 for Zürich / Fluntern. A value the
     station did not measure is None, such as the gust at Zürich / Fluntern before 1981. Days before this
-    year come from a file of up to about 6.4 MB per station.
+    year come from a file per station, such as 6.5 MB for Zürich / Fluntern.
   - Normally a day's rain covers the same UTC day as the other values. Many stations only started
-    measuring it that way later: 87 of the 140 stations with rain started in 1981 or in the 2010s,
-    Zürich / Fluntern in 1981. For days before that, the answer gives the rain from 06:00 UTC to
+    measuring it that way later: 116 of the 141 stations with rain, most of them in 1981 or in the
+    2010s, Zürich / Fluntern in 1981. For days before that, the answer gives the rain from 06:00 UTC to
     06:00 UTC the next day instead, as rain_06_to_06_utc_mm.
   - It also gives the snow of each day in a separate block, from one of three kinds of station:
-    - one of the 247 sites where a MeteoSwiss observer measures each morning, half of them since 1971 or
-      earlier
+    - one of the 247 sites where a MeteoSwiss observer measures each morning, almost half of them since
+      1971 or earlier
     - one of about 100 SLF manual sites, where an observer measures too, at Davos Flüelastr. since 1945
     - one of about 130 automatic SLF stations, at Bärentälli since 1998
   - The block gives the snow depth at 06:00 UTC and the new snow of the 24 hours after it.
@@ -159,7 +159,7 @@
   - Snow changes with height and terrain, so only stations whose distance plus 20 times the height gap
     is at most 25 km are used, such as a station 15 km away and 500 m higher. Tested on the 5817 forecast
     points: 94 % of those between 1200 and 2000 m get a new snow station. Below 800 m, where the nearest
-    SLF station is often 40 km away and 600 m higher, 88 % get no new snow station, but 96 % still get a
+    SLF station is often about 30 km away and 1000 m higher, 88 % get no new snow station, but 96 % still get a
     snow depth.
   - A block is null when none of its stations has a current value. When both blocks are null, the tool
     says so.
@@ -185,13 +185,15 @@
 
 ## Avalanche Bulletin
 - `avalanche_bulletin` gives the [SLF avalanche bulletin](https://www.slf.ch/en/avalanche-bulletin-and-snow-situation/)
-  valid now. In winter SLF publishes it every day at 17:00, valid until 17:00 the next day, with an update
-  at 08:00 when needed. In summer and autumn SLF publishes it only after heavy snowfall. When none is valid,
-  the tool says so.
+  valid now. In winter and spring SLF publishes it every day at 17:00, valid until 17:00 the next day, with an
+  update at 08:00 when needed, always when the danger is considerable (3) or higher somewhere. In summer and
+  autumn SLF publishes it after heavy snowfall, and in late autumn also when the snow cover calls for it. When
+  none is valid, the tool says so.
   - SLF groups its warning regions with the same danger into areas, and each area is one bulletin with an
-    outline. The tool takes the bulletin whose outline the place lies in. The bulletin covers the Alps and
-    the Jura, never the Plateau, so for a place such as Zürich the tool says it lies in no region.
-  - The danger level goes from 1 (low) to 5 (very high). From level 2 up, SLF adds a
+    outline. The tool takes the bulletin whose outline the place lies in. The bulletin covers the Swiss Alps,
+    Liechtenstein and, when there is enough snow, the Jura, so for a place such as Zürich the tool says it
+    lies in no region.
+  - The danger level goes from 1 (low) to 5 (very high). From level 2 up, SLF adds to a dry-snow danger a
     [subdivision](https://www.slf.ch/en/avalanche-bulletin-and-snow-situation/about-the-avalanche-bulletin/danger-levels/):
     `-` for the lower part of the level, `=` for the middle and `+` for the upper part, such as
     `considerable (3-)`. In spring, a second level, `danger_level_later`, gives the danger from wet snow
