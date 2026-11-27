@@ -189,7 +189,7 @@
   update at 08:00 when needed, always when the danger is considerable (3) or higher somewhere. In summer and
   autumn SLF publishes it after heavy snowfall, and in late autumn also when the snow cover calls for it. When
   none is valid, the tool says so.
-  - SLF groups its warning regions with the same danger into areas, and each area is one bulletin with an
+  - Since winter 2026/27 SLF publishes a bulletin for each of its 149 warning regions, with the region's
     outline. The tool takes the bulletin whose outline the place lies in. The bulletin covers the Swiss Alps,
     Liechtenstein and, when there is enough snow, the Jura, so for a place such as Zürich the tool says it
     lies in no region.
@@ -203,8 +203,8 @@
     because people often go higher than the place they ask about. It gives the place's altitude so the
     heights can be compared.
   - Each problem comes with SLF's summary and description. The snowpack, outlook, weather forecast and
-    weather review are SLF's texts for all of Switzerland. On some days the weather texts are missing.
-  - The bulletins, about 80 KB, are downloaded again when the cached copy is older than 10 minutes.
+    weather review are SLF's texts for the region. On some days the weather texts are missing.
+  - The bulletins, about 600 KB, are downloaded again when the cached copy is older than 10 minutes.
   - Every answer names SLF as its source, with a link, as SLF asks, and links SLF's map of the bulletin.
   - Example: `avalanche_bulletin("Braunwald")`.
 

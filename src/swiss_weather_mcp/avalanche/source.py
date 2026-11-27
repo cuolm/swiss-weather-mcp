@@ -7,12 +7,13 @@ What SLF publishes:
 - In winter a bulletin every day at 17:00, valid until 17:00 the next day, and an update at
   08:00 when the danger is considerable (level 3) or higher anywhere, or when needed. In summer
   and autumn only after heavy snowfall. Rarely an unscheduled one in between.
-- Switzerland is split into small warning regions, such as CH-3112 Southern Glarus-Grosstal.
-  The forecasters group the regions with the same danger into areas, and each area is one
-  bulletin: its outline, its regions, the danger level, the avalanche problems and the texts.
-  The outline is the merged shape of all its regions, and the outlines of one day never
-  overlap. In winter 2025/26 there were 2 to 15 bulletins a day, about 80 KB in all. They
-  cover the Alps and the Jura, never the Plateau.
+- Switzerland is split into 149 small warning regions, such as CH-3112 Southern Glarus-Grosstal.
+  Since winter 2026/27 each region has its own bulletin: its outline, its region, the danger
+  level, the avalanche problems and the texts. Until then the forecasters grouped the regions
+  with the same danger into one bulletin, whose outline was the merged shape of its regions,
+  so a bulletin can still list several. The outlines of one day never overlap. On 2026-11-27
+  there were 133 bulletins, about 600 KB in all. They cover the Swiss Alps, Liechtenstein and,
+  when there is enough snow, the Jura.
 - The danger levels are low (1), moderate (2), considerable (3), high (4) and very high (5).
   From level 2, a dry-snow danger has a subdivision: towards the bottom end (-), in the middle
   (=) or towards the top end (+), https://www.slf.ch/en/avalanche-bulletin-and-snow-situation/about-the-avalanche-bulletin/danger-levels/
@@ -20,9 +21,9 @@ What SLF publishes:
   the wet snow later in the day. Each avalanche problem, such as wind slab, has its own danger
   level, heights, aspects (the directions the slopes face) and texts. SLF leaves out what a
   problem does not have: a wet-snow problem often has no heights, aspects or summary.
-- Four texts are the same in all bulletins of a day: the snowpack, the outlook, and the weather
-  forecast and review, which some bulletins do not have. The texts are HTML with only h1, h2,
-  p, ul, li and br.
+- Each bulletin has four texts: the snowpack and the outlook, which several regions share, and
+  the weather forecast and review of its region, which some bulletins do not have. The texts
+  are HTML with only h1, h2, p, ul, li and br.
 - The API has two versions; this module reads V4, where heights are strings, the whole mountain
   is an empty elevation, and empty values are left out. When no bulletin is valid, the feature
   list is empty.

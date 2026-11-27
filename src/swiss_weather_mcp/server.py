@@ -548,7 +548,7 @@ class SwissWeatherMCPServer:
                     when until when it is valid and its next update, the danger level, danger_level_later
                     when the wet snow changes it later in the day, and the avalanche problems, each with its
                     danger level, time of day, heights, aspects, summary and description. Then SLF's texts
-                    for all of Switzerland: snowpack, outlook, weather forecast and weather review (None when
+                    for the region: snowpack, outlook, weather forecast and weather review (None when
                     SLF gives none), a link to SLF's map of the bulletin and the source.
 
             Examples:
