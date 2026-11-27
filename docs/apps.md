@@ -3,21 +3,21 @@ Each app starts the server with `uvx`, so first install
 [uv](https://docs.astral.sh/uv/getting-started/installation/).
 If an app cannot find `uvx`, use the full path that `which uvx` prints.
 
-## pi + llama.cpp
-Everything runs on your computer: the model runs in llama.cpp, so your questions reach no cloud AI.
+## Pi + llama.cpp
+Everything runs locally: the model runs in llama.cpp, so your questions never leave your computer.
 The server only downloads the public weather data.
 
-Install [llama.cpp](https://llama.app/) with Homebrew or curl, then start it:
+Install llama.cpp with the [Llama app](https://llama.app/), using Homebrew or curl, then start it:
 ```bash
 brew install --cask llama-app
 # or: curl -LsSf https://llama.app/install.sh | sh
 llama serve
 ```
-Add the server to pi:
+Add the server to Pi:
 ```bash
 pi mcp add swiss-weather --exposure direct -- uvx swiss-weather-mcp@latest
 ```
-In pi, connect with `/login llama.cpp`, load a model such as Gemma 4 E2B with `/llama` and select it with
+In Pi, connect with `/login llama.cpp`, load a model such as Gemma 4 E2B with `/llama` and select it with
 `/model`.
 
 https://github.com/user-attachments/assets/fc4c38e6-0b12-4dea-bc9e-b18d301dc085

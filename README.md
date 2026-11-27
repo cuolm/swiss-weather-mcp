@@ -26,7 +26,9 @@ Before going into the mountains, check the official
 https://github.com/user-attachments/assets/0379b24c-48ef-4634-a0a2-09923324c27b
 
 ## Quick Start
-Install [uv](https://docs.astral.sh/uv/getting-started/installation/), then add this to your AI app's MCP config file:
+The server runs with [uv](https://docs.astral.sh/uv/getting-started/installation/), so install it first.
+
+Then add this to your AI app's MCP config file:
 ```json
 {
   "mcpServers": {
@@ -42,7 +44,7 @@ If your app cannot find `uvx`, replace `uvx` with the full path that `which uvx`
 If the file already has content, add only the `"swiss-weather"` entry inside its `"mcpServers"`.
 
 ### In Claude Desktop and Claude Code
-Instead of the config file, install the plugin. First make sure [uv](https://docs.astral.sh/uv/getting-started/installation/) is installed.
+Instead of the config file, install the plugin.
 
 **Claude Desktop:** download the
 [desktop extension](https://github.com/cuolm/swiss-weather-mcp/releases/latest/download/swiss-weather-mcp.mcpb),
@@ -55,10 +57,15 @@ claude plugin marketplace add cuolm/claude-plugins
 claude plugin install swiss-weather-mcp@cuolm
 ```
 
-Step by step, with videos, for pi + llama.cpp, Claude Desktop and Unsloth Desktop: [Setup in AI Apps](docs/apps.md).
+### In Pi
+```bash
+pi mcp add swiss-weather --exposure direct -- uvx swiss-weather-mcp@latest
+```
+
+[Setup in AI Apps](docs/apps.md) shows the setup in Pi + llama.cpp, Claude Desktop and Unsloth Desktop step by step, with videos.
 
 ## Installation
-Install the server once with uv, instead of starting it with `uvx` on each start as in [Quick Start](#quick-start):
+Install the server once with uv, instead of having `uvx` start it, as in [Quick Start](#quick-start):
 ```bash
 uv tool install swiss-weather-mcp
 ```
@@ -81,7 +88,7 @@ The server runs on its own, and your AI app connects to it by URL. Start it with
 ```bash
 swiss-weather-mcp --transport=streamable-http --host=localhost --port=8050
 ```
-The server has no login, so anyone who can reach its port can use it: keep it on your own computer with `--host=localhost`, as above.
+The server has no login, so anyone who can reach its port can use it. Keep it on your own computer with `--host=localhost`, as above.
 
 Then add its URL to your AI app's MCP config file:
 ```json
@@ -93,7 +100,7 @@ Then add its URL to your AI app's MCP config file:
   }
 }
 ```
-To use another port, change `8050` in `--port` and in the URL. `--help` lists all flags. Where the server keeps its files, and `--cache-all-forecast-points`: see [Cache and Downloads](docs/how-it-works.md#cache-and-downloads).
+To use another port, change `8050` in `--port` and in the URL. `--help` lists all flags. [Cache and Downloads](docs/how-it-works.md#cache-and-downloads) explains where the server keeps its files and what `--cache-all-forecast-points` does.
 
 ### With Docker
 The image runs the server over streamable HTTP and needs no uv:
@@ -142,7 +149,7 @@ Answers name the forecast point when it is not next to the place (see [Forecast 
 | `current_date_and_time()` | Today's weekday and the Swiss time now |
 
 ## Details
-- [Setup in AI Apps](docs/apps.md): pi + llama.cpp, Claude Desktop and Unsloth Desktop, step by step
+- [Setup in AI Apps](docs/apps.md): Pi + llama.cpp, Claude Desktop and Unsloth Desktop, step by step
 - [How It Works](docs/how-it-works.md): times, places, forecast points, each tool in detail, forecast
   medians, cache and downloads
 - [Development](docs/development.md): running from source, the test client with a demo video, and the

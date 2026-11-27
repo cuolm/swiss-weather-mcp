@@ -19,7 +19,7 @@ docker run -p 127.0.0.1:8050:8050 swiss-weather-mcp
 ## Checks
 The same checks run in CI on every push:
 ```bash
-uv run pytest      # the tests, on fake data; they never use the network
+uv run pytest      # the tests, on fake data, without the network
 uv run ruff check  # the lint rules of [tool.ruff] in pyproject.toml
 uv run mypy        # types, in strict mode
 ```
@@ -44,11 +44,11 @@ The bundled MCP client tests the server over stdio. It starts the MCP server its
 # Install the server with the client, which pulls in the OpenAI SDK
 uv tool install 'swiss-weather-mcp[client]'
 
-# Install llama.cpp, which provides llama serve, with Homebrew or curl
+# Install llama.cpp with the Llama app, which provides llama serve, using Homebrew or curl
 brew install --cask llama-app
 # or: curl -LsSf https://llama.app/install.sh | sh
 
-# Start llama serve with a model in its own terminal; it downloads the model on first use
+# Start llama serve with a model in its own terminal. It downloads the model on first use
 llama serve --no-mmproj -hf unsloth/gemma-4-E2B-it-GGUF:Q4_K_XL --port 8080
 
 # Run the client against it in a second terminal

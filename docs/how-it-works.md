@@ -125,11 +125,12 @@
     measuring it that way later: 87 of the 140 stations with rain started in 1981 or in the 2010s,
     Zürich / Fluntern in 1981. For days before that, the answer gives the rain from 06:00 UTC to
     06:00 UTC the next day instead, as rain_06_to_06_utc_mm.
-  - It also gives the snow of each day in a separate block, from one of three kinds of station: one of
-    the 247 sites where a MeteoSwiss observer measures each morning, half of them since 1971 or earlier;
-    one of about 100 SLF manual sites, where an observer measures too, at Davos Flüelastr. since 1945; or
-    one of about 130 automatic SLF stations, at Bärentälli since 1998. The block gives the snow depth at
-    06:00 UTC and the new snow of the 24 hours after it.
+  - It also gives the snow of each day in a separate block, from one of three kinds of station:
+    - one of the 247 sites where a MeteoSwiss observer measures each morning, half of them since 1971 or
+      earlier
+    - one of about 100 SLF manual sites, where an observer measures too, at Davos Flüelastr. since 1945
+    - one of about 130 automatic SLF stations, at Bärentälli since 1998
+  - The block gives the snow depth at 06:00 UTC and the new snow of the 24 hours after it.
   - At an automatic SLF station, the snow depth is the median of the 24 hours up to 06:00 UTC, and the
     new snow is calculated by SLF from the snow depth.
   - The snow station is the first with snow values on the days asked, among the 3 best MeteoSwiss sites
@@ -185,7 +186,8 @@
 ## Avalanche Bulletin
 - `avalanche_bulletin` gives the [SLF avalanche bulletin](https://www.slf.ch/en/avalanche-bulletin-and-snow-situation/)
   valid now. In winter SLF publishes it every day at 17:00, valid until 17:00 the next day, with an update
-  at 08:00 when needed; in summer and autumn only after heavy snowfall. When none is valid, the tool says so.
+  at 08:00 when needed. In summer and autumn SLF publishes it only after heavy snowfall. When none is valid,
+  the tool says so.
   - SLF groups its warning regions with the same danger into areas, and each area is one bulletin with an
     outline. The tool takes the bulletin whose outline the place lies in. The bulletin covers the Alps and
     the Jura, never the Plateau, so for a place such as Zürich the tool says it lies in no region.
@@ -199,14 +201,14 @@
     because people often go higher than the place they ask about. It gives the place's altitude so the
     heights can be compared.
   - Each problem comes with SLF's summary and description. The snowpack, outlook, weather forecast and
-    weather review are SLF's texts for all of Switzerland; the weather texts are missing on some days.
+    weather review are SLF's texts for all of Switzerland. On some days the weather texts are missing.
   - The bulletins, about 80 KB, are downloaded again when the cached copy is older than 10 minutes.
   - Every answer names SLF as its source, with a link, as SLF asks, and links SLF's map of the bulletin.
   - Example: `avalanche_bulletin("Braunwald")`.
 
 ## Sun and Moon
 - `astronomy_sun` gives sunrise, sunset and when civil twilight begins and ends on a day.
-  - Civil twilight is the light before sunrise and after sunset; outside it, artificial light is
+  - Civil twilight is the light before sunrise and after sunset. Outside it, artificial light is
     normally needed outdoors.
   - The times are for a level horizon at sea level, so in a valley the Sun appears later behind the
     mountains.
