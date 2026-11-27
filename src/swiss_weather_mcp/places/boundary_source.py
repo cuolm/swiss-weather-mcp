@@ -39,6 +39,7 @@ import logging
 import shutil
 import sqlite3
 import struct
+import threading
 import uuid
 import zipfile
 from pathlib import Path
@@ -205,6 +206,8 @@ class SwisstopoBoundarySource:
     def __init__(self, cache_dir: Path):
         self.cache_dir = cache_dir / "boundaries"
         self._geopackage_file: Optional[Path] = None
+        # The load at server start and a request may come at the same time, and only one may download
+        self._loading_lock = threading.Lock()
 
     def _download_geopackage(self, archive_url: str, geopackage_file: Path) -> None:
         """Download the archive of an edition, unpack its GeoPackage to geopackage_file and delete the archive."""
@@ -229,40 +232,44 @@ class SwisstopoBoundarySource:
             archive_file.unlink(missing_ok=True)
             partial_file.unlink(missing_ok=True)
 
-    def load_geopackage(self) -> None:
-        """Make sure the newest GeoPackage is cached, so find_area and find_municipalities_named can use it."""
-        self._geopackage_file = ensure_newest_swisstopo_edition(
-            EDITIONS_URL, ARCHIVE_SUFFIX, self.cache_dir, GEOPACKAGE_SUFFIX, self._download_geopackage
-        )
-        logger.info(f"Loaded the swissBOUNDARIES3D edition {self._geopackage_file.name}")
+    def load_geopackage(self) -> Path:
+        """Make sure the newest GeoPackage is cached and return it, once per process."""
+        with self._loading_lock:
+            if self._geopackage_file is not None:
+                return self._geopackage_file
 
-    def _find_geopackage_file(self) -> Optional[Path]:
+            self._geopackage_file = ensure_newest_swisstopo_edition(
+                EDITIONS_URL, ARCHIVE_SUFFIX, self.cache_dir, GEOPACKAGE_SUFFIX, self._download_geopackage
+            )
+            logger.info(f"Loaded the swissBOUNDARIES3D edition {self._geopackage_file.name}")
+            return self._geopackage_file
+
+    def _find_geopackage_file(self) -> Path:
         """
-        Return the GeoPackage to read, or None before load_geopackage has cached one.
+        Return the GeoPackage to read, and wait for load_geopackage first if it has not finished yet.
 
         When the loaded edition is gone, return the newest cached edition instead.
         """
+        geopackage_file = self.load_geopackage()
         # Another server using the same cache deletes this edition when it downloads a newer one, so we switch to
         # the newer one instead of failing on every question until this server restarts
-        if self._geopackage_file is not None and not self._geopackage_file.exists():
+        if not geopackage_file.exists():
             found_files = self.cache_dir.glob(f"*{GEOPACKAGE_SUFFIX}")
             cached_files = sorted(found_files)
             if cached_files:
                 newest_file = cached_files[-1]
-                logger.info(f"The edition {self._geopackage_file.name} is gone, using {newest_file.name}")
+                logger.info(f"The edition {geopackage_file.name} is gone, using {newest_file.name}")
                 self._geopackage_file = newest_file
-        return self._geopackage_file
+                geopackage_file = newest_file
+        return geopackage_file
 
     def find_area(self, east_m: float, north_m: float) -> Optional[Area]:
         """
         Find the area an LV95 position lies in.
 
-        Return None outside every area, and before load_geopackage has cached the GeoPackage.
+        Return None outside every area.
         """
         geopackage_file = self._find_geopackage_file()
-        if geopackage_file is None:
-            return None
-
         connection = _connect(geopackage_file)
         try:
             cursor = connection.execute(AREAS_AROUND_QUERY, (east_m, east_m, north_m, north_m))
@@ -281,13 +288,9 @@ class SwisstopoBoundarySource:
         Find the municipalities a user means by a name, such as Davos for "davos".
 
         Case, accents and periods are ignored, a canton after the name may be left out, and each part of a name
-        with a slash counts on its own. Return none for a name no municipality has, and before load_geopackage
-        has cached the GeoPackage.
+        with a slash counts on its own. Return none for a name no municipality has.
         """
         geopackage_file = self._find_geopackage_file()
-        if geopackage_file is None:
-            return []
-
         lookup_name = normalise_name(location)
         municipalities = []
         connection = _connect(geopackage_file)

@@ -4,6 +4,7 @@ import time
 import zipfile
 
 import pytest
+import requests
 from fakes import BOUNDARY_EDITION_IDS, build_boundaries_geopackage, build_square_geometry
 
 from swiss_weather_mcp.places.boundary_source import Area, SwisstopoBoundarySource, _read_polygons
@@ -177,9 +178,11 @@ def test_find_area_after_another_server_replaced_the_edition(source_fixture, tmp
     assert [municipality.name for municipality in municipalities] == ["Davos"]
 
 
-def test_find_area_before_loading(source_fixture, boundary_source_fixture):
-    assert boundary_source_fixture.find_area(2683200.0, 1247500.0) is None
-    assert count_requests(source_fixture, ".gpkg.zip") == 0
+def test_find_area_waits_for_the_geopackage(source_fixture, boundary_source_fixture):
+    assert boundary_source_fixture.find_area(2683200.0, 1247500.0) == Area("Zürich", "Gemeindegebiet", "Zürich")
+    # Loaded once, not again for the next question
+    boundary_source_fixture.find_area(2683200.0, 1247500.0)
+    assert count_requests(source_fixture, ".gpkg.zip") == 1
 
 
 # --- find_municipalities_named ---
@@ -203,6 +206,20 @@ def test_find_municipalities_named_not_an_area_of_a_canton(boundary_source_fixtu
     assert boundary_source_fixture.find_municipalities_named("Greifensee") == []
 
 
-def test_find_municipalities_named_before_loading(source_fixture, boundary_source_fixture):
-    assert boundary_source_fixture.find_municipalities_named("Davos") == []
-    assert count_requests(source_fixture, ".gpkg.zip") == 0
+def test_find_municipalities_named_waits_for_the_geopackage(source_fixture, boundary_source_fixture):
+    municipalities = boundary_source_fixture.find_municipalities_named("Davos")
+    assert [municipality.name for municipality in municipalities] == ["Davos"]
+    assert count_requests(source_fixture, ".gpkg.zip") == 1
+
+
+def test_find_municipalities_named_after_a_failed_load(mocker, source_fixture, boundary_source_fixture):
+    download_mock = mocker.patch(
+        "swiss_weather_mcp.places.boundary_source.download_file", side_effect=requests.ConnectionError("offline")
+    )
+    with pytest.raises(requests.ConnectionError):
+        boundary_source_fixture.load_geopackage()
+
+    # The failed load at start is not remembered, so the next question downloads again
+    mocker.stop(download_mock)
+    municipalities = boundary_source_fixture.find_municipalities_named("Davos")
+    assert [municipality.name for municipality in municipalities] == ["Davos"]

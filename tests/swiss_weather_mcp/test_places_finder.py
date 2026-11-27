@@ -54,23 +54,10 @@ def test_find_place_refuses_a_name_of_several_places(place_finder_fixture):
     assert str(raised.value) == (
         "'Blausee' is the name of 2 places. Call again with location 'Blausee' and near set to the village next "
         "to the place the user means, or ask the user which one they mean. The biggest first:\n"
-        '  location="Blausee", near="Lindenhof": settlement and quarter, 20 to 49 people, 425 m\n'
-        '  location="Blausee", near="Oerlikon": lake, 445 m'
-    )
-
-
-def test_find_place_names_the_area_of_each_place(place_finder_fixture):
-    for loading_thread in place_finder_fixture.start_loading_places():
-        loading_thread.join()
-    with pytest.raises(CannotAnswerError) as raised:
-        place_finder_fixture.find_place("Blausee")
-    error_text = str(raised.value)
-    option_lines = error_text.splitlines()[1:]
-    assert option_lines == [
         '  location="Blausee", near="Lindenhof": settlement and quarter, 20 to 49 people, 425 m, '
-        'municipality Zürich, canton Zürich',
-        '  location="Blausee", near="Oerlikon": lake, 445 m, canton Zürich',
-    ]
+        "municipality Zürich, canton Zürich\n"
+        '  location="Blausee", near="Oerlikon": lake, 445 m, canton Zürich'
+    )
 
 
 def test_find_place_lists_every_place(place_finder_fixture):
@@ -79,8 +66,12 @@ def test_find_place_lists_every_place(place_finder_fixture):
         place_finder_fixture.find_place("Wil")
     option_lines = str(raised.value).splitlines()[1:]
     assert len(option_lines) == 3
+    # The test boundaries hold no area around Wil SG
     assert option_lines[0] == '  location="Wil", near="Wil SG": settlement, 10,000 to 49,999 people, 583 m'
-    assert option_lines[1] == '  location="Wil", near="Oerlikon": quarter, 2,000 to 9,999 people, 440 m'
+    assert option_lines[1] == (
+        '  location="Wil", near="Oerlikon": quarter, 2,000 to 9,999 people, 440 m, municipality Zürich, '
+        "canton Zürich"
+    )
 
 
 def test_find_place_takes_the_obvious_place(place_finder_fixture):
@@ -270,4 +261,4 @@ def test_start_loading_places_without_a_connection(caplog, source_fixture, place
         for loading_thread in place_finder_fixture.start_loading_places():
             loading_thread.join()
     assert "Could not load the swisstopo places at start" in caplog.text
-    assert "Could not load the swisstopo boundaries" in caplog.text
+    assert "Could not load the swisstopo boundaries at start" in caplog.text

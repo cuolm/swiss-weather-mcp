@@ -136,16 +136,13 @@ class PlaceFinder:
         try:
             self.boundary_source.load_geopackage()
         except requests.RequestException as error:
-            logger.warning(
-                f"Could not load the swisstopo boundaries, the lists of places leave out the municipalities: {error}"
-            )
+            logger.warning(f"Could not load the swisstopo boundaries at start, the first question tries again: {error}")
 
     def start_loading_places(self) -> list[threading.Thread]:
         """
         Load the places and boundaries in two background threads and return them, so the first question need not wait.
 
-        The lists of places name the municipality and canton only once the boundaries are
-        loaded. The boundaries do not wait for the places, so cached ones are ready at once.
+        The boundaries do not wait for the places, so cached ones are ready at once.
         """
         places_thread = threading.Thread(target=self._load_places, name="load-places", daemon=True)
         boundaries_thread = threading.Thread(target=self._load_boundaries, name="load-boundaries", daemon=True)
