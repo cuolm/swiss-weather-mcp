@@ -4,9 +4,10 @@ Read the avalanche bulletins valid now from the SLF bulletin API.
 The API is at https://aws.slf.ch/api/bulletin/caaml
 
 What SLF publishes:
-- In winter a bulletin every day at 17:00, valid until 17:00 the next day, and an update at
-  08:00 when the danger is considerable (level 3) or higher anywhere, or when needed. In summer
-  and autumn only after heavy snowfall. Rarely an unscheduled one in between.
+- In winter and spring a bulletin every day at 17:00, valid until 17:00 the next day, and an
+  update at 08:00 when the danger is considerable (level 3) or higher anywhere, or when needed.
+  In summer and autumn a bulletin after heavy snowfall, and in late autumn also when the snow
+  calls for it. Rarely an unscheduled one in between.
 - Switzerland is split into 149 small warning regions, such as CH-3112 Southern Glarus-Grosstal.
   Since winter 2026/27 each region has its own bulletin: its outline, its region, the danger
   level, the avalanche problems and the texts. Until then the forecasters grouped the regions

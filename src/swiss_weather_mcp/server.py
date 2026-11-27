@@ -536,9 +536,10 @@ class SwissWeatherMCPServer:
             low to 5 very high, from level 2 with a subdivision: - near the bottom, = in the middle and +
             near the top of the level. Each avalanche problem applies only at its heights and on slopes
             facing its aspects, often higher up than a village, so compare them with the place's altitude.
-            In spring, danger_level_later is the danger of the wet snow later in the day. In winter SLF
-            publishes the bulletin every day at 17:00, with an update at 08:00 when needed; in summer and
-            autumn only after heavy snowfall. Always give the source with its link.
+            In spring, danger_level_later is the danger of the wet snow later in the day. In winter and
+            spring SLF publishes the bulletin every day at 17:00, with an update at 08:00 when needed. In
+            summer and autumn it publishes one after heavy snowfall, and in late autumn also when the snow
+            calls for it. Always give the source with its link.
 
             Args:
                 location (str): Name of a place in Switzerland, e.g. "Davos Dorf".
