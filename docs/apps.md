@@ -1,6 +1,6 @@
 # Setup in AI Apps
 Each app starts the server with `uvx`, so first install
-[uv](https://docs.astral.sh/uv/getting-started/installation/).
+[uv](https://docs.astral.sh/uv/getting-started/installation/). Only the Claude Desktop extension needs no uv.
 If an app cannot find `uvx`, use the full path that `which uvx` prints.
 
 ## Pi + llama.cpp
@@ -25,7 +25,7 @@ https://github.com/user-attachments/assets/fc4c38e6-0b12-4dea-bc9e-b18d301dc085
 ## Claude Desktop
 **Desktop extension:** download the
 [desktop extension](https://github.com/cuolm/swiss-weather-mcp/releases/latest/download/swiss-weather-mcp.mcpb),
-double-click it and select Install.
+double-click it and select Install. It needs no uv, as Claude Desktop installs what it needs.
 
 **Plugin:** go to Customize > Plugins > Add > Add marketplace, enter `cuolm/claude-plugins` and add
 Swiss Weather.

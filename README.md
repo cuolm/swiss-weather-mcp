@@ -48,8 +48,8 @@ Instead of the config file, install the plugin.
 
 **Claude Desktop:** download the
 [desktop extension](https://github.com/cuolm/swiss-weather-mcp/releases/latest/download/swiss-weather-mcp.mcpb),
-double-click it and select Install. Or go to Customize > Plugins > Add > Add marketplace, enter
-`cuolm/claude-plugins` and add Swiss Weather.
+double-click it and select Install. It needs no uv, as Claude Desktop installs what it needs. Or go to
+Customize > Plugins > Add > Add marketplace, enter `cuolm/claude-plugins` and add Swiss Weather.
 
 **Claude Code:**
 ```bash
